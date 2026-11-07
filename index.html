@@ -58,7 +58,7 @@
   --tabind:rgba(0,0,0,.07); --tabbg:rgba(255,255,255,.8);
   color-scheme:light;
 }
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root{box-sizing:border-box}
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
 html,body{margin:0;background:var(--bg);color:var(--text)}
@@ -98,7 +98,8 @@ main{position:relative;z-index:1}
 .icon-btn svg{width:22px;height:22px}
 
 /* no top bar: the large title sits right under the status bar (html already pads the top safe area); the bottom inset is padded once on html */
-main{padding:10px 16px 108px}
+/* the aura runs under the status bar to the very top; only the content is pushed below the safe area */
+main{padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 108px}
 h1.large{font-size:30px;font-weight:700;letter-spacing:.01em;margin:4px 4px 14px}
 
 /* hero */
