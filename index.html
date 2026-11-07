@@ -1355,13 +1355,13 @@ function renderSettings(){
   };
   restB.onclick = () => { area.style.display = ""; area.value = ""; restoreGo.style.display = ""; area.focus(); };
   restoreGo.onclick = () => {
-    try{ const raw = JSON.parse(area.value); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0; S = normalize(raw); commit({keepMonth:true}); renderSettings(); toast("Backup restored"); fetchRates(true); }
+    try{ const raw = JSON.parse(area.value); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0; S = normalize(raw); commit({keepMonth:true}); fetchRates(true); setTab("worth"); toast("Backup restored"); }
     catch(e){ area.style.boxShadow = "0 0 0 2px var(--down)"; setTimeout(() => area.style.boxShadow = "", 1200); }
   };
 
   const erase = el("button", {class:"danger"}, "Erase all data");
   armConfirm(erase, "Tap again to erase everything", () => {
-    const keep = S.base; S = blank(); S.base = keep; commit({keepMonth:true}); renderSettings(); toast("All data erased"); fetchRates(true);
+    const keep = S.base; S = blank(); S.base = keep; commit({keepMonth:true}); fetchRates(true); setTab("worth"); toast("All data erased");
   });
 
   v.append(
@@ -1377,8 +1377,9 @@ function renderSettings(){
     armConfirm(sample, "Tap again to replace your data", async () => {
       try{
         const {makeSample} = await import("/dev/sample-data.js");
-        S = normalize(makeSample()); commit({keepMonth:true}); renderSettings(); toast("Sample data loaded"); fetchRates(true);
-      }catch(e){ toast("Couldn’t load sample data"); }
+        S = normalize(makeSample()); commit({keepMonth:true}); fetchRates(true);
+        setTab("worth"); toast("Sample data loaded"); // jump to where the data shows
+      }catch(e){ toast("Sample data failed: " + (e && e.message || e)); }
     });
     v.append(el("div", {class:"lbl-s"}, "Developer"), sample,
       el("p", {class:"note"}, "Only in the development build. Replaces all entries and months with a year of sample data."));
