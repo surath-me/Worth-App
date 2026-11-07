@@ -39,6 +39,7 @@ S = {
 
 - `S.accounts` holds the current entries. `type` is one of `bank stocks etf mf crypto cash other`.
 - `S.snaps["YYYY-MM"]` is that month's record. Each item stores the name and type too, so deleted entries still show in history. The current month's snapshot is rebuilt from `S.accounts` on every `commit()`.
+- Currencies offered are EUR INR USD GBP CHF (`CURS`). A backup may still contain another code: `fmt()` then formats it by its code instead of crashing, and a currency without a rate in `S.rates` converts 1:1.
 - Rates are **units of that currency per 1 EUR** (`conv()` divides by the source rate and multiplies by the base rate). Each month keeps the rates it was saved with.
 
 ## Terminology
@@ -59,7 +60,7 @@ The user-facing word is **"entry"** (Add entry, New entry, Delete entry, "Remove
 - **Dark mode only, for now.** Colours are CSS variables. The dark palette is the default on `:root`, and the light palette is kept under `:root[data-theme="light"]` for later (nothing sets it yet). Add new colours as variables in both places. `theme-color`, the manifest colours and `color-scheme` are all dark, and the status bar style is `black-translucent`.
 - Respect **safe-area insets** (`env(safe-area-inset-*)`) and `viewport-fit=cover`.
 - Respect **`prefers-reduced-motion`**: CSS disables animations, and JS checks `matchMedia` before animating numbers, the chart and the tab indicator.
-- **iPhone-first**: designed at 390×844, max width 560px, system font (`-apple-system`), 17px base.
+- **iPhone-first**: designed at 390×844, max width 560px, system font (`-apple-system`), compact type: 15px base, 28px large title, 38px net worth, 15/13px entry rows. Text inputs stay at 16px or larger, because iOS zooms into smaller inputs on focus.
 
 ## Checking changes
 
