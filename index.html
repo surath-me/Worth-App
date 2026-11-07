@@ -354,14 +354,14 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .icon-btn{position:relative;background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);box-shadow:var(--gshadow);transition:transform .5s var(--bounce),background-color .2s}
 .icon-btn:active{transform:scale(.82);background:var(--glass-strong)}
 /* glass tab bar */
-/* floating pill: stretches across the screen, the tabs share its width evenly, a darker capsule marks the selected tab,
-   and the + button sits at its right. Pill and button are both 58px and sit low, about 18px above the bottom edge. */
-.tabbar{background:none;pointer-events:none;gap:8px;padding:20px 20px max(10px,calc(env(safe-area-inset-bottom,0px) - 16px))}
+/* floating pill: compact fixed-width items like the reference (about 67-70px each; the pill hugs them), a darker capsule marks the selected tab,
+   and the + button sits beside it. Pill and button are both 58px and sit low, about 18px above the bottom edge. */
+.tabbar{--tw:70px;background:none;pointer-events:none;gap:8px;padding:20px 20px max(10px,calc(env(safe-area-inset-bottom,0px) - 16px))}
 .tabbar > *{pointer-events:auto}
-.tabs{flex:1;min-width:0;grid-template-columns:repeat(3,1fr);height:58px;border-radius:29px;background:var(--tabbg);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+.tabs{flex:none;grid-template-columns:repeat(3,var(--tw));height:58px;border-radius:29px;background:var(--tabbg);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
   box-shadow:var(--gshadow)}
 .tab{border-radius:25px}
-.tab-ind{width:calc((100% - 8px) / 3);border-radius:25px;background:var(--tabind);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);transition:transform .6s var(--spring)}
+.tab-ind{width:var(--tw);border-radius:25px;background:var(--tabind);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);transition:transform .6s var(--spring)}
 .fab{position:relative;width:58px;height:58px;transition:transform .6s var(--bounce);
   box-shadow:var(--glow),inset 0 1px 1px rgba(255,255,255,.5),inset 0 -8px 16px rgba(0,0,0,.2)}
 .fab::before{content:"";position:absolute;left:16%;top:7%;width:58%;height:42%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.5),transparent);pointer-events:none}
