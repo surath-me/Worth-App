@@ -7,6 +7,7 @@ Worth is a minimal, iPhone-first wealth tracker, hosted on Vercel as a static si
 - **Single `index.html`**: all HTML, CSS (one `<style>`) and JS (one IIFE in `<script>`) are inline. No framework, no bundler, no build step, no dependencies. Keep it that way: do not convert to React or add tooling.
 - Vercel serves the repo root as is (Framework Preset "Other"). No `vercel.json` is needed because Vercel's static default is `max-age=0, must-revalidate`.
 - `manifest.webmanifest` plus icons (`apple-touch-icon.png` 180, `icon-192.png`, `icon-512.png`, `icon-512-maskable.png`), all generated from `icon-1024.png`.
+- `dev/` holds the development build's orange icons and its `manifest.webmanifest` ("Worth Dev"). A small script in `<head>` of `index.html` switches the icon links, manifest and title to these when the host is in `DEV_HOSTS` (the dev domain and localhost). If you change an icon, regenerate its orange copy in `dev/` too.
 - `sw.js` caches the app shell. `index.html` and navigations are network-first (new deploys appear immediately, cache is the offline fallback). Other shell files are cache-first. **Bump `VERSION` in `sw.js` when you change an icon, the manifest, or add a file to `SHELL`.** Changes to `index.html` alone don't need a bump.
 - Storage is `localStorage` only, nothing leaves the device:
   - `worth.v1`: the data object `S` (below).
@@ -14,6 +15,18 @@ Worth is a minimal, iPhone-first wealth tracker, hosted on Vercel as a static si
   - Never rename these keys or break the shape; existing users' data must stay readable. `normalize()` fills defaults for older data.
 - Settings has **Copy backup** (JSON of `S` to the clipboard) and **Restore from backup**. The footer always reads "Saved on this device".
 - Main flow: mutate `S` → `commit()` → (`syncCurrentMonth()` unless `keepMonth`) → `saveLocal()` → `render()`.
+
+## Environments and workflow
+
+| | Branch | URL | Icon |
+| --- | --- | --- | --- |
+| Development | `dev` | https://worth-app-dev.vercel.app | Orange, "Worth Dev" |
+| Production | `main` | https://worth-app-nine.vercel.app | Green, "Worth" |
+
+- **Every change goes to `dev` first.** Work on the `dev` branch and push it. Vercel deploys it to the dev domain, where the user tests it on the iPhone.
+- **Promote to production only when the user says so** after testing: merge `dev` into `main` and push `main` (Vercel deploys `main` to production). Never commit directly to `main`.
+- The two domains are different origins, so the dev and production apps have separate `localStorage`. Copy data between them with Copy backup / Restore from backup.
+- Vercel Authentication is off for this project, so the dev domain and preview URLs are public (the app holds no secrets; data stays on the device).
 
 ## Data model
 
