@@ -90,3 +90,5 @@ The user-facing word is **"entry"** (Add entry, New entry, Delete entry, "Remove
 ## Checking changes
 
 Serve the root (`python3 -m http.server`) and load it in a headless browser at 390×844 in light and dark mode. Check for no console errors, that the manifest and icons load, and that existing `worth.v1` data still renders.
+
+- **Net worth tab (latest):** no eye button (tap the total to hide amounts); title sits lower so the status-bar blur never touches it; Assets/Debts live in their own card under the range selector; Allocation is a donut (animated stroke-dasharray) plus legend; Entries show the first 5 with an animated "See all N" expand; the update action is a pencil icon button.

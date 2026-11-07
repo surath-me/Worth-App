@@ -103,12 +103,12 @@ main{position:relative;z-index:1}
 /* no top bar: the large title sits right under the status bar (html already pads the top safe area); the bottom inset is padded once on html */
 /* the aura runs under the status bar to the very top; only the content is pushed below the safe area */
 main{padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 108px}
-h1.large{font-size:22px;font-weight:700;letter-spacing:.005em;margin:2px 4px 10px}
+h1.large{font-size:22px;font-weight:700;letter-spacing:.005em;margin:18px 4px 26px}
 
 /* hero */
 .hero{padding:0 4px}
-.hero-label{font-size:13px;color:var(--sec);height:18px;transition:color .2s}
-.hero-top{display:flex;align-items:center;gap:6px;height:22px}
+.hero-label{position:absolute;left:0;bottom:6px;font-size:13px;color:var(--sec);height:18px;transition:color .2s}
+.hero-top{position:relative;height:0}
 .eye{width:30px;height:30px;margin:-4px 0 -4px -7px;border-radius:50%;display:grid;place-items:center;color:var(--sec);transition:transform .3s var(--bounce),color .2s}
 .eye svg{width:18px;height:18px}
 .eye:active{transform:scale(.8);color:var(--text)}
@@ -186,8 +186,23 @@ button.row:active{background:var(--fill)}
 
 /* allocation */
 .alloc{padding:16px}
-.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;background:var(--fill)}
-.bar span{display:block;height:100%;background-image:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,0));flex:0 0 0;transition:flex-basis 1s var(--spring)}
+.donut-wrap{position:relative;width:170px;height:170px;margin:4px auto 8px}
+#donut{width:100%;height:100%;transform:rotate(-90deg)}
+#donut circle{fill:none;stroke-width:14}
+#donut .dbg{stroke:var(--fill)}
+#donut .dseg{transition:stroke-dasharray 1s var(--spring)}
+.donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.donut-c .num{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.donut-c .t2{font-size:12px;color:var(--sec)}
+.ad{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px;margin-top:16px}
+.ad .t2{font-size:13px;color:var(--sec)}
+.ad .num{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.ad > div:last-child .num{color:var(--down)}
+.more{display:grid;grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows .5s var(--spring),visibility 0s .5s}
+.more.open{grid-template-rows:1fr;visibility:visible;transition:grid-template-rows .5s var(--spring),visibility 0s}
+.more-in{overflow:hidden;min-height:0}
+.seeall{display:flex;align-items:center;justify-content:center;gap:2px;width:100%;padding:12px 0 14px;color:var(--accent);font-size:14px;font-weight:600}
+.seeall svg{width:20px;height:20px;transition:transform .4s var(--spring)} .seeall.open svg{transform:rotate(180deg)}
 .legend{margin-top:12px}
 .legend .li{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px}
 .legend .sw{width:10px;height:10px;border-radius:3px;flex:none}
@@ -425,10 +440,9 @@ svg.mi{fill:currentColor}
 
     <section class="view" id="vWorth">
       <section class="hero">
-        <div class="hero-top"><button class="eye" id="btnHide" aria-label="Hide amounts" data-mi="eye"></button><span class="hero-label" id="heroLabel"></span></div>
+        <div class="hero-top"><span class="hero-label" id="heroLabel"></span></div>
         <div class="total num amt" id="total">€0</div>
         <div class="delta num" id="delta"></div>
-        <div class="split num" id="split"></div>
       </section>
       <div class="chart-wrap" id="chartWrap">
         <svg id="chart" aria-label="Net worth over time"></svg>
@@ -439,11 +453,15 @@ svg.mi{fill:currentColor}
         <span class="thumb"></span>
         <button data-r="1">1M</button><button data-r="6">6M</button><button data-r="12">1Y</button><button data-r="0">All</button>
       </div>
+      <div class="card ad" id="adCard">
+        <div><div class="t2">Assets</div><div class="num amt" id="adA"></div></div>
+        <div><div class="t2">Debts</div><div class="num amt" id="adD"></div></div>
+      </div>
       <div id="allocSection">
         <div class="section-h"><h2>Allocation</h2></div>
-        <div class="card alloc"><div class="bar" id="bar"></div><div class="legend" id="legend"></div></div>
+        <div class="card alloc"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div>
       </div>
-      <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="gtext">Update balances</button></div>
+      <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="icon-btn" aria-label="Update balances" data-mi="edit"></button></div>
       <div class="card" id="list"></div>
     </section>
 
@@ -480,6 +498,8 @@ svg.mi{fill:currentColor}
 /* ---------- icons ---------- */
 /* Material Symbols Rounded (Apache-2.0), 400 weight, viewBox 0 -960 960 960. Swap for SF Symbols in the Swift app. */
 const MI = {
+  "edit":"M120-120v-150l490-490q15-15 35-15t35 15l65 65q15 15 15 35t-15 35L270-120H120Zm60-60h60l395-395-60-60-395 395v60Zm455-455 25-25-30-30-25 25 30 30Z",
+  "expand":"M480-361q-8 0-15-2.500t-13-8.500L268-556q-11-11-11-28t11-28q11-11 28-11t28 11l156 156 156-156q11-11 28-11t28 11q11 11 11 28t-11 28L508-372q-6 6-13 8.500t-15 2.500Z",
   "chart":"M93-266q0-13 10-23l234-234q17-17 42.5-17.5T422-523l118 118 278-312q8-9 20.5-10t21.5 8q8 8 8.5 20t-7.5 21L582-363q-17 20-43 20.5T495-360L380-474 149-243q-10 10-23 10t-23-10q-10-10-10-23Z",
   "calendar":"M180-80q-24 0-42-18t-18-42v-620q0-24 18-42t42-18h65v-28q0-13.6 9-22.8 9-9.2 23.02-9.2t23.5 9.2Q310-861.6 310-848v28h340v-28q0-13.6 9-22.8 9-9.2 23.02-9.2t23.5 9.2Q715-861.6 715-848v28h65q24 0 42 18t18 42v620q0 24-18 42t-42 18H180Zm0-60h600v-430H180v430Zm300-260q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-188.5-11.5Q280-423 280-440t11.5-28.5Q303-480 320-480t28.5 11.5Q360-457 360-440t-11.5 28.5Q337-400 320-400t-28.5-11.5ZM640-400q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-188.5-11.5Q280-263 280-280t11.5-28.5Q303-320 320-320t28.5 11.5Q360-297 360-280t-11.5 28.5Q337-240 320-240t-28.5-11.5ZM640-240q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z",
   "settings":"M421-80q-14 0-25-9t-13-23l-15-94q-19-7-40-19t-37-25l-86 40q-14 6-28 1.5T155-226L97-330q-8-13-4.5-27t15.5-23l80-59q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521l-80-59q-12-9-15.5-23t4.5-27l58-104q8-13 22-17.5t28 1.5l86 40q16-13 37-25t40-18l15-95q2-14 13-23t25-9h118q14 0 25 9t13 23l15 94q19 7 40.5 18.5T669-710l86-40q14-6 27.5-1.5T804-734l59 104q8 13 4.5 27.5T852-580l-80 57q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l80 58q12 8 15.5 22.5T863-330l-58 104q-8 13-22 17.5t-28-1.5l-86-40q-16 13-36.5 25.5T592-206l-15 94q-2 14-13 23t-25 9H421Zm59-270q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Z",
@@ -666,9 +686,6 @@ let scrubbing = false;
 
 function render(animateChart){
   document.body.classList.toggle("hide", !!UI.hide);
-  const eye = $("#btnHide");
-  eye.innerHTML = ic(UI.hide ? "eyeOff" : "eye");
-  eye.setAttribute("aria-label", UI.hide ? "Show amounts" : "Hide amounts");
   renderTabs();
   renderHero();
   renderRange();
@@ -688,7 +705,9 @@ function renderHero(){
   if(prevM) setDelta(total, [prevM], "vs " + (mIndex(cm) - prevM.x === 1 ? mOnly(prevM.m) : mShort(prevM.m)));
   else setDelta(total, rangeSeries());
   const debts = liveDebts();
-  $("#split").innerHTML = debts > 0 ? `Assets <b class="amt">${fmt(total + debts, S.base, {dec:0})}</b> · Debts <b class="amt">${fmt(debts, S.base, {dec:0})}</b>` : "";
+  $("#adCard").style.display = S.accounts.length ? "" : "none";
+  $("#adA").textContent = fmt(total + debts, S.base, {dec:0});
+  $("#adD").textContent = debts > 0 ? "−" + fmt(debts, S.base, {dec:0}) : fmt(0, S.base, {dec:0});
 }
 function setDelta(value, pts, sinceLabel){
   const d = $("#delta");
@@ -858,24 +877,23 @@ function renderAlloc(){
   const debts = liveDebts();
   sec.style.display = types.length || debts > 0 ? "" : "none";
   if(!types.length && !(debts > 0)) return;
-  const bar = $("#bar");
-  // reuse spans so widths transition
+  const C = 2 * Math.PI * 46, dn = $("#donut"); let cum = 0;
+  $("#donutV").textContent = fmt(total, S.base, {dec:0});
   TYPES.forEach(t => {
-    let s = bar.querySelector(`[data-k="${t.k}"]`);
-    if(!s){ s = el("span", {"data-k":t.k}); s.style.background = t.c; bar.appendChild(s); }
-    const pct = total ? (by[t.k]||0) / total * 100 : 0;
-    s.style.display = pct > 0 ? "" : "none";
-    requestAnimationFrame(() => requestAnimationFrame(() => { s.style.flexBasis = pct + "%"; s.style.flexGrow = pct > 0 ? 1 : 0; }));
+    let c = dn.querySelector(`[data-k="${t.k}"]`);
+    if(!c){ c = document.createElementNS("http://www.w3.org/2000/svg", "circle"); c.setAttribute("data-k", t.k);
+      c.setAttribute("cx", 60); c.setAttribute("cy", 60); c.setAttribute("r", 46); c.setAttribute("class", "dseg"); c.style.stroke = t.c;
+      c.style.strokeDasharray = `0 ${C}`; dn.appendChild(c); }
+    const frac = total ? (by[t.k]||0) / total : 0, len = Math.max(0, frac * C - (frac < 1 ? 2.5 : 0));
+    c.style.strokeDashoffset = -cum; cum += frac * C;
+    requestAnimationFrame(() => requestAnimationFrame(() => { c.style.strokeDasharray = `${len} ${C}`; }));
   });
-  // the bar and percentages cover assets; debts get their own row underneath
   $("#legend").innerHTML = types.sort((a,b) => by[b.k]-by[a.k]).map(t => `
     <div class="li"><span class="sw" style="background:${t.c}"></span><span class="nm">${t.n}</span>
-    <span class="pc num">${(by[t.k]/total*100).toFixed(0)}%</span><span class="vl num amt">${fmt(by[t.k], S.base, {dec:0})}</span></div>`).join("")
-    + (debts > 0 ? `<div class="li"><span class="sw" style="background:var(--down)"></span><span class="nm">Debts</span>
-    <span class="pc num"></span><span class="vl num amt" style="color:var(--down)">−${fmt(debts, S.base, {dec:0})}</span></div>` : "");
+    <span class="pc num">${(by[t.k]/total*100).toFixed(0)}%</span><span class="vl num amt">${fmt(by[t.k], S.base, {dec:0})}</span></div>`).join("");
 }
 
-let justAdded = null;
+let justAdded = null, entriesOpen = false;
 function renderList(){
   const list = $("#list");
   if(!S.accounts.length){
@@ -886,7 +904,8 @@ function renderList(){
   const sorted = [...S.accounts].sort((a,b) => (isLiab(a.type) - isLiab(b.type)) || conv(+b.bal||0, b.cur) - conv(+a.bal||0, a.cur));
   const pos = S.accounts.reduce((t,a) => t + (isLiab(a.type) ? 0 : Math.max(0, conv(+a.bal||0, a.cur))), 0);
   list.innerHTML = "";
-  sorted.forEach(a => {
+  const LIM = 5, more = el("div", {class:"more" + (entriesOpen ? " open" : "")}), moreIn = el("div", {class:"more-in"}); more.appendChild(moreIn);
+  sorted.forEach((a, n) => {
     const t = TYPE[a.type] || TYPE.other, liab = isLiab(a.type);
     const r = el("button", {class:"row" + (a.id===justAdded ? " enter" : "")});
     const v = conv(+a.bal||0, a.cur), pct = !liab && pos > 0 && v > 0 ? v / pos * 100 : null;
@@ -896,8 +915,15 @@ function renderList(){
       <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
       <span class="end"><div class="t1 num amt">${liab ? "−" : ""}${fmt(+a.bal||0, a.cur)}</div>${share ? `<div class="t2 num">${share}</div>` : ""}</span>`;
     r.onclick = () => accountSheet(a);
-    list.appendChild(r);
+    (n < LIM || sorted.length <= LIM + 0 ? list : moreIn).appendChild(r);
   });
+  if(sorted.length > LIM){
+    list.appendChild(more);
+    const tg = el("button", {class:"seeall" + (entriesOpen ? " open" : "")}, "");
+    const paint = () => { tg.innerHTML = `<span>${entriesOpen ? "Show less" : "See all " + sorted.length}</span>${ic("expand")}`; tg.classList.toggle("open", entriesOpen); more.classList.toggle("open", entriesOpen); };
+    tg.onclick = () => { entriesOpen = !entriesOpen; paint(); };
+    paint(); list.appendChild(tg);
+  }
   justAdded = null;
 }
 function renderFoot(){
@@ -1418,7 +1444,6 @@ async function fetchRates(force){
 $("#fab").onclick = () => accountSheet(null, {fromFab:true});
 $("#btnUpdate").onclick = () => updateSheet();
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => setTab(t.dataset.tab));
-$("#btnHide").onclick = () => { UI.hide = !UI.hide; saveUI(); render(false); };
 $("#total").onclick = () => { UI.hide = !UI.hide; saveUI(); render(false); };
 $("#range").querySelectorAll("button").forEach(b => b.onclick = () => {
   UI.range = +b.dataset.r; saveUI(); renderRange(); drawChart(true); renderHero();
@@ -1437,7 +1462,7 @@ $("#mNext").onclick = () => stepMonth(1);
   }, {passive:true});
 })();
 // a blurred strip behind the status bar once content scrolls under it
-new IntersectionObserver(([e]) => document.body.classList.toggle("scrolled", !e.isIntersecting)).observe($("#largeTitle"));
+addEventListener("scroll", () => document.body.classList.toggle("scrolled", scrollY > 8), {passive:true});
 let rw = 0; addEventListener("resize", () => { if(UI.tab !== "worth") return; const w = $("#chartWrap").clientWidth; if(w !== rw){ rw = w; drawChart(false); } });
 document.addEventListener("visibilitychange", () => { if(!document.hidden){ render(false); fetchRates(); } });
 
