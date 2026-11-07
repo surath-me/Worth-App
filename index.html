@@ -870,7 +870,7 @@ function drawChart(animate){
   function tick(now){
     raf = 0;
     const dt = Math.min(48, now - (lastT || now)); lastT = now;
-    const k = 1 - Math.exp(-dt / 55);
+    const k = 1 - Math.exp(-dt / 20);
     curX += (targetX - curX) * k;
     if(Math.abs(targetX - curX) < .08) curX = targetX;
     paint();
