@@ -1,6 +1,6 @@
 /* Worth service worker: caches the app shell so the app opens offline.
    Bump VERSION whenever any file in SHELL changes, so old caches get cleared. */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = "worth-" + VERSION;
 const SHELL = [
   "/",

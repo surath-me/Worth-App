@@ -5,47 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Worth">
-<meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <title>Worth</title>
 <style>
 :root{
+  /* Dark mode only for now. The light palette is kept below under [data-theme="light"] (nothing sets it yet). */
+  --bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --sec:#98989F; --ter:#5C5C61;
+  --sep:rgba(84,84,88,.55); --fill:rgba(118,118,128,.24); --fill2:rgba(118,118,128,.34);
+  --accent:#3CD9CF; --g1:#0EA67A; --g2:#2466E0; --g1a:rgba(54,245,178,.45); --g2a:rgba(58,164,255,.45); --up:#36F5B2; --down:#FF6961; --nav:rgba(0,0,0,.72);
+  --scrim:rgba(0,0,0,.5); --behind:#000;
+  --spring:cubic-bezier(.32,.72,0,1); --ease:cubic-bezier(.65,0,.35,1);
+  color-scheme:dark;
+  --grad:linear-gradient(115deg,var(--g1) 0%,#0B82A6 50%,var(--g2) 100%);
+  --glow:0 10px 26px -10px var(--g1a),0 8px 28px -10px var(--g2a);
+  --glass:rgba(44,44,48,.5); --glass-strong:rgba(58,58,62,.6); --lens:rgba(255,255,255,.14);
+  --rim:rgba(255,255,255,.4); --rim2:rgba(255,255,255,.07); --sheet-glass:rgba(24,24,26,.78);
+  --gshadow:0 14px 36px -14px rgba(0,0,0,.8);
+  --bounce:cubic-bezier(.34,1.56,.64,1);
+}
+:root[data-theme="light"]{
   --bg:#F2F2F7; --card:#FFFFFF; --text:#000000; --sec:#6C6C70; --ter:#AEAEB2;
   --sep:rgba(60,60,67,.16); --fill:rgba(118,118,128,.12); --fill2:rgba(118,118,128,.2);
   --accent:#0BA6A0; --g1:#0A9C73; --g2:#1F5ED6; --g1a:rgba(15,203,140,.5); --g2a:rgba(42,134,255,.45); --up:#0FB57A; --down:#E5484D; --nav:rgba(242,242,247,.78);
-  --scrim:rgba(0,0,0,.28); --behind:#000;
-  --spring:cubic-bezier(.32,.72,0,1); --ease:cubic-bezier(.65,0,.35,1);
-  color-scheme:light;
-  --grad:linear-gradient(115deg,var(--g1) 0%,#0B82A6 50%,var(--g2) 100%);
-  --glow:0 10px 26px -10px var(--g1a),0 8px 28px -10px var(--g2a);
+  --scrim:rgba(0,0,0,.28);
   --glass:rgba(255,255,255,.58); --glass-strong:rgba(255,255,255,.7); --lens:rgba(255,255,255,.85);
   --rim:rgba(255,255,255,.95); --rim2:rgba(255,255,255,.28); --sheet-glass:rgba(242,242,247,.8);
   --gshadow:0 12px 32px -14px rgba(25,40,70,.3),0 1px 2px rgba(0,0,0,.04);
-  --bounce:cubic-bezier(.34,1.56,.64,1);
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --sec:#98989F; --ter:#5C5C61;
-    --sep:rgba(84,84,88,.55); --fill:rgba(118,118,128,.24); --fill2:rgba(118,118,128,.34);
-    --glass:rgba(44,44,48,.5); --glass-strong:rgba(58,58,62,.6); --lens:rgba(255,255,255,.14); --rim:rgba(255,255,255,.4); --rim2:rgba(255,255,255,.07);
-    --sheet-glass:rgba(24,24,26,.78); --gshadow:0 14px 36px -14px rgba(0,0,0,.8);
-    --accent:#3CD9CF; --g1:#0EA67A; --g2:#2466E0; --g1a:rgba(54,245,178,.45); --g2a:rgba(58,164,255,.45); --up:#36F5B2; --down:#FF6961; --nav:rgba(0,0,0,.72);
-    --scrim:rgba(0,0,0,.5); --behind:#000;
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#000000; --card:#1C1C1E; --text:#FFFFFF; --sec:#98989F; --ter:#5C5C61;
-  --sep:rgba(84,84,88,.55); --fill:rgba(118,118,128,.24); --fill2:rgba(118,118,128,.34);
-  --glass:rgba(44,44,48,.5); --glass-strong:rgba(58,58,62,.6); --lens:rgba(255,255,255,.14); --rim:rgba(255,255,255,.4); --rim2:rgba(255,255,255,.07);
-  --sheet-glass:rgba(24,24,26,.78); --gshadow:0 14px 36px -14px rgba(0,0,0,.8);
-  --accent:#3CD9CF; --g1:#0EA67A; --g2:#2466E0; --g1a:rgba(54,245,178,.45); --g2a:rgba(58,164,255,.45); --up:#36F5B2; --down:#FF6961; --nav:rgba(0,0,0,.72);
-  --scrim:rgba(0,0,0,.5); color-scheme:dark;
+  color-scheme:light;
 }
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *,*::before,*::after{box-sizing:inherit}
@@ -65,20 +57,21 @@ input,textarea{font:inherit;color:inherit}
 .num{font-variant-numeric:tabular-nums}
 
 #app{position:relative;max-width:560px;margin:0 auto;min-height:100%;background:var(--bg);transform-origin:50% 0;
-  transition:transform .55s var(--spring),border-radius .55s var(--spring),filter .55s var(--spring)}
-body.sheet-open #app{transform:scale(.93);border-radius:14px;overflow:hidden;filter:brightness(.92)}
+  transition:transform .55s var(--spring),border-radius .55s var(--spring)}
+body.sheet-open #app{transform:scale(.93);border-radius:14px;overflow:hidden}
 
 .aura{position:absolute;inset:0 0 auto;height:720px;pointer-events:none;z-index:0;overflow:hidden;opacity:.85;
-  background:radial-gradient(closest-side,rgba(11,130,166,.26),transparent) no-repeat;background-size:110% 70%;background-position:20% 10%;
-  animation:drift 13s ease-in-out infinite alternate;
   -webkit-mask-image:linear-gradient(#000 40%,transparent 92%);mask-image:linear-gradient(#000 40%,transparent 92%)}
-.aura::before,.aura::after{content:"";position:absolute;width:135%;aspect-ratio:1;border-radius:50%;will-change:transform}
+.aura::before,.aura::after{content:"";position:absolute;z-index:1;width:135%;aspect-ratio:1;border-radius:50%;will-change:transform,scale}
+.aura-drift{position:absolute;left:0;top:0;width:110%;height:70%;background:radial-gradient(closest-side,rgba(11,130,166,.26),transparent);animation:drift 13s ease-in-out infinite alternate;will-change:transform}
 .aura::before{left:-40%;top:-38%;background:radial-gradient(closest-side,var(--g1a),transparent);animation:spinA 19s linear infinite,breathe 8s ease-in-out infinite alternate}
 .aura::after{right:-45%;top:-18%;background:radial-gradient(closest-side,var(--g2a),transparent);animation:spinB 24s linear infinite,breathe 10s ease-in-out -4s infinite alternate}
 @keyframes spinA{from{transform:rotate(0deg) translateX(24%) rotate(0deg)}to{transform:rotate(360deg) translateX(24%) rotate(-360deg)}}
 @keyframes spinB{from{transform:rotate(180deg) translateX(26%) rotate(-180deg)}to{transform:rotate(-180deg) translateX(26%) rotate(180deg)}}
 @keyframes breathe{from{scale:1}to{scale:1.22}}
-@keyframes drift{from{background-position:10% 0%}to{background-position:90% 45%}}
+/* the aura is hidden behind the scrim while a sheet is open: pause it so the sheet animation gets the frame budget */
+body.sheet-open .aura-drift,body.sheet-open .aura::before,body.sheet-open .aura::after{animation-play-state:paused}
+@keyframes drift{from{transform:translate3d(-.9%,0,0)}to{transform:translate3d(-8.2%,19.3%,0)}}
 main,.nav{position:relative;z-index:1}
 .gtext{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 /* nav */
@@ -128,9 +121,8 @@ body.hide .amt{filter:blur(10px)}
 .seg{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--fill);border-radius:9px;padding:2px;margin:12px 0 0}
 .seg button{position:relative;z-index:1;height:30px;font-size:13px;font-weight:500;border-radius:7px;transition:color .2s}
 .seg button[aria-pressed="true"]{font-weight:600}
-.seg .thumb{position:absolute;top:2px;bottom:2px;left:2px;border-radius:7px;background:var(--card);box-shadow:0 3px 8px rgba(0,0,0,.12),0 0 1px rgba(0,0,0,.08);transition:transform .45s var(--spring)}
-:root[data-theme="dark"] .seg .thumb{background:#636366}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .seg .thumb{background:#636366}}
+.seg .thumb{position:absolute;top:2px;bottom:2px;left:2px;border-radius:7px;background:#636366;box-shadow:0 3px 8px rgba(0,0,0,.12),0 0 1px rgba(0,0,0,.08);transition:transform .45s var(--spring)}
+:root[data-theme="light"] .seg .thumb{background:var(--card)}
 
 /* cards & lists */
 .section-h{display:flex;justify-content:space-between;align-items:baseline;margin:28px 4px 8px}
@@ -159,8 +151,8 @@ button.row:active{background:var(--fill)}
 .nudge.show{grid-template-rows:1fr;margin-top:16px}
 .nudge > div{overflow:hidden}
 .nudge .card{padding:14px 16px;display:flex;gap:12px;align-items:center}
-.nudge .dot{width:9px;height:9px;border-radius:50%;background:var(--grad);box-shadow:0 0 10px var(--g1a),0 0 14px var(--g2a);flex:none;animation:breathe 2s ease-in-out infinite}
-@keyframes breathe{50%{transform:scale(.6);opacity:.5}}
+.nudge .dot{width:9px;height:9px;border-radius:50%;background:var(--grad);box-shadow:0 0 10px var(--g1a),0 0 14px var(--g2a);flex:none;animation:dotPulse 2s ease-in-out infinite}
+@keyframes dotPulse{50%{transform:scale(.6);opacity:.5}}
 .nudge p{margin:0;font-size:15px;color:var(--sec)} .nudge b{color:var(--text);font-weight:600;display:block}
 
 /* allocation */
@@ -390,7 +382,7 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .view.active > *:nth-child(4){animation-delay:.15s}
 .view.active > *:nth-child(5){animation-delay:.2s}
 .view.active > *:nth-child(n+6){animation-delay:.25s}
-@keyframes rise{from{opacity:0;transform:translateY(32px) scale(.96);filter:blur(8px)}}
+@keyframes rise{from{opacity:0;transform:translate3d(0,32px,0) scale(.96)}}
 
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
@@ -399,7 +391,7 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 </head>
 <body>
 <div id="app">
-  <div class="aura" aria-hidden="true"></div>
+  <div class="aura" aria-hidden="true"><i class="aura-drift"></i></div>
   <header class="nav">
     <span class="nav-title">Worth</span>
     <div class="nav-actions">
@@ -730,14 +722,16 @@ function drawChart(animate){
     <text class="lbl" x="${padX}" y="${H-8}" text-anchor="start">${mShort(pts[0].m)}</text>
     ${pts.length>1 ? `<text class="lbl" x="${W-padX}" y="${H-8}" text-anchor="end">${mShort(pts[pts.length-1].m)}</text>` : ""}
     <g class="scrub"><line id="sLine" x1="0" x2="0" y1="${top-8}" y2="${H-bottom+6}"/><circle id="sDot" r="6" cx="${last[0]}" cy="${last[1]}" style="fill:${c2}"/></g>`;
-  const lps = [...svg.querySelectorAll(".line")], lp = lps[0];
+  const lp = svg.querySelector(".line:not(.glowline)"), glow = svg.querySelector(".glowline");
   if(lp && animate && !matchMedia("(prefers-reduced-motion: reduce)").matches){
     const len = lp.getTotalLength();
-    lps.forEach(l => { l.style.strokeDasharray = len; l.style.strokeDashoffset = len; });
+    lp.style.strokeDasharray = len; lp.style.strokeDashoffset = len;
+    glow.style.opacity = 0;
     const dots = svg.querySelectorAll(".enddot,.pulse"); dots.forEach(d => d.style.opacity = 0);
     lp.getBoundingClientRect();
     requestAnimationFrame(() => {
-      lps.forEach(l => { l.style.transition = "stroke-dashoffset 1s cubic-bezier(.65,0,.35,1)"; l.style.strokeDashoffset = 0; });
+      lp.style.transition = "stroke-dashoffset 1s cubic-bezier(.65,0,.35,1)"; lp.style.strokeDashoffset = 0;
+      glow.style.transition = "opacity .9s ease .35s"; glow.style.opacity = "";
       const a = svg.querySelector(".area"); if(a) a.style.opacity = 1;
       setTimeout(() => dots.forEach(d => { d.style.transition = "opacity .3s"; d.style.opacity = ""; }), 900);
     });

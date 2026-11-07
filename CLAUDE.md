@@ -52,8 +52,9 @@ The user-facing word is **"entry"** (Add entry, New entry, Delete entry, "Remove
 - **Pill-shaped buttons** (`border-radius:999px`); chips and segmented controls are rounded.
 - Bottom bar: a compact **two-tab bar** (Net worth, Monthly) with a sliding lens indicator, next to a **round + button** (`.fab`) for Add entry. The bar shrinks on scroll (`.tabbar.min`).
 - **Spring-based motion**: `--spring`, `--bounce` easings for micro interactions (presses, toggles, the tab indicator squash) and macro ones (sheets growing from the + button, staggered view `rise`, number count-ups, chart draw-in).
+- **Keep motion smooth**: animate only `transform` and `opacity`. Don't animate `filter`, `background-position`, or layout properties on large areas, because each frame then has to be repainted. The aura drift is a transformed layer (`.aura-drift`), and the aura pauses while a sheet is open (`body.sheet-open`). The chart's blurred glow fades in, and only the sharp line is drawn with `stroke-dashoffset`. `backdrop-filter` is the most expensive part of the glass look, so don't add more of it to elements that animate.
 - The **slowly looping gradient aura** (`.aura`) behind the net worth.
-- **Light and dark mode** through CSS variables in `:root`, overridden under `@media (prefers-color-scheme: dark)` and `:root[data-theme="dark"]`. Add new colours as variables in all three places.
+- **Dark mode only, for now.** Colours are CSS variables. The dark palette is the default on `:root`, and the light palette is kept under `:root[data-theme="light"]` for later (nothing sets it yet). Add new colours as variables in both places. `theme-color`, the manifest colours and `color-scheme` are all dark, and the status bar style is `black-translucent`.
 - Respect **safe-area insets** (`env(safe-area-inset-*)`) and `viewport-fit=cover`.
 - Respect **`prefers-reduced-motion`**: CSS disables animations, and JS checks `matchMedia` before animating numbers, the chart and the tab indicator.
 - **iPhone-first**: designed at 390×844, max width 560px, system font (`-apple-system`), 17px base.
