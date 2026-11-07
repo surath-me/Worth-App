@@ -835,7 +835,7 @@ function drawChart(animate){
   const wrap = $("#chartWrap"); let active = false, lastIdx = -1, startX = 0, startY = 0, decided = false;
   // The marker snaps to the nearest month but glides there: the pointer only picks the target month; each frame the marker eases toward it,
   // reads the curve's y at that x, and the value, label and total follow it continuously.
-  let targetX = 0, targetIdx = 0, curX = 0, raf = 0, lastT = 0, shownIdx = -1, lp = null, lpLen = 0;
+  let first_ = true, targetX = 0, targetIdx = 0, curX = 0, raf = 0, lastT = 0, shownIdx = -1, lp = null, lpLen = 0;
   const vb = () => $("#chart").viewBox.baseVal.width;
   function curveY(x){
     let lo = 0, hi = lpLen;
@@ -856,14 +856,16 @@ function drawChart(animate){
     if(near !== shownIdx){
       shownIdx = near;
       tip.querySelector("small").textContent = mShort(p.m);
+      tip.querySelector(".amt").textContent = fmt(p.v, S.base, {dec:0});
+      const tot = $("#total"); cancelAnimationFrame(tot._raf); tot._v = p.v; tot.textContent = fmt(p.v); fitTotal();
+      if(!first_) [tip.querySelector(".amt"), tot].forEach(n => n.animate && n.animate([{opacity:.25},{opacity:1}], {duration:220, easing:"ease-out"}));
+      first_ = false;
       if(near === 0) $("#delta").innerHTML = '<span class="when">Start of range</span>';
       else setDelta(p.v, chartPts.slice(0), "since " + mShort(chartPts[0].m));
     }
-    tip.querySelector(".amt").textContent = fmt(v, S.base, {dec:0});
     const half = tip.offsetWidth / 2 + 6;
     tip.style.left = Math.min(W - half, Math.max(half, x * sc)) + "px";
     tip.style.top = Math.max(tip.offsetHeight + 14, y * sc) + "px";
-    const tot = $("#total"); cancelAnimationFrame(tot._raf); tot._v = v; tot.textContent = fmt(v); fitTotal();
   }
   function tick(now){
     raf = 0;
@@ -882,7 +884,7 @@ function drawChart(animate){
     targetIdx = best; targetX = chartPts[best].px;
     if(jump){
       lp = $("#chart").querySelector(".line:not(.glowline)"); lpLen = lp ? lp.getTotalLength() : 0;
-      curX = targetX; shownIdx = -1; paint(); return;
+      curX = targetX; shownIdx = -1; first_ = true; paint(); return;
     }
     if(!raf) raf = requestAnimationFrame(tick);
   }
