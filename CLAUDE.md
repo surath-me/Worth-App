@@ -47,7 +47,9 @@ The user-facing word is **"entry"** (Add entry, New entry, Delete entry, "Remove
 
 ## Design rules
 
-- **Apple Liquid Glass** style: translucent glass surfaces (`--glass`, `--glass-strong`, `--lens`) with `backdrop-filter` blur, plus a light rim highlight (`::after` with `--rim`/`--rim2`).
+- **Apple Liquid Glass** style on the floating controls layer (tab bar, + button, icon buttons, segmented controls, sheets, toast, pill buttons): translucent glass (`--glass`, `--glass-strong`, `--lens`) with `backdrop-filter` blur, plus a light rim highlight (`::after` with `--rim`/`--rim2`).
+- **Content cards are solid**: `.card` and month tiles use the opaque `--card` surface (`--card2` inside sheets), with large radii (26px cards, 22px tiles), no blur, no rim and no shadow.
+- **Entry rows**: a 46px round icon in the type colour with a white line glyph for the type (`TYPE_ICON`, rendered by `avatar(t)`). The name and the platform/type (or, for a foreign currency, the platform and `≈` base-currency value) sit on the left. The balance and the entry's share of net worth sit on the right. Rows are about 76px tall with no dividers. The main list, the month detail and the update sheet all use `avatar()`.
 - **Accent**: dark green → blue gradient, `--g1` → `--g2`, used via `--grad`. Text on the gradient is **white**. Gradient text uses `.gtext`.
 - **Pill-shaped buttons** (`border-radius:999px`); chips and segmented controls are rounded.
 - Bottom bar: a compact **two-tab bar** (Net worth, Monthly) with a sliding lens indicator, next to a **round + button** (`.fab`) for Add entry. The bar shrinks on scroll (`.tabbar.min`).

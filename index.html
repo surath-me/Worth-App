@@ -27,6 +27,7 @@
   --glass:rgba(44,44,48,.5); --glass-strong:rgba(58,58,62,.6); --lens:rgba(255,255,255,.14);
   --rim:rgba(255,255,255,.4); --rim2:rgba(255,255,255,.07); --sheet-glass:rgba(24,24,26,.78);
   --gshadow:0 14px 36px -14px rgba(0,0,0,.8);
+  --card2:#2C2C2E;
   --bounce:cubic-bezier(.34,1.56,.64,1);
 }
 :root[data-theme="light"]{
@@ -37,6 +38,7 @@
   --glass:rgba(255,255,255,.58); --glass-strong:rgba(255,255,255,.7); --lens:rgba(255,255,255,.85);
   --rim:rgba(255,255,255,.95); --rim2:rgba(255,255,255,.28); --sheet-glass:rgba(242,242,247,.8);
   --gshadow:0 12px 32px -14px rgba(25,40,70,.3),0 1px 2px rgba(0,0,0,.04);
+  --card2:#FFFFFF;
   color-scheme:light;
 }
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -384,6 +386,25 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .view.active > *:nth-child(n+6){animation-delay:.25s}
 @keyframes rise{from{opacity:0;transform:translate3d(0,32px,0) scale(.96)}}
 
+/* ---------- content cards: solid rounded surfaces; glass stays on floating controls ---------- */
+.card,.tile:not(.todo):not(.sel){background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+.card::after,.tile:not(.todo)::after{content:none}
+.card{border-radius:26px}
+.tile{border-radius:22px}
+#sheet .card,#sheet .tbl .first{background:var(--card2)}
+.alloc{padding:18px 20px}
+/* entry rows: round type icon, name and detail left, amount and share right, no dividers */
+.card > .row:first-child{margin-top:6px}
+.card > .row:last-child{margin-bottom:6px}
+.row{gap:14px;padding:12px 20px;min-height:76px}
+.row + .row::before{display:none}
+.avatar{width:46px;height:46px;border-radius:50%;background-image:none;box-shadow:none}
+.avatar svg{width:22px;height:22px}
+.row .t1{font-weight:500}
+.row .t2{font-size:15px;margin-top:2px}
+.row .end .t1{font-weight:500}
+.upd-row{gap:12px;padding:10px 16px}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none!important;transition-duration:.01ms!important}
 }
@@ -481,6 +502,16 @@ const TYPES = [
   {k:"other", n:"Other", c:"#8E8E93"}
 ];
 const TYPE = Object.fromEntries(TYPES.map(t=>[t.k,t]));
+const TYPE_ICON = {
+  bank:'<path d="M3.5 9.5L12 4.5l8.5 5"/><path d="M6 10.5v6.5M10 10.5v6.5M14 10.5v6.5M18 10.5v6.5"/><path d="M4 19.5h16"/>',
+  stocks:'<path d="M4 16.5l5-5 4 4 7-7"/><path d="M15 8.5h5v5"/>',
+  etf:'<path d="M11 4a8 8 0 1 0 9 9h-9z"/><path d="M14 3.2A8 8 0 0 1 20.8 10H14z"/>',
+  mf:'<path d="M12 4l8.5 4.5L12 13 3.5 8.5z"/><path d="M3.5 12.5L12 17l8.5-4.5"/><path d="M3.5 16.5L12 21l8.5-4.5" opacity=".6"/>',
+  crypto:'<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/><path d="M12 8l3.5 4-3.5 4-3.5-4z"/>',
+  cash:'<rect x="3" y="6.5" width="18" height="11" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.8v.01M17.5 14.2v.01"/>',
+  other:'<path d="M8 3.5l4 6.5H4z"/><rect x="13" y="13" width="7" height="7" rx="1.6"/><circle cx="7.5" cy="16.5" r="3.5"/>'
+};
+const avatar = t => `<span class="avatar" style="background-color:${t.c}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TYPE_ICON[t.k] || TYPE_ICON.other}</svg></span>`;
 const PLATFORMS = ["Trade Republic","Groww","Zerodha","Scalable Capital","N26","Revolut","DKB","ING","Sparkasse","Comdirect","HDFC Bank","ICICI Bank","SBI","Kuvera","Coinbase"];
 const LS_KEY = "worth.v1", LS_UI = "worth.ui";
 
@@ -808,14 +839,17 @@ function renderList(){
     return;
   }
   const sorted = [...S.accounts].sort((a,b) => conv(+b.bal||0, b.cur) - conv(+a.bal||0, a.cur));
+  const pos = S.accounts.reduce((t,a) => t + Math.max(0, conv(+a.bal||0, a.cur)), 0);
   list.innerHTML = "";
   sorted.forEach(a => {
     const t = TYPE[a.type] || TYPE.other;
-    const label = a.platform || a.name;
     const r = el("button", {class:"row" + (a.id===justAdded ? " enter" : "")});
-    r.innerHTML = `<span class="avatar" style="background-color:${t.c}">${esc((label||"?").trim().charAt(0).toUpperCase())}</span>
-      <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${esc(a.platform ? a.platform + ", " + t.n : t.n)}</div></span>
-      <span class="end"><div class="t1 num amt">${fmt(+a.bal||0, a.cur)}</div>${a.cur !== S.base ? `<div class="t2 num amt">${fmt(conv(+a.bal||0, a.cur))}</div>` : ""}</span>`;
+    const v = conv(+a.bal||0, a.cur), pct = pos > 0 && v > 0 ? v / pos * 100 : null;
+    const share = pct == null ? "" : pct < 1 ? "<1%" : Math.round(pct) + "%";
+    const sub = a.cur !== S.base ? `${esc(a.platform || t.n)}, <span class="amt">≈ ${fmt(v, S.base, {dec:0})}</span>` : esc(a.platform ? a.platform + ", " + t.n : t.n);
+    r.innerHTML = `${avatar(t)}
+      <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
+      <span class="end"><div class="t1 num amt">${fmt(+a.bal||0, a.cur)}</div>${share ? `<div class="t2 num">${share}</div>` : ""}</span>`;
     r.onclick = () => accountSheet(a);
     list.appendChild(r);
   });
@@ -948,7 +982,7 @@ function renderMonthDetail(dir){
     }
     const sub = (a.platform || t.n) + (a.cur !== S.base ? `, <span class="amt">≈ ${fmt(a.v, S.base, {dec:0})}</span>` : "");
     const r = el("div", {class:"row"});
-    r.innerHTML = `<span class="avatar" style="background-color:${t.c}">${esc((a.platform || a.name || "?").trim().charAt(0).toUpperCase())}</span>
+    r.innerHTML = `${avatar(t)}
       <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
       <span class="end"><div class="t1 num amt">${fmt(a.b, a.cur)}</div><div class="num">${chg}</div></span>`;
     card.appendChild(r);
@@ -1191,7 +1225,7 @@ function updateSheet(start){
     S.accounts.forEach(a => {
       const t = TYPE[a.type] || TYPE.other;
       const r = el("div", {class:"row upd-row"});
-      r.innerHTML = `<span class="avatar" style="background-color:${t.c}">${esc((a.platform||a.name||"?").trim().charAt(0).toUpperCase())}</span>
+      r.innerHTML = `${avatar(t)}
         <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${esc(a.platform || t.n)}</div></span>`;
       const end = el("span", {class:"end"});
       const inp = el("input", {inputmode:"decimal", placeholder:"0", "aria-label":a.name + " balance", autocomplete:"off"});
