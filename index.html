@@ -103,7 +103,7 @@ main{position:relative;z-index:1}
 /* no top bar: the large title sits right under the status bar (html already pads the top safe area); the bottom inset is padded once on html */
 /* the aura runs under the status bar to the very top; only the content is pushed below the safe area */
 main{padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 108px}
-h1.large{font-size:22px;font-weight:700;letter-spacing:.005em;margin:18px 4px 26px}
+h1.large{font-size:22px;font-weight:700;letter-spacing:.005em;margin:18px 4px 8px}
 
 /* hero */
 .hero{padding:0 4px}
@@ -450,7 +450,7 @@ svg.mi{fill:currentColor}
 
     <section class="view" id="vWorth">
       <section class="hero">
-        <div class="hero-top"><span class="hero-label" id="heroLabel"></span></div>
+        
         <div class="total num amt" id="total">€0</div>
         <div class="delta num" id="delta"></div>
       </section>
@@ -708,7 +708,6 @@ function render(animateChart){
 function renderHero(){
   if(scrubbing) return;
   const total = liveTotal();
-  $("#heroLabel").textContent = "";
   animateNum($("#total"), total, S.base);
   setTimeout(fitTotal, 950); fitTotal();
   const cm = monthKey(), prevM = series().filter(p => p.m !== cm).pop();
@@ -834,9 +833,9 @@ function drawChart(animate){
 /* scrubbing */
 (function(){
   const wrap = $("#chartWrap"); let active = false, lastIdx = -1, startX = 0, startY = 0, decided = false;
-  // The marker glides along the curve: the pointer only sets a target x; each frame the marker eases toward it,
+  // The marker snaps to the nearest month but glides there: the pointer only picks the target month; each frame the marker eases toward it,
   // reads the curve's y at that x, and the value, label and total follow it continuously.
-  let targetX = 0, curX = 0, raf = 0, lastT = 0, shownIdx = -1, lp = null, lpLen = 0;
+  let targetX = 0, targetIdx = 0, curX = 0, raf = 0, lastT = 0, shownIdx = -1, lp = null, lpLen = 0;
   const vb = () => $("#chart").viewBox.baseVal.width;
   function curveY(x){
     let lo = 0, hi = lpLen;
@@ -853,7 +852,7 @@ function drawChart(animate){
     const l = $("#sLine"), d = $("#sDot");
     l.setAttribute("x1", x); l.setAttribute("x2", x); d.setAttribute("cx", x); d.setAttribute("cy", y);
     const tip = $("#sTip"), W = wrap.clientWidth, sc = W / vb();
-    const near = t < .5 ? i : i + 1, p = chartPts[near];
+    const near = targetIdx, p = chartPts[near];
     if(near !== shownIdx){
       shownIdx = near;
       tip.querySelector("small").textContent = mShort(p.m);
@@ -877,7 +876,10 @@ function drawChart(animate){
   }
   function at(clientX, jump){
     if(chartPts.length < 2) return;
-    const r = wrap.getBoundingClientRect(); targetX = (clientX - r.left) * (vb() / r.width);
+    const r = wrap.getBoundingClientRect(), px = (clientX - r.left) * (vb() / r.width);
+    let best = 0, bd = Infinity;
+    chartPts.forEach((p,n) => { const dd = Math.abs(p.px - px); if(dd < bd){ bd = dd; best = n; } });
+    targetIdx = best; targetX = chartPts[best].px;
     if(jump){
       lp = $("#chart").querySelector(".line:not(.glowline)"); lpLen = lp ? lp.getTotalLength() : 0;
       curX = targetX; shownIdx = -1; paint(); return;
