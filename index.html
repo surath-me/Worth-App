@@ -13,6 +13,20 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <title>Worth</title>
+<script>
+/* Development build: on the dev domain (and localhost) use the orange icons and the "Worth Dev" name,
+   so the two home screen apps are easy to tell apart. Production keeps the defaults above. */
+(function () {
+  var DEV_HOSTS = ["worth-app-dev.vercel.app", "localhost", "127.0.0.1"];
+  if (DEV_HOSTS.indexOf(location.hostname) < 0) return;
+  var set = function (sel, attr, val) { var el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
+  set('meta[name="apple-mobile-web-app-title"]', "content", "Worth Dev");
+  set('link[rel="apple-touch-icon"]', "href", "/dev/apple-touch-icon.png");
+  set('link[rel="icon"]', "href", "/dev/icon-192.png");
+  set('link[rel="manifest"]', "href", "/dev/manifest.webmanifest");
+  document.title = "Worth Dev";
+})();
+</script>
 <style>
 :root{
   /* Dark mode only for now. The light palette is kept below under [data-theme="light"] (nothing sets it yet). */
