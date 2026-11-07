@@ -355,14 +355,14 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .icon-btn{position:relative;background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);box-shadow:var(--gshadow);transition:transform .5s var(--bounce),background-color .2s}
 .icon-btn:active{transform:scale(.82);background:var(--glass-strong)}
 /* glass tab bar */
-/* floating pill: compact fixed-width items like the reference (about 67-70px each; the pill hugs them), a darker capsule marks the selected tab,
-   and the + button sits beside it. Pill and button are both 58px and sit low, about 18px above the bottom edge. */
-.tabbar{--tw:70px;background:none;pointer-events:none;gap:8px;padding:20px 20px max(10px,calc(env(safe-area-inset-bottom,0px) - 16px))}
+/* floating bar: the pill and the + button sit together as one centred group (10px apart). Each tab is 80px wide inside 5px of padding,
+   a darker capsule marks the selected tab. Pill and button are both 58px and sit low, about 18px above the bottom edge. */
+.tabbar{--tw:80px;background:none;pointer-events:none;gap:10px;justify-content:center;padding:20px 20px max(10px,calc(env(safe-area-inset-bottom,0px) - 16px))}
 .tabbar > *{pointer-events:auto}
-.tabs{flex:none;grid-template-columns:repeat(3,var(--tw));height:58px;border-radius:29px;background:var(--tabbg);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+.tabs{flex:none;grid-template-columns:repeat(3,var(--tw));height:58px;padding:5px;border-radius:29px;background:var(--tabbg);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
   box-shadow:var(--gshadow)}
-.tab{border-radius:25px}
-.tab-ind{width:var(--tw);border-radius:25px;background:var(--tabind);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);transition:transform .6s var(--spring)}
+.tab{border-radius:24px}
+.tab-ind{top:5px;bottom:5px;left:5px;width:var(--tw);border-radius:24px;background:var(--tabind);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);transition:transform .6s var(--spring)}
 .fab{position:relative;width:58px;height:58px;transition:transform .6s var(--bounce);
   box-shadow:var(--glow),inset 0 1px 1px rgba(255,255,255,.5),inset 0 -8px 16px rgba(0,0,0,.2)}
 .fab::before{content:"";position:absolute;left:16%;top:7%;width:58%;height:42%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.5),transparent);pointer-events:none}
@@ -375,7 +375,7 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
   transition:transform .62s var(--spring),opacity .35s,border-radius .62s var(--spring),visibility 0s linear .62s}
 #sheet.open{transition:transform .62s var(--spring),opacity .25s,border-radius .62s var(--spring),visibility 0s}
 #sheet.dragging{transition:none}
-#sheet.from-fab{transform-origin:calc(100% - 49px) calc(100% - 47px)}
+#sheet.from-fab{transform-origin:calc(50% + 130px) calc(100% - 47px)}
 #sheet.from-fab:not(.open){transform:scale(.1);opacity:0;border-radius:200px}
 #toast{background:var(--glass-strong);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%)}
 /* macro view transitions */
