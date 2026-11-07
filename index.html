@@ -44,6 +44,7 @@
   --gshadow:0 14px 36px -14px rgba(0,0,0,.8);
   --card2:#2C2C2E;
   --bounce:cubic-bezier(.34,1.56,.64,1);
+  --tabind:rgba(0,0,0,.36); --tabbg:rgba(60,60,64,.8);
 }
 :root[data-theme="light"]{
   --bg:#F2F2F7; --card:#FFFFFF; --text:#000000; --sec:#6C6C70; --ter:#AEAEB2;
@@ -54,6 +55,7 @@
   --rim:rgba(255,255,255,.95); --rim2:rgba(255,255,255,.28); --sheet-glass:rgba(242,242,247,.8);
   --gshadow:0 12px 32px -14px rgba(25,40,70,.3),0 1px 2px rgba(0,0,0,.04);
   --card2:#FFFFFF;
+  --tabind:rgba(0,0,0,.07); --tabbg:rgba(255,255,255,.8);
   color-scheme:light;
 }
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -352,20 +354,18 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .icon-btn{position:relative;background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);box-shadow:var(--gshadow);transition:transform .5s var(--bounce),background-color .2s}
 .icon-btn:active{transform:scale(.82);background:var(--glass-strong)}
 /* glass tab bar */
-.tabbar{--tw:84px;background:none;pointer-events:none}
+/* floating pill: stretches across the screen, the tabs share its width evenly, a darker capsule marks the selected tab,
+   and the + button sits at its right. Pill and button are both 58px and sit low, about 18px above the bottom edge. */
+.tabbar{background:none;pointer-events:none;gap:8px;padding:20px 20px max(10px,calc(env(safe-area-inset-bottom,0px) - 16px))}
 .tabbar > *{pointer-events:auto}
-.tabbar.min{--tw:60px}
-.tabs{grid-template-columns:repeat(3,var(--tw));background:var(--glass-strong);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
-  box-shadow:var(--gshadow);transition:grid-template-columns .55s var(--spring),height .55s var(--spring),border-radius .55s var(--spring)}
-.tabbar.min .tabs{height:52px;border-radius:26px}
-.tab span{max-height:14px;transition:opacity .3s,max-height .45s var(--spring)}
-.tabbar.min .tab span{opacity:0;max-height:0}
-.tab-ind{width:var(--tw);background:var(--lens);box-shadow:0 4px 14px -6px rgba(0,0,0,.25);transition:transform .6s var(--spring),width .55s var(--spring)}
-.fab{position:relative;transition:transform .6s var(--bounce),width .55s var(--spring),height .55s var(--spring);
+.tabs{flex:1;min-width:0;grid-template-columns:repeat(3,1fr);height:58px;border-radius:29px;background:var(--tabbg);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+  box-shadow:var(--gshadow)}
+.tab{border-radius:25px}
+.tab-ind{width:calc((100% - 8px) / 3);border-radius:25px;background:var(--tabind);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);transition:transform .6s var(--spring)}
+.fab{position:relative;width:58px;height:58px;transition:transform .6s var(--bounce);
   box-shadow:var(--glow),inset 0 1px 1px rgba(255,255,255,.5),inset 0 -8px 16px rgba(0,0,0,.2)}
 .fab::before{content:"";position:absolute;left:16%;top:7%;width:58%;height:42%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.5),transparent);pointer-events:none}
 .fab:active{transform:scale(.84)}
-.tabbar.min .fab{width:52px;height:52px}
 /* glass segmented */
 #app .seg,#sheet .seg{background:var(--glass);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-radius:12px;padding:3px}
 #app .seg .thumb,#sheet .seg .thumb{top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--lens);box-shadow:0 4px 14px -6px rgba(0,0,0,.3);transition:transform .6s var(--bounce)}
@@ -374,7 +374,7 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
   transition:transform .62s var(--spring),opacity .35s,border-radius .62s var(--spring),visibility 0s linear .62s}
 #sheet.open{transition:transform .62s var(--spring),opacity .25s,border-radius .62s var(--spring),visibility 0s}
 #sheet.dragging{transition:none}
-#sheet.from-fab{transform-origin:calc(100% - 47px) calc(100% - 40px)}
+#sheet.from-fab{transform-origin:calc(100% - 49px) calc(100% - 47px)}
 #sheet.from-fab:not(.open){transform:scale(.1);opacity:0;border-radius:200px}
 #toast{background:var(--glass-strong);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%)}
 /* macro view transitions */
@@ -1408,13 +1408,6 @@ async function fetchRates(force){
 
 /* ---------- wiring ---------- */
 $("#fab").onclick = () => accountSheet(null, {fromFab:true});
-let lastY = window.scrollY;
-addEventListener("scroll", () => {
-  const y = window.scrollY, bar = $("#tabbar");
-  if(y > 140 && y > lastY + 6) bar.classList.add("min");
-  else if(y < lastY - 6 || y < 80) bar.classList.remove("min");
-  lastY = y;
-}, {passive:true});
 $("#btnUpdate").onclick = () => updateSheet();
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => setTab(t.dataset.tab));
 $("#btnHide").onclick = () => { UI.hide = !UI.hide; saveUI(); render(false); };
