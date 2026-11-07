@@ -135,7 +135,7 @@ body.hide .amt{filter:blur(10px)}
 #chart.scrubbing .scrub{opacity:1}
 #chart.scrubbing .enddot,#chart.scrubbing .pulse{opacity:0}
 #chart .scrub line{stroke:var(--sec);stroke-width:1}
-#chart .scrub circle{stroke:var(--card);stroke-width:3;transition:cx .12s var(--spring),cy .12s var(--spring)}
+#chart .scrub circle{stroke:var(--card);stroke-width:3}
 .scrub-tip{position:absolute;left:0;top:0;transform:translate(-50%,calc(-100% - 12px));pointer-events:none;opacity:0;white-space:nowrap;
   padding:6px 11px;border-radius:13px;background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
   box-shadow:var(--gshadow);font-size:14px;font-weight:600;text-align:center;line-height:1.2;transition:opacity .15s}
@@ -834,25 +834,55 @@ function drawChart(animate){
 /* scrubbing */
 (function(){
   const wrap = $("#chartWrap"); let active = false, lastIdx = -1, startX = 0, startY = 0, decided = false;
-  function at(clientX){
-    if(chartPts.length < 2) return;
-    const r = wrap.getBoundingClientRect(); const x = (clientX - r.left) * ($("#chart").viewBox.baseVal.width / r.width);
-    let best = 0, bd = Infinity;
-    chartPts.forEach((p,i) => { const d = Math.abs(p.px - x); if(d < bd){ bd = d; best = i; } });
-    if(best === lastIdx) return; lastIdx = best;
-    const p = chartPts[best];
+  // The marker glides along the curve: the pointer only sets a target x; each frame the marker eases toward it,
+  // reads the curve's y at that x, and the value, label and total follow it continuously.
+  let targetX = 0, curX = 0, raf = 0, lastT = 0, shownIdx = -1, lp = null, lpLen = 0;
+  const vb = () => $("#chart").viewBox.baseVal.width;
+  function curveY(x){
+    let lo = 0, hi = lpLen;
+    for(let k = 0; k < 22; k++){ const mid = (lo + hi) / 2; if(lp.getPointAtLength(mid).x < x) lo = mid; else hi = mid; }
+    return lp.getPointAtLength(hi).y;
+  }
+  function paint(){
+    const first = chartPts[0], lastP = chartPts[chartPts.length-1];
+    const x = Math.min(lastP.px, Math.max(first.px, curX));
+    let i = 0; while(i < chartPts.length - 2 && chartPts[i+1].px < x) i++;
+    const a = chartPts[i], b = chartPts[i+1], t = b.px === a.px ? 0 : (x - a.px) / (b.px - a.px);
+    const v = a.v + (b.v - a.v) * t;
+    const y = lp ? curveY(x) : a.py + (b.py - a.py) * t;
     const l = $("#sLine"), d = $("#sDot");
-    l.setAttribute("x1", p.px); l.setAttribute("x2", p.px); d.setAttribute("cx", p.px); d.setAttribute("cy", p.py);
-    // floating value label above the point, kept inside the chart's edges
-    const tip = $("#sTip"), W = wrap.clientWidth;
-    tip.innerHTML = `<span class="amt">${fmt(p.v, S.base, {dec:0})}</span><small>${mShort(p.m)}</small>`;
+    l.setAttribute("x1", x); l.setAttribute("x2", x); d.setAttribute("cx", x); d.setAttribute("cy", y);
+    const tip = $("#sTip"), W = wrap.clientWidth, sc = W / vb();
+    const near = t < .5 ? i : i + 1, p = chartPts[near];
+    if(near !== shownIdx){
+      shownIdx = near;
+      tip.querySelector("small").textContent = mShort(p.m);
+      if(near === 0) $("#delta").innerHTML = '<span class="when">Start of range</span>';
+      else setDelta(p.v, chartPts.slice(0), "since " + mShort(chartPts[0].m));
+    }
+    tip.querySelector(".amt").textContent = fmt(v, S.base, {dec:0});
     const half = tip.offsetWidth / 2 + 6;
-    tip.style.left = Math.min(W - half, Math.max(half, p.px)) + "px";
-    tip.style.top = Math.max(tip.offsetHeight + 14, p.py) + "px";
-    const t = $("#total"); cancelAnimationFrame(t._raf); t._v = p.v; t.textContent = fmt(p.v); fitTotal();
-    $("#heroLabel").textContent = mLong(p.m);
-    if(best === 0) $("#delta").innerHTML = '<span class="when">Start of range</span>';
-    else setDelta(p.v, chartPts.slice(0), "since " + mShort(chartPts[0].m));
+    tip.style.left = Math.min(W - half, Math.max(half, x * sc)) + "px";
+    tip.style.top = Math.max(tip.offsetHeight + 14, y * sc) + "px";
+    const tot = $("#total"); cancelAnimationFrame(tot._raf); tot._v = v; tot.textContent = fmt(v); fitTotal();
+  }
+  function tick(now){
+    raf = 0;
+    const dt = Math.min(48, now - (lastT || now)); lastT = now;
+    const k = 1 - Math.exp(-dt / 55);
+    curX += (targetX - curX) * k;
+    if(Math.abs(targetX - curX) < .08) curX = targetX;
+    paint();
+    if(curX !== targetX) raf = requestAnimationFrame(tick); else lastT = 0;
+  }
+  function at(clientX, jump){
+    if(chartPts.length < 2) return;
+    const r = wrap.getBoundingClientRect(); targetX = (clientX - r.left) * (vb() / r.width);
+    if(jump){
+      lp = $("#chart").querySelector(".line:not(.glowline)"); lpLen = lp ? lp.getTotalLength() : 0;
+      curX = targetX; shownIdx = -1; paint(); return;
+    }
+    if(!raf) raf = requestAnimationFrame(tick);
   }
   let hold = 0;
   function begin(e){
@@ -862,7 +892,7 @@ function drawChart(animate){
     // on touch: a short press starts scrubbing too, not only a sideways drag
     else { clearTimeout(hold); hold = setTimeout(() => { if(active && !decided){ decided = true; start(e); } }, 160); }
   }
-  function start(e){ clearTimeout(hold); scrubbing = true; $("#chart").classList.add("scrubbing"); wrap.classList.add("scrubbing"); try{ wrap.setPointerCapture(e.pointerId); }catch(_){} at(e.clientX); }
+  function start(e){ clearTimeout(hold); scrubbing = true; $("#chart").classList.add("scrubbing"); wrap.classList.add("scrubbing"); try{ wrap.setPointerCapture(e.pointerId); }catch(_){} $("#sTip").innerHTML = '<span class="amt"></span><small></small>'; at(e.clientX, true); }
   wrap.addEventListener("pointerdown", begin);
   wrap.addEventListener("pointermove", e => {
     if(!active) return;
@@ -874,7 +904,7 @@ function drawChart(animate){
     }
     at(e.clientX);
   });
-  const end = () => { clearTimeout(hold); if(!active) return; active = false; if(!scrubbing) return; scrubbing = false; $("#chart").classList.remove("scrubbing"); wrap.classList.remove("scrubbing"); renderHero(); };
+  const end = () => { clearTimeout(hold); cancelAnimationFrame(raf); raf = 0; lastT = 0; if(!active) return; active = false; if(!scrubbing) return; scrubbing = false; $("#chart").classList.remove("scrubbing"); wrap.classList.remove("scrubbing"); renderHero(); };
   wrap.addEventListener("pointerup", end); wrap.addEventListener("pointercancel", end); wrap.addEventListener("lostpointercapture", end);
   wrap.addEventListener("touchmove", e => { if(scrubbing) e.preventDefault(); }, {passive:false});
 })();
