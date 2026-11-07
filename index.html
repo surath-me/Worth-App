@@ -103,18 +103,18 @@ main{position:relative;z-index:1}
 /* no top bar: the large title sits right under the status bar (html already pads the top safe area); the bottom inset is padded once on html */
 /* the aura runs under the status bar to the very top; only the content is pushed below the safe area */
 main{padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 108px}
-h1.large{font-size:30px;font-weight:700;letter-spacing:.01em;margin:4px 4px 14px}
+h1.large{font-size:22px;font-weight:700;letter-spacing:.005em;margin:2px 4px 10px}
 
 /* hero */
 .hero{padding:0 4px}
 .hero-label{font-size:13px;color:var(--sec);height:18px;transition:color .2s}
 .hero-top{display:flex;align-items:center;gap:6px;height:22px}
-.eye{width:30px;height:30px;margin:-4px 0;border-radius:50%;display:grid;place-items:center;color:var(--sec);transition:transform .3s var(--bounce),color .2s}
+.eye{width:30px;height:30px;margin:-4px 0 -4px -7px;border-radius:50%;display:grid;place-items:center;color:var(--sec);transition:transform .3s var(--bounce),color .2s}
 .eye svg{width:18px;height:18px}
 .eye:active{transform:scale(.8);color:var(--text)}
 .split{font-size:13px;color:var(--sec);margin-top:4px}
 .split b{font-weight:500;color:var(--text)}
-.total{font-size:38px;font-weight:700;letter-spacing:-.025em;line-height:1.08;margin:2px 0 4px;white-space:nowrap;
+.total{font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1.08;margin:2px 0 4px;white-space:nowrap;
   transition:filter .45s var(--spring),font-size .3s var(--spring)}
 .delta{font-size:13px;font-weight:600;height:20px;display:flex;align-items:center;gap:6px;color:var(--sec)}
 .delta .chg{display:inline-flex;align-items:center;gap:3px;transition:color .3s}
@@ -425,7 +425,7 @@ svg.mi{fill:currentColor}
 
     <section class="view" id="vWorth">
       <section class="hero">
-        <div class="hero-top"><span class="hero-label" id="heroLabel">Today</span><button class="eye" id="btnHide" aria-label="Hide amounts" data-mi="eye"></button></div>
+        <div class="hero-top"><button class="eye" id="btnHide" aria-label="Hide amounts" data-mi="eye"></button><span class="hero-label" id="heroLabel"></span></div>
         <div class="total num amt" id="total">€0</div>
         <div class="delta num" id="delta"></div>
         <div class="split num" id="split"></div>
@@ -681,7 +681,7 @@ function render(animateChart){
 function renderHero(){
   if(scrubbing) return;
   const total = liveTotal();
-  $("#heroLabel").textContent = "Today";
+  $("#heroLabel").textContent = "";
   animateNum($("#total"), total, S.base);
   setTimeout(fitTotal, 950); fitTotal();
   const cm = monthKey(), prevM = series().filter(p => p.m !== cm).pop();
