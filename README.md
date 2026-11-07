@@ -1,6 +1,6 @@
 # Worth
 
-A minimal, iPhone-first wealth tracker. Add your entries (bank accounts, brokers, funds, cash), update their balances once a month, and Worth shows your net worth over time, your allocation and a month-by-month history.
+A minimal, iPhone-first net worth tracker. Add what you own (bank accounts, brokers, funds, cash, property, a car) and what you owe (mortgage, loans, credit cards), update the balances once a month (each month starts from the last one), and Worth shows your net worth over time, your allocation and each month's record. Exchange rates update live every 30 minutes.
 
 It is a single static web app: `index.html` holds all the HTML, CSS and JavaScript. There is no framework, no build step and no server. Your data lives in your browser's `localStorage` on your device and never leaves it. Use **Settings → Copy backup** to keep a copy, and **Restore from backup** to bring it back on another device.
 

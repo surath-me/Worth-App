@@ -43,7 +43,16 @@ const ENTRIES = [
   { id: "s-gold", name: "Gold coins", platform: "", type: "other", cur: "EUR", start: 2500, opensAt: 4,
     step: (p, i, r) => p * (1 + 0.008 + (r() - 0.5) * 0.03) },                   // bought a few months in
   { id: "s-cash", name: "Wallet", platform: "", type: "cash", cur: "EUR", start: 250,
-    step: (p, i, r) => 150 + r() * 250 }
+    step: (p, i, r) => 150 + r() * 250 },
+  // physical assets and debts
+  { id: "s-flat", name: "Flat in Stuttgart", platform: "", type: "property", cur: "EUR", start: 345000, dep: 2,
+    step: (p, i, r) => p * Math.pow(1.02, 1 / 12) },                             // +2% a year
+  { id: "s-car", name: "VW Golf", platform: "", type: "vehicle", cur: "EUR", start: 23500, dep: -15,
+    step: (p, i, r) => p * Math.pow(0.85, 1 / 12) },                             // −15% a year
+  { id: "s-mortgage", name: "Home loan", platform: "Sparkasse", type: "mortgage", cur: "EUR", start: 268000,
+    step: (p, i, r) => p - 820 },                                                // principal paid each month
+  { id: "s-card", name: "Credit card", platform: "Revolut", type: "card", cur: "EUR", start: 640,
+    step: (p, i, r) => 250 + r() * 1300 }
 ];
 
 export function makeSample(now = new Date()) {
@@ -73,14 +82,19 @@ export function makeSample(now = new Date()) {
     snaps[m] = { items, rates };
   });
 
-  const cur = months[months.length - 1];
-  const last = snaps[cur];
-  const accounts = ENTRIES.filter(e => last.items[e.id]).map(e => ({
-    id: e.id, name: e.name, type: e.type, platform: e.platform, cur: e.cur, bal: last.items[e.id][0]
-  }));
+  // The current month isn't checked in yet: balances still hold last month's values (like real use),
+  // so Monthly shows "Update <month>" and the update sheet carries values over, with the car depreciated.
+  const cur = months[months.length - 1], prevKey = months[months.length - 2];
+  const last = snaps[cur], prev = snaps[prevKey];
+  const accounts = ENTRIES.filter(e => prev.items[e.id]).map(e => {
+    const a = { id: e.id, name: e.name, type: e.type, platform: e.platform, cur: e.cur, bal: prev.items[e.id][0] };
+    if (e.dep != null) a.dep = e.dep;
+    return a;
+  });
+  snaps[cur] = { items: { ...prev.items }, rates: { ...last.rates } };
 
   return {
-    v: 1, base: "EUR", rates: { ...last.rates }, ratesAt: now.getTime(),
-    accounts, snaps, lastCheckin: cur, updatedAt: now.getTime()
+    v: 1, base: "EUR", rates: { ...last.rates }, ratesAt: null,
+    accounts, snaps, lastCheckin: prevKey, updatedAt: now.getTime()
   };
 }
