@@ -19,6 +19,7 @@
 (function () {
   var DEV_HOSTS = ["worth-app-dev.vercel.app", "localhost", "127.0.0.1"];
   if (DEV_HOSTS.indexOf(location.hostname) < 0) return;
+  window.WORTH_DEV = true; /* shows the Developer section in Settings */
   var set = function (sel, attr, val) { var el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
   set('meta[name="apple-mobile-web-app-title"]', "content", "Worth Dev");
   set('link[rel="apple-touch-icon"]', "href", "/dev/apple-touch-icon.png");
@@ -1347,6 +1348,19 @@ function settingsSheet(){
       el("div", {class:"lbl-s"}, "Backup"), bk, area, restoreGo,
       erase
     );
+
+    // development build only: replace everything with a year of sample data (generator lives in /dev/sample-data.js)
+    if(window.WORTH_DEV){
+      const sample = el("button", {class:"danger"}, "Load sample data");
+      armConfirm(sample, "Tap again to replace your data", async () => {
+        try{
+          const {makeSample} = await import("/dev/sample-data.js");
+          S = normalize(makeSample()); commit({keepMonth:true}); closeSheet(); toast("Sample data loaded");
+        }catch(e){ toast("Couldn’t load sample data"); }
+      });
+      body.append(el("div", {class:"lbl-s"}, "Developer"), sample,
+        el("p", {class:"note"}, "Only in the development build. Replaces all entries and months with a year of sample data."));
+    }
     paintSeg(); paintRates(); paintHist();
   });
 }
