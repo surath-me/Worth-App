@@ -201,7 +201,17 @@ button.row:active{background:var(--fill)}
 .more{display:grid;grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows .5s var(--spring),visibility 0s .5s}
 .more.open{grid-template-rows:1fr;visibility:visible;transition:grid-template-rows .5s var(--spring),visibility 0s}
 .more-in{overflow:hidden;min-height:0}
-.seeall{display:flex;align-items:center;justify-content:center;gap:2px;width:100%;padding:12px 0 14px;color:var(--accent);font-size:14px;font-weight:600}
+.seeall{display:flex;align-items:center;justify-content:center;gap:2px;width:100%;padding:12px 0 14px;color:var(--g1);font-size:14px;font-weight:600}
+.seeall span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.section-h .edit-btn{color:var(--text);margin:-8px -6px -8px 0}
+.edit-btn{width:38px;height:38px;display:grid;place-items:center;color:var(--text);transition:transform .25s var(--spring),opacity .2s}
+.section-h .edit-btn svg,.edit-btn svg{width:24px;height:24px} .edit-btn:active{transform:scale(.85);opacity:.7}
+.alloc .seg{margin:0 0 14px}
+.abars .ab{padding:7px 0}
+.abars .ab-h{display:flex;align-items:center;gap:10px;font-size:14px}
+.abars .ab-h .nm{flex:1} .abars .ab-h .pc{color:var(--sec)} .abars .ab-h .vl{font-weight:500;width:90px;text-align:right}
+.abars .ab-t{height:8px;border-radius:4px;background:var(--fill);margin-top:7px;overflow:hidden}
+.abars .ab-t i{display:block;height:100%;border-radius:4px;width:0;transition:width 1s var(--spring)}
 .seeall svg{width:20px;height:20px;transition:transform .4s var(--spring)} .seeall.open svg{transform:rotate(180deg)}
 .legend{margin-top:12px}
 .legend .li{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px}
@@ -459,9 +469,9 @@ svg.mi{fill:currentColor}
       </div>
       <div id="allocSection">
         <div class="section-h"><h2>Allocation</h2></div>
-        <div class="card alloc"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div>
+        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
       </div>
-      <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="icon-btn" aria-label="Update balances" data-mi="edit"></button></div>
+      <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="edit-btn" aria-label="Update balances" data-mi="edit"></button></div>
       <div class="card" id="list"></div>
     </section>
 
@@ -888,6 +898,13 @@ function renderAlloc(){
     c.style.strokeDashoffset = -cum; cum += frac * C;
     requestAnimationFrame(() => requestAnimationFrame(() => { c.style.strokeDasharray = `${len} ${C}`; }));
   });
+  const mode = UI.alloc === "bar" ? "bar" : "pie";
+  paintSeg($("#allocMode"), mode === "bar" ? 1 : 0);
+  $("#allocPie").style.display = mode === "pie" ? "" : "none";
+  const ab = $("#allocBar"); ab.style.display = mode === "bar" ? "" : "none";
+  const sorted = types.slice().sort((a,b) => by[b.k]-by[a.k]), top = sorted.length ? by[sorted[0].k] : 1;
+  ab.innerHTML = sorted.map(t => `<div class="ab"><div class="ab-h"><span class="nm">${t.n}</span><span class="pc num">${(by[t.k]/total*100).toFixed(0)}%</span><span class="vl num amt">${fmt(by[t.k], S.base, {dec:0})}</span></div><div class="ab-t"><i style="background:${t.c}" data-w="${by[t.k]/top*100}"></i></div></div>`).join("");
+  if(mode === "bar") requestAnimationFrame(() => requestAnimationFrame(() => ab.querySelectorAll("i").forEach(i => i.style.width = i.dataset.w + "%")));
   $("#legend").innerHTML = types.sort((a,b) => by[b.k]-by[a.k]).map(t => `
     <div class="li"><span class="sw" style="background:${t.c}"></span><span class="nm">${t.n}</span>
     <span class="pc num">${(by[t.k]/total*100).toFixed(0)}%</span><span class="vl num amt">${fmt(by[t.k], S.base, {dec:0})}</span></div>`).join("");
@@ -1445,6 +1462,7 @@ $("#fab").onclick = () => accountSheet(null, {fromFab:true});
 $("#btnUpdate").onclick = () => updateSheet();
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => setTab(t.dataset.tab));
 $("#total").onclick = () => { UI.hide = !UI.hide; saveUI(); render(false); };
+$("#allocMode").querySelectorAll("button").forEach(b => b.onclick = () => { UI.alloc = b.dataset.m; saveUI(); renderAlloc(); });
 $("#range").querySelectorAll("button").forEach(b => b.onclick = () => {
   UI.range = +b.dataset.r; saveUI(); renderRange(); drawChart(true); renderHero();
 });
