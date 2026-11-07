@@ -1282,7 +1282,7 @@ function settingsSheet(){
     };
     restB.onclick = () => { area.style.display = ""; area.value = ""; restoreGo.style.display = ""; area.focus(); };
     restoreGo.onclick = () => {
-      try{ const d = normalize(JSON.parse(area.value)); if(!Array.isArray(d.accounts)) throw 0; S = d; commit({keepMonth:true}); closeSheet(); toast("Backup restored"); }
+      try{ const raw = JSON.parse(area.value); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0; const d = normalize(raw); S = d; commit({keepMonth:true}); closeSheet(); toast("Backup restored"); }
       catch(e){ area.style.boxShadow = "0 0 0 2px var(--down)"; setTimeout(() => area.style.boxShadow = "", 1200); }
     };
 
