@@ -19,7 +19,7 @@
 (function () {
   var DEV_HOSTS = ["worth-app-dev.vercel.app", "localhost", "127.0.0.1"];
   if (DEV_HOSTS.indexOf(location.hostname) < 0) return;
-  window.WORTH_DEV = true; /* shows the Developer section in Settings */
+  window.WORTH_DEV = true; /* seeds sample data when the app is empty */
   var set = function (sel, attr, val) { var el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
   set('meta[name="apple-mobile-web-app-title"]', "content", "Worth Dev");
   set('link[rel="apple-touch-icon"]', "href", "/dev/apple-touch-icon.png");
@@ -469,7 +469,7 @@ svg.mi{fill:currentColor}
 <div id="toast"><i data-mi="check"></i><span></span></div>
 
 <script>
-(function(){
+(async function(){
 "use strict";
 /* ---------- icons ---------- */
 /* Material Symbols Rounded (Apache-2.0), 400 weight, viewBox 0 -960 960 960. Swap for SF Symbols in the Swift app. */
@@ -1371,19 +1371,6 @@ function renderSettings(){
     erase
   );
 
-  // development build only: replace everything with a year of sample data (generator lives in /dev/sample-data.js)
-  if(window.WORTH_DEV){
-    const sample = el("button", {class:"danger"}, "Load sample data");
-    armConfirm(sample, "Tap again to replace your data", async () => {
-      try{
-        const {makeSample} = await import("/dev/sample-data.js");
-        S = normalize(makeSample()); commit({keepMonth:true}); fetchRates(true);
-        setTab("worth"); toast("Sample data loaded"); // jump to where the data shows
-      }catch(e){ toast("Sample data failed: " + (e && e.message || e)); }
-    });
-    v.append(el("div", {class:"lbl-s"}, "Developer"), sample,
-      el("p", {class:"note"}, "Only in the development build. Replaces all entries and months with a year of sample data."));
-  }
   paintSeg(seg, Math.max(0, CUR_KEYS.indexOf(S.base)));
   paintRatesInfo();
 }
@@ -1458,6 +1445,11 @@ document.querySelectorAll("[data-mi]").forEach(n => {
   if(n.tagName === "I") n.outerHTML = ic(n.dataset.mi); else n.innerHTML = ic(n.dataset.mi);
 });
 
+// Development build only: when there is no data (first launch, or after Erase all data), seed a year of sample data.
+// The generator lives in /dev/sample-data.js, which is removed from production builds (see vercel.json).
+if(window.WORTH_DEV && !S.accounts.length && !Object.keys(S.snaps).length){
+  try{ const {makeSample} = await import("/dev/sample-data.js"); S = normalize(makeSample()); saveLocal(); }catch(e){}
+}
 render(true);
 if(UI.tab === "settings") renderSettings();
 rw = $("#chartWrap").clientWidth;

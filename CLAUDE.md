@@ -13,7 +13,7 @@ Worth is a minimal, iPhone-first wealth tracker, hosted on Vercel as a static si
   - `worth.v1`: the data object `S` (below).
   - `worth.ui`: UI state `{range, hide, tab, month}` (`tab` is one of `TABS`; an old `mode` key is ignored).
   - Never rename these keys or break the shape; existing users' data must stay readable. `normalize()` fills defaults for older data.
-- Settings is the third tab (`renderSettings()` into `#vSettings`): base currency, live exchange rates (read-only), **Copy backup** / **Restore from backup**, Erase all data, and, on the dev build only, **Load sample data** (`dev/sample-data.js`). The footer always reads "Saved on this device".
+- Settings is the third tab (`renderSettings()` into `#vSettings`): base currency, live exchange rates (read-only), **Copy backup** / **Restore from backup**, and Erase all data. The footer always reads "Saved on this device".
 - **Live exchange rates** (`fetchRates()`): Coinbase's public `v2/exchange-rates?currency=EUR` (keyless, CORS), falling back to open.er-api.com. Fetched on start when older than 30 minutes, checked every 5 minutes and on returning to the app. Only the current month takes new rates; past months keep theirs. Offline, the last rates stay. The service worker never touches these cross-origin requests.
 - **Icons**: Material Symbols Rounded (Apache-2.0), inlined as SVG paths in `MI` and drawn by `ic(name)`; markup uses `<i data-mi="name">` placeholders that are swapped at startup. No icon font (it would break offline). In the Swift app these become SF Symbols.
 - Main flow: mutate `S` → `commit()` → (`syncCurrentMonth()` unless `keepMonth`) → `saveLocal()` → `render()`.
@@ -27,6 +27,8 @@ Worth is a minimal, iPhone-first wealth tracker, hosted on Vercel as a static si
 
 - **Every change goes to `dev` first.** Work on the `dev` branch and push it. Vercel deploys it to the dev domain, where the user tests it on the iPhone.
 - **Promote to production only when the user says so** after testing: merge `dev` into `main` and push `main` (Vercel deploys `main` to production). Never commit directly to `main`.
+- **Sample data lives only in dev.** `dev/sample-data.js` generates a year of mock data (entries, debts, a car and a flat, 13 months). On the dev domain (and localhost) the app seeds it automatically at startup whenever there is no data, so a fresh install, or a reload after **Erase all data**, always shows it. Data you add or edit is never overwritten. There is no button for it.
+- **Production never ships that file.** `vercel.json` runs a build command that deletes `dev/sample-data.js` when `VERCEL_ENV=production` (a push to `main`). The dev branch keeps it. To test the stripping without touching production: `vercel deploy --build-env STRIP_DEV_DATA=1` and check that `/dev/sample-data.js` is a 404. Keep any new dev-only data inside `dev/` and add it to that `rm` list.
 - The two domains are different origins, so the dev and production apps have separate `localStorage`. Copy data between them with Copy backup / Restore from backup.
 - Vercel Authentication is off for this project, so the dev domain and preview URLs are public (the app holds no secrets; data stays on the device).
 
