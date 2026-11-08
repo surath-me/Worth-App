@@ -1,0 +1,4 @@
+{
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ] || [ -n \"$STRIP_DEV_DATA\" ]; then rm -f dev/sample-data.js; fi",
+  "outputDirectory": "."
+}

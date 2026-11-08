@@ -13,6 +13,21 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <title>Worth</title>
+<script>
+/* Development build: on the dev domain (and localhost) use the orange icons and the "Worth Dev" name,
+   so the two home screen apps are easy to tell apart. Production keeps the defaults above. */
+(function () {
+  var DEV_HOSTS = ["worth-app-dev.vercel.app", "localhost", "127.0.0.1"];
+  if (DEV_HOSTS.indexOf(location.hostname) < 0) return;
+  window.WORTH_DEV = true; /* seeds sample data when the app is empty */
+  var set = function (sel, attr, val) { var el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
+  set('meta[name="apple-mobile-web-app-title"]', "content", "Worth Dev");
+  set('link[rel="apple-touch-icon"]', "href", "/dev/apple-touch-icon.png");
+  set('link[rel="icon"]', "href", "/dev/icon-192.png");
+  set('link[rel="manifest"]', "href", "/dev/manifest.webmanifest");
+  document.title = "Worth Dev";
+})();
+</script>
 <style>
 :root{
   /* Dark mode only for now. The light palette is kept below under [data-theme="light"] (nothing sets it yet). */
@@ -29,6 +44,7 @@
   --gshadow:0 14px 36px -14px rgba(0,0,0,.8);
   --card2:#2C2C2E;
   --bounce:cubic-bezier(.34,1.56,.64,1);
+  --tabind:rgba(0,0,0,.5); --tabbg:rgba(60,60,64,.8);
 }
 :root[data-theme="light"]{
   --bg:#F2F2F7; --card:#FFFFFF; --text:#000000; --sec:#6C6C70; --ter:#AEAEB2;
@@ -39,19 +55,23 @@
   --rim:rgba(255,255,255,.95); --rim2:rgba(255,255,255,.28); --sheet-glass:rgba(242,242,247,.8);
   --gshadow:0 12px 32px -14px rgba(25,40,70,.3),0 1px 2px rgba(0,0,0,.04);
   --card2:#FFFFFF;
+  --tabind:rgba(0,0,0,.07); --tabbg:rgba(255,255,255,.8);
   color-scheme:light;
 }
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root{box-sizing:border-box}
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
 html,body{margin:0;background:var(--bg);color:var(--text)}
+/* The page only scrolls vertically: no sideways panning or rubber-banding, and no double-tap (or pinch) zoom.
+   touch-action is intersected down the tree, so a descendant cannot opt back in to horizontal panning; only touch events (monthly swipe, chart scrub) still see sideways gestures. */
+html,body{overflow-x:hidden;overscroll-behavior-x:none;touch-action:pan-y}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;
   font-size:15px;line-height:1.3;-webkit-font-smoothing:antialiased;
   -webkit-tap-highlight-color:transparent;transition:background-color .5s var(--spring);
 }
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:transparent;transition:background-color .3s}
-body.scrolled::before{background:var(--nav);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:calc(env(safe-area-inset-top,0px) + 14px);z-index:10;pointer-events:none;opacity:0;transition:opacity .3s;-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);-webkit-mask-image:linear-gradient(rgba(0,0,0,.6) 50%,transparent);mask-image:linear-gradient(rgba(0,0,0,.6) 50%,transparent)}
+body.scrolled::before{opacity:1}
 body.sheet-open{overflow:hidden;background:var(--behind)}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 input,textarea{font:inherit;color:inherit}
@@ -74,25 +94,27 @@ body.sheet-open #app{transform:scale(.93);border-radius:14px;overflow:hidden}
 /* the aura is hidden behind the scrim while a sheet is open: pause it so the sheet animation gets the frame budget */
 body.sheet-open .aura-drift,body.sheet-open .aura::before,body.sheet-open .aura::after{animation-play-state:paused}
 @keyframes drift{from{transform:translate3d(-.9%,0,0)}to{transform:translate3d(-8.2%,19.3%,0)}}
-main,.nav{position:relative;z-index:1}
+main{position:relative;z-index:1}
 .gtext{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-/* nav */
-.nav{position:sticky;z-index:9;top:env(safe-area-inset-top,0px);z-index:9;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 12px 0 16px;transition:background-color .3s,box-shadow .3s}
-body.scrolled .nav{background:var(--nav);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);box-shadow:0 .5px 0 var(--sep)}
-.nav-title{font-weight:600;opacity:0;transform:translateY(6px);transition:opacity .25s,transform .35s var(--spring)}
-body.scrolled .nav-title{opacity:1;transform:none}
-.nav-actions{display:flex;gap:4px}
 .icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--accent);transition:transform .25s var(--spring),background-color .2s}
 .icon-btn:active{transform:scale(.86);background:var(--fill)}
 .icon-btn svg{width:22px;height:22px}
 
-main{padding:0 16px calc(120px + env(safe-area-inset-bottom,0px))}
-h1.large{font-size:28px;font-weight:700;letter-spacing:.01em;margin:2px 4px 14px}
+/* no top bar: the large title sits right under the status bar (html already pads the top safe area); the bottom inset is padded once on html */
+/* the aura runs under the status bar to the very top; only the content is pushed below the safe area */
+main{padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 108px}
+h1.large{font-size:22px;font-weight:700;letter-spacing:.005em;margin:18px 4px 8px}
 
 /* hero */
 .hero{padding:0 4px}
-.hero-label{font-size:13px;color:var(--sec);height:18px;transition:color .2s}
-.total{font-size:38px;font-weight:700;letter-spacing:-.025em;line-height:1.08;margin:2px 0 4px;white-space:nowrap;
+.hero-label{position:absolute;left:0;bottom:6px;font-size:13px;color:var(--sec);height:18px;transition:color .2s}
+.hero-top{position:relative;height:0}
+.eye{width:30px;height:30px;margin:-4px 0 -4px -7px;border-radius:50%;display:grid;place-items:center;color:var(--sec);transition:transform .3s var(--bounce),color .2s}
+.eye svg{width:18px;height:18px}
+.eye:active{transform:scale(.8);color:var(--text)}
+.split{font-size:13px;color:var(--sec);margin-top:4px}
+.split b{font-weight:500;color:var(--text)}
+.total{font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1.08;margin:2px 0 4px;white-space:nowrap;
   transition:filter .45s var(--spring),font-size .3s var(--spring)}
 .delta{font-size:13px;font-weight:600;height:20px;display:flex;align-items:center;gap:6px;color:var(--sec)}
 .delta .chg{display:inline-flex;align-items:center;gap:3px;transition:color .3s}
@@ -113,7 +135,12 @@ body.hide .amt{filter:blur(10px)}
 #chart.scrubbing .scrub{opacity:1}
 #chart.scrubbing .enddot,#chart.scrubbing .pulse{opacity:0}
 #chart .scrub line{stroke:var(--sec);stroke-width:1}
-#chart .scrub circle{stroke:var(--card);stroke-width:3;transition:cx .12s var(--spring),cy .12s var(--spring)}
+#chart .scrub circle{stroke:var(--card);stroke-width:3}
+.scrub-tip{position:absolute;left:0;top:0;transform:translate(-50%,calc(-100% - 12px));pointer-events:none;opacity:0;white-space:nowrap;
+  padding:6px 11px;border-radius:13px;background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
+  box-shadow:var(--gshadow);font-size:14px;font-weight:600;text-align:center;line-height:1.2;transition:opacity .15s}
+.scrub-tip small{display:block;font-size:11px;font-weight:500;color:var(--sec)}
+.chart-wrap.scrubbing .scrub-tip{opacity:1}
 #chart .pulse{transform-box:fill-box;transform-origin:center;animation:pulse 2.4s var(--ease) infinite}
 @keyframes pulse{0%{transform:scale(1);opacity:.5}70%,100%{transform:scale(3.2);opacity:0}}
 .chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 40px;font-size:14px;color:var(--sec);pointer-events:none;opacity:0;transition:opacity .4s}
@@ -159,8 +186,32 @@ button.row:active{background:var(--fill)}
 
 /* allocation */
 .alloc{padding:16px}
-.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;background:var(--fill)}
-.bar span{display:block;height:100%;background-image:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,0));flex:0 0 0;transition:flex-basis 1s var(--spring)}
+.donut-wrap{position:relative;width:170px;height:170px;margin:4px auto 8px}
+#donut{width:100%;height:100%;transform:rotate(-90deg)}
+#donut circle{fill:none;stroke-width:14}
+#donut .dbg{stroke:var(--fill)}
+#donut .dseg{transition:stroke-dasharray 1s var(--spring)}
+.donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.donut-c .num{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.donut-c .t2{font-size:12px;color:var(--sec)}
+.ad{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px;margin-top:16px}
+.ad .t2{font-size:13px;color:var(--sec)}
+.ad .num{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.ad > div:last-child .num{color:var(--down)}
+.more{display:grid;grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows .5s var(--spring),visibility 0s .5s}
+.more.open{grid-template-rows:1fr;visibility:visible;transition:grid-template-rows .5s var(--spring),visibility 0s}
+.more-in{overflow:hidden;min-height:0}
+.seeall{display:flex;align-items:center;justify-content:center;gap:2px;width:100%;padding:12px 0 14px;color:var(--text);font-size:14px;font-weight:600}
+.section-h .edit-btn{color:var(--text);margin:-8px -6px -8px 0}
+.edit-btn{width:38px;height:38px;display:grid;place-items:center;color:var(--text);transition:transform .25s var(--spring),opacity .2s}
+.section-h .edit-btn svg,.edit-btn svg{width:24px;height:24px} .edit-btn:active{transform:scale(.85);opacity:.7}
+.alloc .seg{margin:0 0 14px}
+.abars .ab{padding:7px 0}
+.abars .ab-h{display:flex;align-items:center;gap:10px;font-size:14px}
+.abars .ab-h .nm{flex:1} .abars .ab-h .pc{color:var(--sec)} .abars .ab-h .vl{font-weight:500;width:90px;text-align:right}
+.abars .ab-t{height:8px;border-radius:4px;background:var(--fill);margin-top:7px;overflow:hidden}
+.abars .ab-t i{display:block;height:100%;border-radius:4px;width:0;transition:width 1s var(--spring)}
+.seeall svg{width:20px;height:20px;transition:transform .4s var(--spring)} .seeall.open svg{transform:rotate(180deg)}
 .legend{margin-top:12px}
 .legend .li{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px}
 .legend .sw{width:10px;height:10px;border-radius:3px;flex:none}
@@ -171,34 +222,16 @@ button.row:active{background:var(--fill)}
 .empty-list{padding:28px 20px;text-align:center;color:var(--sec);font-size:14px}
 .foot{text-align:center;color:var(--ter);font-size:12px;margin-top:28px}
 
-/* monthly tiles */
-.section-h.tight{margin-top:22px}
-.section-h.tight h2{font-size:17px}
 .section-h button{font-size:14px;font-weight:600}
-.tiles{display:flex;gap:10px;overflow-x:auto;margin:0 -16px;padding:2px 16px 10px;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.tiles::-webkit-scrollbar{display:none}
-.tile{flex:none;width:138px;min-height:96px;scroll-snap-align:start;scroll-margin-left:16px;background:var(--card);border-radius:18px;padding:12px 14px;text-align:left;display:flex;flex-direction:column;border:1.5px solid transparent;transition:transform .35s var(--spring)}
-.tile:active{transform:scale(.95)}
-.tile .m{font-size:13px;color:var(--sec);font-weight:600;display:flex;justify-content:space-between;align-items:center}
-.tile .v{font-size:17px;font-weight:700;letter-spacing:-.015em;margin-top:auto;padding-top:10px;white-space:nowrap}
-.tile .c{font-size:13px;margin-top:2px;color:var(--sec);white-space:nowrap}
-.tile.sel{background:linear-gradient(var(--card),var(--card)) padding-box,var(--grad) border-box;box-shadow:var(--glow)}
-.tile .badge{font-size:11px;font-weight:700;color:#fff;background:var(--grad);border-radius:8px;padding:2px 7px}
-.tile.todo{background:transparent;border:1.5px dashed var(--fill2)}
-.tile.todo .plus{width:30px;height:30px;border-radius:50%;background:var(--grad);box-shadow:var(--glow);display:grid;place-items:center;color:#fff;margin-top:auto}
-.tile.todo .plus svg{width:16px;height:16px}
-.tile.todo .c{margin-top:8px;color:var(--text);font-weight:600}
-.tile.pop{animation:tilein .6s var(--spring) both}
-@keyframes tilein{from{opacity:0;transform:translateX(18px) scale(.96)}}
 
 /* tab bar */
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:15;max-width:560px;margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between;
   padding:26px 16px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--bg) 46%);
   transition:transform .5s var(--spring),opacity .3s}
 body.sheet-open .tabbar{transform:translateY(120%);opacity:0;pointer-events:none}
-.tabs{position:relative;flex:none;display:grid;grid-template-columns:repeat(2,92px);height:62px;padding:4px;border-radius:31px;background:var(--card);
+.tabs{position:relative;flex:none;display:grid;grid-template-columns:repeat(3,84px);height:62px;padding:4px;border-radius:31px;background:var(--card);
   box-shadow:0 10px 30px -12px rgba(0,0,0,.3),inset 0 0 0 .5px var(--sep)}
-.tab{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;color:var(--sec);border-radius:27px;transition:color .3s}
+.tab{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;color:var(--text);border-radius:27px;transition:color .3s}
 .tab svg{width:24px;height:24px;transition:transform .5s var(--spring)}
 .tab[aria-selected="true"]{color:var(--accent)}
 .tab[aria-selected="true"] svg{transform:scale(1.1)}
@@ -236,24 +269,24 @@ input::-webkit-calendar-picker-indicator{display:none!important;opacity:0}
 .view.active{display:block;animation:viewin .5s var(--spring)}
 @keyframes viewin{from{opacity:0;transform:translateY(12px)}}
 h1.large.swap{animation:viewin .45s var(--spring)}
-#mmode{margin:0 0 14px}
 .ghost.wide{width:100%;justify-content:center;margin-top:16px}
 .ghost.wide span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.mdetail-empty{padding:40px 20px;text-align:center;color:var(--sec);font-size:14px}
-.mhead{margin:10px 4px 0}
-/* table */
-.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.tbl{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%}
-.tbl th,.tbl td{padding:12px 14px;white-space:nowrap;text-align:right;border-bottom:.5px solid var(--sep);font-variant-numeric:tabular-nums}
-.tbl tr:last-child td{border-bottom:0}
-.tbl th{font-size:13px;font-weight:600;color:var(--sec);cursor:pointer}
-.tbl th:active{color:var(--accent)}
-.tbl .first{position:sticky;left:0;z-index:1;background:var(--card);text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;box-shadow:6px 0 10px -8px rgba(0,0,0,.2)}
-.tbl .first small{display:block;font-size:12px;color:var(--sec);font-weight:400}
-.tbl .tot td{font-weight:700}
-.tbl .na{color:var(--ter)}
-.tbl .up{color:var(--up)} .tbl .dn{color:var(--down)}
-.tbl-note{font-size:13px;color:var(--sec);margin:10px 16px 0}
+.mdetail-empty{padding:34px 24px;text-align:center;color:var(--sec);font-size:14px;line-height:1.45}
+.mhead{margin:6px 4px 0}
+/* monthly: one month at a time */
+#vMonthly{touch-action:pan-y}
+.mnav .ttl{text-align:center;font-size:17px;font-weight:600}
+.quiet{display:block;margin:26px auto 0;color:var(--down);font-size:14px;font-weight:500;padding:9px 16px;border-radius:999px;transition:background-color .2s,color .2s}
+.quiet.armed{background:var(--down);color:#fff}
+.link{color:var(--accent);font-size:13px;font-weight:600;padding:4px 0;white-space:nowrap}
+.carry{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 16px 0;font-size:13px;color:var(--sec);line-height:1.4}
+.add-row{color:var(--accent);font-weight:500}
+.add-row .avatar{background:var(--fill)!important;color:var(--accent)}
+/* settings tab */
+.rate-row{display:flex;justify-content:space-between;align-items:center;padding:0 20px;min-height:48px;font-size:15px}
+.rate-row span:first-child{color:var(--sec)}
+.rate-row span:last-child{font-weight:500}
+#vSettings .lbl-s:first-child{margin-top:0}
 
 /* history */
 .row.noav + .row.noav::before{left:16px}
@@ -263,7 +296,7 @@ h1.large.swap{animation:viewin .45s var(--spring)}
 .more-btn{display:block;margin:10px auto 0;font-size:14px;font-weight:600;padding:6px 12px}
 .mnav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;margin:4px 0 6px}
 .mnav .icon-btn:disabled{opacity:.2;pointer-events:none}
-.mnav .icon-btn svg{width:20px;height:20px}
+.mnav .icon-btn svg{width:24px;height:24px}
 .mhead{text-align:center}
 .mhead .total{font-size:33px;margin:0}
 .mhead .delta{justify-content:center}
@@ -341,30 +374,28 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 #toast svg{width:20px;height:20px;color:var(--g1)}
 
 /* ---------- liquid glass ---------- */
-.card,.tile:not(.todo),.ghost,.danger{background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(175%);backdrop-filter:blur(26px) saturate(175%);box-shadow:var(--gshadow);position:relative}
-.tile.sel{background:linear-gradient(var(--card),var(--card)) padding-box,var(--grad) border-box}
-.card::after,.tabs::after,.fab::after,.icon-btn::after,.seg .thumb::after,.tile:not(.todo)::after,.ghost::after,#sheet::after,#toast::after,.tab-ind::after,.danger::after{
+.card,.ghost,.danger{background:var(--glass);-webkit-backdrop-filter:blur(26px) saturate(175%);backdrop-filter:blur(26px) saturate(175%);box-shadow:var(--gshadow);position:relative}
+.card::after,.tabs::after,.fab::after,.icon-btn::after,.seg .thumb::after,.ghost::after,#sheet::after,#toast::after,.tab-ind::after,.danger::after{
   content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;padding:1px;
   background:linear-gradient(150deg,var(--rim),var(--rim2) 28%,transparent 52%,var(--rim2) 78%,var(--rim));
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 .icon-btn{position:relative;background:var(--glass-strong);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);box-shadow:var(--gshadow);transition:transform .5s var(--bounce),background-color .2s}
 .icon-btn:active{transform:scale(.82);background:var(--glass-strong)}
-.nav-actions{gap:8px}
 /* glass tab bar */
-.tabbar{--tw:92px;background:none;pointer-events:none}
+/* Floating bar, proportions copied from Apple Health's tab bar (measured on a 402pt screenshot):
+   pill 274 x 62, tabs on an 86px pitch with 8px of padding at both ends (first icon centre 51px from the edge),
+   selected capsule 94 x 55 (wider than the pitch), inset 4px at the sides and 3.5px top and bottom, icon ~22px, label 11px.
+   The pill and the 62px + button sit together as one centred group, 10px apart, about 18px above the bottom edge. */
+.tabbar{--tw:86px;background:none;pointer-events:none;gap:10px;justify-content:center;padding:20px 20px max(10px,calc(env(safe-area-inset-bottom,0px) - 16px))}
 .tabbar > *{pointer-events:auto}
-.tabbar.min{--tw:64px}
-.tabs{grid-template-columns:repeat(2,var(--tw));background:var(--glass-strong);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
-  box-shadow:var(--gshadow);transition:grid-template-columns .55s var(--spring),height .55s var(--spring),border-radius .55s var(--spring)}
-.tabbar.min .tabs{height:52px;border-radius:26px}
-.tab span{max-height:14px;transition:opacity .3s,max-height .45s var(--spring)}
-.tabbar.min .tab span{opacity:0;max-height:0}
-.tab-ind{width:var(--tw);background:var(--lens);box-shadow:0 4px 14px -6px rgba(0,0,0,.25);transition:transform .6s var(--spring),width .55s var(--spring)}
-.fab{position:relative;transition:transform .6s var(--bounce),width .55s var(--spring),height .55s var(--spring);
-  box-shadow:var(--glow),inset 0 1px 1px rgba(255,255,255,.5),inset 0 -8px 16px rgba(0,0,0,.2)}
-.fab::before{content:"";position:absolute;left:16%;top:7%;width:58%;height:42%;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.5),transparent);pointer-events:none}
+.tabs{flex:none;grid-template-columns:repeat(3,var(--tw));height:62px;padding:3.5px 8px;border-radius:31px;background:var(--tabbg);-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+  box-shadow:var(--gshadow)}
+.tab{border-radius:27.5px;gap:2px}
+.tab svg{width:26px;height:26px}
+.tab-ind{top:3.5px;bottom:3.5px;left:4px;width:calc(var(--tw) + 8px);border-radius:27.5px;background:var(--tabind);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.06);transition:transform .6s var(--spring)}
+/* no coloured glow and no gloss on the + button: a plain gradient circle with a soft dark shadow for depth */
+.fab{position:relative;width:62px;height:62px;transition:transform .6s var(--bounce);box-shadow:0 8px 20px -8px rgba(0,0,0,.6)}
 .fab:active{transform:scale(.84)}
-.tabbar.min .fab{width:52px;height:52px}
 /* glass segmented */
 #app .seg,#sheet .seg{background:var(--glass);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border-radius:12px;padding:3px}
 #app .seg .thumb,#sheet .seg .thumb{top:3px;bottom:3px;left:3px;border-radius:9px;background:var(--lens);box-shadow:0 4px 14px -6px rgba(0,0,0,.3);transition:transform .6s var(--bounce)}
@@ -373,7 +404,7 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
   transition:transform .62s var(--spring),opacity .35s,border-radius .62s var(--spring),visibility 0s linear .62s}
 #sheet.open{transition:transform .62s var(--spring),opacity .25s,border-radius .62s var(--spring),visibility 0s}
 #sheet.dragging{transition:none}
-#sheet.from-fab{transform-origin:calc(100% - 47px) calc(100% - 40px)}
+#sheet.from-fab{transform-origin:calc(50% + 142px) calc(100% - 49px)}
 #sheet.from-fab:not(.open){transform:scale(.1);opacity:0;border-radius:200px}
 #toast{background:var(--glass-strong);-webkit-backdrop-filter:blur(26px) saturate(180%);backdrop-filter:blur(26px) saturate(180%)}
 /* macro view transitions */
@@ -387,11 +418,10 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 @keyframes rise{from{opacity:0;transform:translate3d(0,32px,0) scale(.96)}}
 
 /* ---------- content cards: solid rounded surfaces; glass stays on floating controls ---------- */
-.card,.tile:not(.todo):not(.sel){background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
-.card::after,.tile:not(.todo)::after{content:none}
+.card{background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+.card::after{content:none}
 .card{border-radius:26px}
-.tile{border-radius:22px}
-#sheet .card,#sheet .tbl .first{background:var(--card2)}
+#sheet .card{background:var(--card2)}
 .alloc{padding:18px 20px}
 /* entry rows: round type icon, name and detail left, amount and share right, no dividers */
 .card > .row:first-child{margin-top:6px}
@@ -399,7 +429,8 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .row{gap:14px;padding:12px 20px;min-height:66px}
 .row + .row::before{display:none}
 .avatar{width:40px;height:40px;border-radius:50%;background-image:none;box-shadow:none}
-.avatar svg{width:19px;height:19px}
+.avatar svg{width:22px;height:22px}
+svg.mi{fill:currentColor}
 .row .t1{font-weight:500}
 .row .t2{font-size:13px;margin-top:2px}
 .row .end .t1{font-weight:500}
@@ -413,52 +444,46 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 <body>
 <div id="app">
   <div class="aura" aria-hidden="true"><i class="aura-drift"></i></div>
-  <header class="nav">
-    <span class="nav-title">Worth</span>
-    <div class="nav-actions">
-      <button class="icon-btn" id="btnHide" aria-label="Hide amounts">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="eyeIcon"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
-      <button class="icon-btn" id="btnSettings" aria-label="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.2"/><circle cx="8" cy="17" r="2.2"/></svg>
-      </button>
-    </div>
-  </header>
   <main>
     <h1 class="large" id="largeTitle">Net worth</h1>
 
     <section class="view" id="vWorth">
       <section class="hero">
-        <div class="hero-label" id="heroLabel">Today</div>
+        
         <div class="total num amt" id="total">€0</div>
         <div class="delta num" id="delta"></div>
       </section>
       <div class="chart-wrap" id="chartWrap">
         <svg id="chart" aria-label="Net worth over time"></svg>
+        <div class="scrub-tip num" id="sTip"></div>
         <div class="chart-empty" id="chartEmpty"></div>
       </div>
       <div class="seg" id="range" role="group" aria-label="Time range">
         <span class="thumb"></span>
         <button data-r="1">1M</button><button data-r="6">6M</button><button data-r="12">1Y</button><button data-r="0">All</button>
       </div>
+      <div class="card ad" id="adCard">
+        <div><div class="t2">Assets</div><div class="num amt" id="adA"></div></div>
+        <div><div class="t2">Debts</div><div class="num amt" id="adD"></div></div>
+      </div>
       <div id="allocSection">
         <div class="section-h"><h2>Allocation</h2></div>
-        <div class="card alloc"><div class="bar" id="bar"></div><div class="legend" id="legend"></div></div>
+        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
       </div>
-      <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="gtext">Update balances</button></div>
+      <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="edit-btn" aria-label="Update balances" data-mi="edit"></button></div>
       <div class="card" id="list"></div>
     </section>
 
     <section class="view" id="vMonthly">
-      <div class="seg" id="mmode" role="group" aria-label="Monthly view">
-        <span class="thumb"></span><button data-v="month">By month</button><button data-v="table">Table</button>
+      <div class="mnav">
+        <button class="icon-btn" id="mPrev" aria-label="Previous month" data-mi="left"></button>
+        <div class="ttl" id="mTitle"></div>
+        <button class="icon-btn" id="mNext" aria-label="Next month" data-mi="right"></button>
       </div>
-      <div id="mMonth">
-        <div class="tiles" id="tiles"></div>
-        <div id="mDetail"></div>
-      </div>
-      <div id="mTable"></div>
+      <div id="mDetail"></div>
     </section>
+
+    <section class="view" id="vSettings"></section>
 
     <p class="foot" id="foot"></p>
   </main>
@@ -466,24 +491,50 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 <nav class="tabbar" id="tabbar">
   <div class="tabs" role="tablist">
     <span class="tab-ind"></span>
-    <button class="tab" role="tab" data-tab="worth">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-1 4-6 7-6s3.5 3 6 2 3-6 5-7"/><path d="M3 21h18" opacity=".45"/></svg>
-      <span>Net worth</span>
-    </button>
-    <button class="tab" role="tab" data-tab="monthly">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/><path d="M8 14h2M14 14h2M8 17h2" opacity=".6"/></svg>
-      <span>Monthly</span>
-    </button>
+    <button class="tab" role="tab" data-tab="worth"><i data-mi="chart"></i><span>Net worth</span></button>
+    <button class="tab" role="tab" data-tab="monthly"><i data-mi="calendar"></i><span>Monthly</span></button>
+    <button class="tab" role="tab" data-tab="settings"><i data-mi="settings"></i><span>Settings</span></button>
   </div>
-  <button class="fab" id="fab" aria-label="Add entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="fab" id="fab" aria-label="Add entry" data-mi="add"></button>
 </nav>
 <div id="scrim"></div>
 <div id="sheet" role="dialog" aria-modal="true"></div>
-<div id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span></span></div>
+<div id="toast"><i data-mi="check"></i><span></span></div>
 
 <script>
-(function(){
+(async function(){
 "use strict";
+/* ---------- icons ---------- */
+/* Material Symbols Rounded (Apache-2.0), 400 weight, viewBox 0 -960 960 960. Swap for SF Symbols in the Swift app. */
+const MI = {
+  "edit":"M120-120v-150l490-490q15-15 35-15t35 15l65 65q15 15 15 35t-15 35L270-120H120Zm60-60h60l395-395-60-60-395 395v60Zm455-455 25-25-30-30-25 25 30 30Z",
+  "expand":"M480-361q-8 0-15-2.500t-13-8.500L268-556q-11-11-11-28t11-28q11-11 28-11t28 11l156 156 156-156q11-11 28-11t28 11q11 11 11 28t-11 28L508-372q-6 6-13 8.500t-15 2.500Z",
+  "chart":"M93-266q0-13 10-23l234-234q17-17 42.5-17.5T422-523l118 118 278-312q8-9 20.5-10t21.5 8q8 8 8.5 20t-7.5 21L582-363q-17 20-43 20.5T495-360L380-474 149-243q-10 10-23 10t-23-10q-10-10-10-23Z",
+  "calendar":"M180-80q-24 0-42-18t-18-42v-620q0-24 18-42t42-18h65v-28q0-13.6 9-22.8 9-9.2 23.02-9.2t23.5 9.2Q310-861.6 310-848v28h340v-28q0-13.6 9-22.8 9-9.2 23.02-9.2t23.5 9.2Q715-861.6 715-848v28h65q24 0 42 18t18 42v620q0 24-18 42t-42 18H180Zm0-60h600v-430H180v430Zm300-260q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-188.5-11.5Q280-423 280-440t11.5-28.5Q303-480 320-480t28.5 11.5Q360-457 360-440t-11.5 28.5Q337-400 320-400t-28.5-11.5ZM640-400q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-188.5-11.5Q280-263 280-280t11.5-28.5Q303-320 320-320t28.5 11.5Q360-297 360-280t-11.5 28.5Q337-240 320-240t-28.5-11.5ZM640-240q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z",
+  "settings":"M421-80q-14 0-25-9t-13-23l-15-94q-19-7-40-19t-37-25l-86 40q-14 6-28 1.5T155-226L97-330q-8-13-4.5-27t15.5-23l80-59q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521l-80-59q-12-9-15.5-23t4.5-27l58-104q8-13 22-17.5t28 1.5l86 40q16-13 37-25t40-18l15-95q2-14 13-23t25-9h118q14 0 25 9t13 23l15 94q19 7 40.5 18.5T669-710l86-40q14-6 27.5-1.5T804-734l59 104q8 13 4.5 27.5T852-580l-80 57q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l80 58q12 8 15.5 22.5T863-330l-58 104q-8 13-22 17.5t-28-1.5l-86-40q-16 13-36.5 25.5T592-206l-15 94q-2 14-13 23t-25 9H421Zm59-270q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Z",
+  "add":"M450-450H230q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h220v-220q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v220h220q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H510v220q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37v-220Z",
+  "eye":"M600.5-379.62q49.5-49.62 49.5-120.5T600.38-620.5Q550.76-670 479.88-670T359.5-620.38Q310-570.76 310-499.88t49.62 120.38q49.62 49.5 120.5 49.5t120.38-49.62Zm-200-41.12q-32.5-32.73-32.5-79.5 0-46.76 32.74-79.26 32.73-32.5 79.5-32.5 46.76 0 79.26 32.74 32.5 32.73 32.5 79.5 0 46.76-32.74 79.26-32.73 32.5-79.5 32.5-46.76 0-79.26-32.74ZM234.5-276Q124-352 57-470q-4-7.13-6-14.65-2-7.52-2-15.43 0-7.92 2-15.38 2-7.47 6-14.54 67-118 177.5-194T480-800q135 0 245.5 76T903-530q4 7.12 6 14.65 2 7.52 2 15.43 0 7.92-2 15.38-2 7.47-6 14.54-67 118-177.5 194T480-200q-135 0-245.5-76ZM480-500Zm222.5 174.5Q804-391 857-500q-53-109-154.33-174.5Q601.34-740 480.17-740T257.5-674.5Q156-609 102-500q54 109 155.33 174.5Q358.66-260 479.83-260t222.67-65.5Z",
+  "eyeOff":"M600-620q29 29 42.5 71.5T647-464q0 13-8.5 21.5T617-434q-13 0-21.5-8.5T587-464q11-34 2.5-64.5T559-580q-21-22-52-30t-64 3q-13 0-21.5-8.5T413-637q0-13 8.5-21.5T443-667q42-9 85 4.5t72 42.5ZM490-740q-32 0-64 3t-63 13q-12 4-24-1t-17-16q-5-11 0-22.5t16-15.5q35-11 72-16t75-5q137 0 249.5 75.5T907-526q3 6 5 12.5t2 13.5q0 7-1.5 13.5T908-474q-23 49-55 90.5T779-307q-9 8-20 5.5T741-313q-7-9-5.5-20t10.5-19q36-30 65-66.5t46-81.5q-49-109-148-174.5T490-740Zm-10 540q-136 0-247.5-76T55-472q-4-7-5.5-13.5T48-500q0-8 2-14.5t5-13.5q24-48 55.5-90.5T182-696L77-801q-9-9-8.5-21t8.5-21q9-9 21.5-9t21.5 9l716 716q8 8 8 19.5T836-87q-8 10-20.5 10T794-86L648-229q-41 15-83 22t-85 7ZM223-654q-41 29-72 68t-49 86q52 112 156.5 176T488-260q29 0 58-1.5t55-14.5l-64-64q-14 6-28.5 8t-28.5 2q-71 0-120.5-49.5T310-500q0-14 2.5-28.5T320-557l-97-97Zm305 142Zm-116 58Z",
+  "check":"m378-332 363-363q9-9 21.5-9t21.5 9q9 9 9 21.5t-9 21.5L399-267q-9 9-21 9t-21-9L175-449q-9-9-8.5-21.5T176-492q9-9 21.5-9t21.5 9l159 160Z",
+  "left":"m406-481 177 177q9 9 8.5 21t-9.5 21q-9 9-21.5 9t-21.5-9L341-460q-5-5-7-10t-2-11q0-6 2-11t7-10l199-199q9-9 21.5-9t21.5 9q9 9 9 21.5t-9 21.5L406-481Z",
+  "right":"M530-481 353-658q-9-9-8.5-21t9.5-21q9-9 21.5-9t21.5 9l198 198q5 5 7 10t2 11q0 6-2 11t-7 10L396-261q-9 9-21 8.5t-21-9.5q-9-9-9-21.5t9-21.5l176-176Z",
+  "sync":"M220-477q0 63 23.5 109.5T307-287l30 21v-94q0-13 8.5-21.5T367-390q13 0 21.5 8.5T397-360v170q0 13-8.5 21.5T367-160H197q-13 0-21.5-8.5T167-190q0-13 8.5-21.5T197-220h100l-15-12q-64-51-93-111t-29-134q0-94 49.5-171.5T342-766q11-5 21 0t14 16q5 11 0 22.5T361-710q-64 34-102.5 96.5T220-477Zm520-6q0-48-23.5-97.5T655-668l-29-26v94q0 13-8.5 21.5T596-570q-13 0-21.5-8.5T566-600v-170q0-13 8.5-21.5T596-800h170q13 0 21.5 8.5T796-770q0 13-8.5 21.5T766-740H665l15 14q60 56 90 120t30 123q0 93-48 169.5T623-195q-11 6-22.5 1.5T584-210q-5-11 0-22.5t16-17.5q65-33 102.5-96T740-483Z",
+  "bank":"M212-271v-279q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v279q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37Zm242 0v-279q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v279q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37ZM110-121q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32Q97.25-181 110-181h740q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H110Zm578-150v-279q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v279q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37Zm166-369H103q-9.58 0-16.29-6.71Q80-653.42 80-663v-17q0-6 3.5-11.5T92-700l358-204q14.17-8 30-8t30 8l357 203q6 4 9.5 10t3.5 13.5v10.23q0 11.59-7.47 19.43Q865.05-640 854-640Z",
+  "stocks":"M102-252q-9-9-9-21.5t9-21.5l228-227q16.93-17 41.97-17Q397-539 414-522l125 125 241-241h-97q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h167q12.75 0 21.38 8.62Q880-680.75 880-668v167q0 12-8.27 21t-20.5 9Q839-471 830-480t-9-21v-93L580-354q-16.93 17-41.97 17Q513-337 496-354L371-478 145-252q-9 9-21.5 9t-21.5-9Z",
+  "etf":"M510-510v-309q123 8 210.5 97.5T819-510H510Zm-60 369q-131-11-220.5-109T140-480q0-132 89.5-230T450-819v678Zm60 0v-309h309q-11 122-98.5 211.5T510-141Z",
+  "mf":"m117-154 234-234q17-17 42.5-17.5T436-388l118 118 278-312q8-9 20.5-10t21.37 7.87Q882-576 882.5-564.1q.5 11.89-7.5 21.1L596-228q-17 20-43 20.5T509-225L394-339 163-108q-9.96 10-22.98 10T117-107.97q-10-9.96-10-23Q107-144 117-154Zm0-269 234-234q17-17 42.5-17.5T436-657l118 118 278-312q8-9 20.5-10t21.37 7.87Q882-845 882.5-833.1q.5 11.89-7.5 21.1L596-497q-17 20-43 20.5T509-494L394-608 163-377q-9.96 10-22.98 10T117-376.97q-10-9.96-10-23Q107-413 117-423Z",
+  "crypto":"M370-150v-60H270q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h60v-420h-60q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h100v-60q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v60h110v-60q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v63q54 11 87 53t33 94q0 28-11 55.5T677-495q39 20 61 56.5t22 78.1q0 62.4-43.5 106.4Q673-210 610-210h-10v60q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37v-60H430v60q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37Zm20-360h180q38 0 64-26.44T660-600q0-38-26-64t-64-26H390v180Zm0 240h220q38 0 64-26.44T700-360q0-38-26-64t-64-26H390v180Z",
+  "cash":"M100-160q-24.75 0-42.37-17.63Q40-195.25 40-220v-430q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v430h670q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H100Zm120-120q-24.75 0-42.37-17.63Q160-315.25 160-340v-400q0-24.75 17.63-42.38Q195.25-800 220-800h640q24.75 0 42.38 17.62Q920-764.75 920-740v400q0 24.75-17.62 42.37Q884.75-280 860-280H220Zm100-60q0-42-29-71t-71-29v100h100Zm440 0h100v-100q-42 0-71 29t-29 71Zm-220-80q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM220-640q42 0 71-29t29-71H220v100Zm640 0v-100H760q0 42 29 71t71 29Z",
+  "property":"M160-180v-390q0-14.25 6.38-27 6.37-12.75 17.62-21l260-195q15.68-12 35.84-12Q500-825 516-813l260 195q11.25 8.25 17.63 21 6.37 12.75 6.37 27v390q0 24.75-17.62 42.37Q764.75-120 740-120H590q-12.75 0-21.37-8.63Q560-137.25 560-150v-220q0-12.75-8.62-21.38Q542.75-400 530-400H430q-12.75 0-21.37 8.62Q400-382.75 400-370v220q0 12.75-8.62 21.37Q382.75-120 370-120H220q-24.75 0-42.37-17.63Q160-155.25 160-180Z",
+  "vehicle":"M200-204v44q0 16.67-11.74 28.33Q176.53-120 159.76-120q-16.76 0-28.26-11.67Q120-143.33 120-160v-304q0-4.67.5-9.33.5-4.67 2.5-9.67l78-236q6-19 21.75-30T258-760h444q19.5 0 35.25 11T759-719l78 236q2 5 2.5 9.67.5 4.66.5 9.33v304q0 16.67-11.74 28.33Q816.53-120 799.76-120 783-120 771-131.96T759-161v-43H200Zm3-330h554l-55-166H258l-55 166Zm82.76 220q23.24 0 38.74-15.75Q340-345.5 340-368q0-23.33-15.75-39.67Q308.5-424 286-424q-23.33 0-39.67 16.26Q230-391.47 230-368.24q0 23.24 16.26 38.74 16.27 15.5 39.5 15.5ZM675-314q23.33 0 39.67-15.75Q731-345.5 731-368q0-23.33-16.26-39.67Q698.47-424 675.24-424q-23.24 0-38.74 16.26-15.5 16.27-15.5 39.5 0 23.24 15.75 38.74Q652.5-314 675-314Z",
+  "valuables":"M358-625h244L497-840h-34L358-625Zm97 475v-425H101l354 425Zm50 0 354-425H505v425Zm153-475h209l-90-182q-8-15-22.5-24t-31.5-9H553l105 215Zm-565 0h209l105-215H237q-17 0-31.5 9T183-807L93-625Z",
+  "mortgage":"M736-365q-12-33-34.5-54.5T636-458l-251-95q-8-3-17.5-4t-23.5-1h-44v-128q0-14 6.5-27.5T325-735l210-150q8.34-5.87 17.07-8.43 8.72-2.57 17.83-2.57 9.1 0 18.28 2.57 9.17 2.56 16.82 8.43l210 150q12 8 18.5 21.5T840-686v321H736ZM624-636q6-6 6-14t-6-14q-6-6-14-6t-14 6q-6 6-6 14t6 14q6 6 14 6t14-6Zm-80 0q6-6 6-14t-6-14q-6-6-14-6t-14 6q-6 6-6 14t6 14q6 6 14 6t14-6Zm80 80q6-6 6-14t-6-14q-6-6-14-6t-14 6q-6 6-6 14t6 14q6 6 14 6t14-6Zm-80 0q6-6 6-14t-6-14q-6-6-14-6t-14 6q-6 6-6 14t6 14q6 6 14 6t14-6Zm5 503q8 2 17 2t17-2l297-91q0-54-30.5-80.5T762-251H587q-45 0-69.5-4.5T477-265l-61-21q-6-2.28-8.5-7.6T407-305q2-6 7.5-8.5t11.5-.5l59 19q24 8 44 11t46 3h73q8 0 13-4.98t5-13.02q0-23-16-45.5T604-378l-245-92q-5.25-1.6-10.5-2.8-5.25-1.2-10.5-1.2h-83v337l294 84ZM40-140q0 24.75 17.63 42.37Q75.25-80 100-80h34q24.75 0 42.38-17.63Q194-115.25 194-140v-274q0-24.75-17.62-42.38Q158.75-474 134-474h-34q-24.75 0-42.37 17.62Q40-438.75 40-414v274Z",
+  "loan":"M450-241v25q0 6 4.5 10.5T465-201h30q6 0 10.5-4.5T510-216v-25h60q12.75 0 21.38-8.63Q600-258.25 600-271v-130q0-12.75-8.62-21.38Q582.75-431 570-431H420v-70h150q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5h-60v-25q0-6-4.5-10.5T495-601h-30q-6 0-10.5 4.5T450-586v25h-60q-12.75 0-21.37 8.62Q360-543.75 360-531v130q0 12.75 8.63 21.37Q377.25-371 390-371h150v70H390q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5h60ZM220-80q-24 0-42-18t-18-42v-680q0-24 18-42t42-18h361l219 219v521q0 24-18 42t-42 18H220Zm334-740v156q0 12.75 8.63 21.37Q571.25-634 584-634h156L554-820Z",
+  "card":"M140-160q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h680q24 0 42 18t18 42v520q0 24-18 42t-42 18H140Zm0-342h680v-129H140v129Z",
+  "other":"m289-572 167-267q5-7 11-10.5t14-3.5q8 0 14 3.5t11 10.5l167 267q5 8 4.5 16t-4.5 15q-4 7-10.6 11t-15.4 4H315q-8.8 0-15.4-4T289-541q-4-7-4.5-15t4.5-16ZM706-80q-72.5 0-123.25-50.75T532-254q0-72.5 50.75-123.25T706-428q72.5 0 123.25 50.75T880-254q0 72.5-50.75 123.25T706-80Zm-586-55v-244q0-12.75 8.63-21.38Q137.25-409 150-409h244q12.75 0 21.38 8.62Q424-391.75 424-379v244q0 12.75-8.62 21.37Q406.75-105 394-105H150q-12.75 0-21.37-8.63Q120-122.25 120-135Z"
+};
+const ic = (k, cls="") => `<svg class="mi ${cls}" viewBox="0 -960 960 960" aria-hidden="true"><path d="${MI[k] || MI.other}"/></svg>`;
+
 /* ---------- constants ---------- */
 const CURS = {
   EUR:{sym:"€", loc:"en-IE"}, INR:{sym:"₹", loc:"en-IN"}, USD:{sym:"$", loc:"en-US"},
@@ -492,6 +543,8 @@ const CURS = {
 const CUR_KEYS = Object.keys(CURS);
 // units of each currency per 1 EUR (editable in settings)
 const DEFAULT_RATES = {EUR:1, INR:110, USD:1.16, GBP:0.87, CHF:0.93};
+/* Entry types. The icon is MI[k]. liab: a debt, entered as the positive amount owed and subtracted from net worth.
+   dep: physical assets get a yearly value change (%) that is applied when a month is carried over; the number is the default. */
 const TYPES = [
   {k:"bank", n:"Bank", c:"#0A84FF"},
   {k:"stocks", n:"Stocks", c:"#5E5CE6"},
@@ -499,19 +552,18 @@ const TYPES = [
   {k:"mf", n:"Mutual funds", c:"#FF9F0A"},
   {k:"crypto", n:"Crypto", c:"#BF5AF2"},
   {k:"cash", n:"Cash", c:"#34C759"},
-  {k:"other", n:"Other", c:"#8E8E93"}
+  {k:"property", n:"Property", c:"#C79A3B", dep:0},
+  {k:"vehicle", n:"Vehicle", c:"#64748B", dep:-15},   // cars lose roughly 15% a year after the first-year drop
+  {k:"valuables", n:"Valuables", c:"#A2845E", dep:0},
+  {k:"other", n:"Other", c:"#8E8E93"},
+  {k:"mortgage", n:"Mortgage", c:"#E5484D", liab:true},
+  {k:"loan", n:"Loan", c:"#F2555A", liab:true},
+  {k:"card", n:"Credit card", c:"#FF7A59", liab:true}
 ];
 const TYPE = Object.fromEntries(TYPES.map(t=>[t.k,t]));
-const TYPE_ICON = {
-  bank:'<path d="M3.5 9.5L12 4.5l8.5 5"/><path d="M6 10.5v6.5M10 10.5v6.5M14 10.5v6.5M18 10.5v6.5"/><path d="M4 19.5h16"/>',
-  stocks:'<path d="M4 16.5l5-5 4 4 7-7"/><path d="M15 8.5h5v5"/>',
-  etf:'<path d="M11 4a8 8 0 1 0 9 9h-9z"/><path d="M14 3.2A8 8 0 0 1 20.8 10H14z"/>',
-  mf:'<path d="M12 4l8.5 4.5L12 13 3.5 8.5z"/><path d="M3.5 12.5L12 17l8.5-4.5"/><path d="M3.5 16.5L12 21l8.5-4.5" opacity=".6"/>',
-  crypto:'<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/><path d="M12 8l3.5 4-3.5 4-3.5-4z"/>',
-  cash:'<rect x="3" y="6.5" width="18" height="11" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6.5 9.8v.01M17.5 14.2v.01"/>',
-  other:'<path d="M8 3.5l4 6.5H4z"/><rect x="13" y="13" width="7" height="7" rx="1.6"/><circle cx="7.5" cy="16.5" r="3.5"/>'
-};
-const avatar = t => `<span class="avatar" style="background-color:${t.c}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TYPE_ICON[t.k] || TYPE_ICON.other}</svg></span>`;
+const isLiab = k => !!(TYPE[k] && TYPE[k].liab);
+const sgn = k => isLiab(k) ? -1 : 1;
+const avatar = t => `<span class="avatar" style="background-color:${t.c}">${ic(t.k)}</span>`;
 const PLATFORMS = ["Trade Republic","Groww","Zerodha","Scalable Capital","N26","Revolut","DKB","ING","Sparkasse","Comdirect","HDFC Bank","ICICI Bank","SBI","Kuvera","Coinbase"];
 const LS_KEY = "worth.v1", LS_UI = "worth.ui";
 
@@ -531,6 +583,9 @@ let S = blank();
 try{ const raw = localStorage.getItem(LS_KEY); if(raw) S = normalize(JSON.parse(raw)); }catch(e){}
 let UI = {range:12, hide:false, tab:"worth", mode:"month", month:null};
 try{ Object.assign(UI, JSON.parse(localStorage.getItem(LS_UI)||"{}")); }catch(e){}
+const TABS = ["worth", "monthly", "settings"];
+if(!TABS.includes(UI.tab)) UI.tab = "worth";
+UI.month = null; // Monthly always opens on the current month
 const saveUI = () => { try{ localStorage.setItem(LS_UI, JSON.stringify(UI)); }catch(e){} };
 const saveLocal = () => { try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); }catch(e){} };
 
@@ -584,13 +639,14 @@ function conv(amount, cur, rates=S.rates, base=S.base){
   const rb = rates[base] || S.rates[base] || 1;
   return amount / r * rb;
 }
-const liveTotal = () => S.accounts.reduce((t,a) => t + conv(+a.bal||0, a.cur), 0);
+const liveTotal = () => S.accounts.reduce((t,a) => t + sgn(a.type) * conv(+a.bal||0, a.cur), 0);
+const liveDebts = () => S.accounts.reduce((t,a) => t + (isLiab(a.type) ? conv(+a.bal||0, a.cur) : 0), 0);
 function snapTotal(s){
   let t = 0;
-  for(const id in s.items){ const it = s.items[id]; t += conv(+it[0]||0, it[1], s.rates || S.rates); }
+  for(const id in s.items){ const it = s.items[id]; t += sgn(it[2]) * conv(+it[0]||0, it[1], s.rates || S.rates); }
   return t;
 }
-function makeSnap(items){ return {items, rates:{...S.rates}}; }
+function makeSnap(items, rates){ return {items, rates:{...(rates || S.rates)}}; }
 function syncCurrentMonth(){
   const m = monthKey();
   if(!S.accounts.length){ delete S.snaps[m]; return; }
@@ -630,7 +686,7 @@ function animateNum(node, to, cur, dur=900){
 }
 function fitTotal(){
   const n = $("#total"); const len = n.textContent.length;
-  n.style.fontSize = len > 15 ? "28px" : len > 12 ? "33px" : "38px";
+  n.style.fontSize = len > 15 ? "26px" : len > 12 ? "30px" : "34px";
 }
 
 /* ---------- render ---------- */
@@ -639,14 +695,10 @@ let scrubbing = false;
 
 function render(animateChart){
   document.body.classList.toggle("hide", !!UI.hide);
-  $("#eyeIcon").innerHTML = UI.hide
-    ? '<path d="M3 3l18 18M10.6 5.1A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7c1.9 0 3.5-.6 4.9-1.4M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'
-    : '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
   renderTabs();
   renderHero();
   renderRange();
   if(UI.tab === "worth") drawChart(animateChart !== false);
-  renderNudge();
   renderAlloc();
   renderList();
   renderMonthly();
@@ -655,12 +707,15 @@ function render(animateChart){
 function renderHero(){
   if(scrubbing) return;
   const total = liveTotal();
-  $("#heroLabel").textContent = "Today";
   animateNum($("#total"), total, S.base);
   setTimeout(fitTotal, 950); fitTotal();
   const cm = monthKey(), prevM = series().filter(p => p.m !== cm).pop();
   if(prevM) setDelta(total, [prevM], "vs " + (mIndex(cm) - prevM.x === 1 ? mOnly(prevM.m) : mShort(prevM.m)));
   else setDelta(total, rangeSeries());
+  const debts = liveDebts();
+  $("#adCard").style.display = S.accounts.length ? "" : "none";
+  $("#adA").textContent = fmt(total + debts, S.base, {dec:0});
+  $("#adD").textContent = debts > 0 ? "−" + fmt(debts, S.base, {dec:0}) : fmt(0, S.base, {dec:0});
 }
 function setDelta(value, pts, sinceLabel){
   const d = $("#delta");
@@ -777,262 +832,283 @@ function drawChart(animate){
 /* scrubbing */
 (function(){
   const wrap = $("#chartWrap"); let active = false, lastIdx = -1, startX = 0, startY = 0, decided = false;
-  function at(clientX){
-    if(chartPts.length < 2) return;
-    const r = wrap.getBoundingClientRect(); const x = (clientX - r.left) * ($("#chart").viewBox.baseVal.width / r.width);
-    let best = 0, bd = Infinity;
-    chartPts.forEach((p,i) => { const d = Math.abs(p.px - x); if(d < bd){ bd = d; best = i; } });
-    if(best === lastIdx) return; lastIdx = best;
-    const p = chartPts[best];
-    const l = $("#sLine"), d = $("#sDot");
-    l.setAttribute("x1", p.px); l.setAttribute("x2", p.px); d.setAttribute("cx", p.px); d.setAttribute("cy", p.py);
-    const t = $("#total"); cancelAnimationFrame(t._raf); t._v = p.v; t.textContent = fmt(p.v); fitTotal();
-    $("#heroLabel").textContent = mLong(p.m);
-    if(best === 0) $("#delta").innerHTML = '<span class="when">Start of range</span>';
-    else setDelta(p.v, chartPts.slice(0), "since " + mShort(chartPts[0].m));
+  // The marker snaps to the nearest month but glides there: the pointer only picks the target month; each frame the marker eases toward it,
+  // reads the curve's y at that x, and the value, label and total follow it continuously.
+  let first_ = true, targetX = 0, targetIdx = 0, curX = 0, raf = 0, lastT = 0, shownIdx = -1, lp = null, lpLen = 0;
+  const vb = () => $("#chart").viewBox.baseVal.width;
+  function curveY(x){
+    let lo = 0, hi = lpLen;
+    for(let k = 0; k < 22; k++){ const mid = (lo + hi) / 2; if(lp.getPointAtLength(mid).x < x) lo = mid; else hi = mid; }
+    return lp.getPointAtLength(hi).y;
   }
+  function paint(){
+    const first = chartPts[0], lastP = chartPts[chartPts.length-1];
+    const x = Math.min(lastP.px, Math.max(first.px, curX));
+    let i = 0; while(i < chartPts.length - 2 && chartPts[i+1].px < x) i++;
+    const a = chartPts[i], b = chartPts[i+1], t = b.px === a.px ? 0 : (x - a.px) / (b.px - a.px);
+    const v = a.v + (b.v - a.v) * t;
+    const y = lp ? curveY(x) : a.py + (b.py - a.py) * t;
+    const l = $("#sLine"), d = $("#sDot");
+    l.setAttribute("x1", x); l.setAttribute("x2", x); d.setAttribute("cx", x); d.setAttribute("cy", y);
+    const tip = $("#sTip"), W = wrap.clientWidth, sc = W / vb();
+    const near = targetIdx, p = chartPts[near];
+    if(near !== shownIdx){
+      shownIdx = near;
+      tip.querySelector("small").textContent = mShort(p.m);
+      tip.querySelector(".amt").textContent = fmt(p.v, S.base, {dec:0});
+      const tot = $("#total"); cancelAnimationFrame(tot._raf); tot._v = p.v; tot.textContent = fmt(p.v); fitTotal();
+      if(!first_) [tip.querySelector(".amt"), tot].forEach(n => n.animate && n.animate([{opacity:.25},{opacity:1}], {duration:220, easing:"ease-out"}));
+      first_ = false;
+      if(near === 0) $("#delta").innerHTML = '<span class="when">Start of range</span>';
+      else setDelta(p.v, chartPts.slice(0), "since " + mShort(chartPts[0].m));
+    }
+    const half = tip.offsetWidth / 2 + 6;
+    tip.style.left = Math.min(W - half, Math.max(half, x * sc)) + "px";
+    tip.style.top = Math.max(tip.offsetHeight + 14, y * sc) + "px";
+  }
+  function tick(now){
+    raf = 0;
+    const dt = Math.min(48, now - (lastT || now)); lastT = now;
+    const k = 1 - Math.exp(-dt / 20);
+    curX += (targetX - curX) * k;
+    if(Math.abs(targetX - curX) < .08) curX = targetX;
+    paint();
+    if(curX !== targetX) raf = requestAnimationFrame(tick); else lastT = 0;
+  }
+  function at(clientX, jump){
+    if(chartPts.length < 2) return;
+    const r = wrap.getBoundingClientRect(), px = (clientX - r.left) * (vb() / r.width);
+    let best = 0, bd = Infinity;
+    chartPts.forEach((p,n) => { const dd = Math.abs(p.px - px); if(dd < bd){ bd = dd; best = n; } });
+    targetIdx = best; targetX = chartPts[best].px;
+    if(jump){
+      lp = $("#chart").querySelector(".line:not(.glowline)"); lpLen = lp ? lp.getTotalLength() : 0;
+      curX = targetX; shownIdx = -1; first_ = true; paint(); return;
+    }
+    if(!raf) raf = requestAnimationFrame(tick);
+  }
+  let hold = 0;
   function begin(e){
     if(chartPts.length < 2) return;
     active = true; decided = e.pointerType !== "touch"; startX = e.clientX; startY = e.clientY; lastIdx = -1;
     if(decided) start(e);
+    // on touch: a short press starts scrubbing too, not only a sideways drag
+    else { clearTimeout(hold); hold = setTimeout(() => { if(active && !decided){ decided = true; start(e); } }, 160); }
   }
-  function start(e){ scrubbing = true; $("#chart").classList.add("scrubbing"); try{ wrap.setPointerCapture(e.pointerId); }catch(_){} at(e.clientX); }
+  function start(e){ clearTimeout(hold); scrubbing = true; $("#chart").classList.add("scrubbing"); wrap.classList.add("scrubbing"); try{ wrap.setPointerCapture(e.pointerId); }catch(_){} $("#sTip").innerHTML = '<span class="amt"></span><small></small>'; at(e.clientX, true); }
   wrap.addEventListener("pointerdown", begin);
   wrap.addEventListener("pointermove", e => {
     if(!active) return;
     if(!decided){
       const dx = Math.abs(e.clientX-startX), dy = Math.abs(e.clientY-startY);
-      if(dx < 6 && dy < 6) return;
-      if(dy > dx){ active = false; return; }
+      if(dx < 4 && dy < 4) return;
+      if(dy > dx){ active = false; clearTimeout(hold); return; }
       decided = true; start(e);
     }
     at(e.clientX);
   });
-  const end = () => { if(!active) return; active = false; if(!scrubbing) return; scrubbing = false; $("#chart").classList.remove("scrubbing"); renderHero(); };
+  const end = () => { clearTimeout(hold); cancelAnimationFrame(raf); raf = 0; lastT = 0; if(!active) return; active = false; if(!scrubbing) return; scrubbing = false; $("#chart").classList.remove("scrubbing"); wrap.classList.remove("scrubbing"); renderHero(); };
   wrap.addEventListener("pointerup", end); wrap.addEventListener("pointercancel", end); wrap.addEventListener("lostpointercapture", end);
   wrap.addEventListener("touchmove", e => { if(scrubbing) e.preventDefault(); }, {passive:false});
 })();
 
-function renderNudge(){}
-
 function renderAlloc(){
   const sec = $("#allocSection");
   const by = {}; let total = 0;
-  S.accounts.forEach(a => { const v = Math.max(0, conv(+a.bal||0, a.cur)); by[a.type] = (by[a.type]||0) + v; total += v; });
+  S.accounts.forEach(a => { if(isLiab(a.type)) return; const v = Math.max(0, conv(+a.bal||0, a.cur)); by[a.type] = (by[a.type]||0) + v; total += v; });
   const types = TYPES.filter(t => by[t.k] > 0);
-  sec.style.display = types.length ? "" : "none";
-  if(!types.length) return;
-  const bar = $("#bar");
-  // reuse spans so widths transition
+  const debts = liveDebts();
+  sec.style.display = types.length || debts > 0 ? "" : "none";
+  if(!types.length && !(debts > 0)) return;
+  const C = 2 * Math.PI * 46, dn = $("#donut"); let cum = 0;
+  $("#donutV").textContent = fmt(total, S.base, {dec:0});
   TYPES.forEach(t => {
-    let s = bar.querySelector(`[data-k="${t.k}"]`);
-    if(!s){ s = el("span", {"data-k":t.k}); s.style.background = t.c; bar.appendChild(s); }
-    const pct = total ? (by[t.k]||0) / total * 100 : 0;
-    s.style.display = pct > 0 ? "" : "none";
-    requestAnimationFrame(() => requestAnimationFrame(() => { s.style.flexBasis = pct + "%"; s.style.flexGrow = pct > 0 ? 1 : 0; }));
+    let c = dn.querySelector(`[data-k="${t.k}"]`);
+    if(!c){ c = document.createElementNS("http://www.w3.org/2000/svg", "circle"); c.setAttribute("data-k", t.k);
+      c.setAttribute("cx", 60); c.setAttribute("cy", 60); c.setAttribute("r", 46); c.setAttribute("class", "dseg"); c.style.stroke = t.c;
+      c.style.strokeDasharray = `0 ${C}`; dn.appendChild(c); }
+    const frac = total ? (by[t.k]||0) / total : 0, len = Math.max(0, frac * C - (frac < 1 ? 2.5 : 0));
+    c.style.strokeDashoffset = -cum; cum += frac * C;
+    requestAnimationFrame(() => requestAnimationFrame(() => { c.style.strokeDasharray = `${len} ${C}`; }));
   });
+  const mode = UI.alloc === "bar" ? "bar" : "pie";
+  paintSeg($("#allocMode"), mode === "bar" ? 1 : 0);
+  $("#allocPie").style.display = mode === "pie" ? "" : "none";
+  const ab = $("#allocBar"); ab.style.display = mode === "bar" ? "" : "none";
+  const sorted = types.slice().sort((a,b) => by[b.k]-by[a.k]), top = sorted.length ? by[sorted[0].k] : 1;
+  ab.innerHTML = sorted.map(t => `<div class="ab"><div class="ab-h"><span class="nm">${t.n}</span><span class="pc num">${(by[t.k]/total*100).toFixed(0)}%</span><span class="vl num amt">${fmt(by[t.k], S.base, {dec:0})}</span></div><div class="ab-t"><i style="background:${t.c}" data-w="${by[t.k]/top*100}"></i></div></div>`).join("");
+  if(mode === "bar") requestAnimationFrame(() => requestAnimationFrame(() => ab.querySelectorAll("i").forEach(i => i.style.width = i.dataset.w + "%")));
   $("#legend").innerHTML = types.sort((a,b) => by[b.k]-by[a.k]).map(t => `
     <div class="li"><span class="sw" style="background:${t.c}"></span><span class="nm">${t.n}</span>
     <span class="pc num">${(by[t.k]/total*100).toFixed(0)}%</span><span class="vl num amt">${fmt(by[t.k], S.base, {dec:0})}</span></div>`).join("");
 }
 
-let justAdded = null;
+let justAdded = null, entriesOpen = false;
 function renderList(){
   const list = $("#list");
   if(!S.accounts.length){
-    list.innerHTML = `<div class="empty-list">An entry is anything that holds money: a bank account, a broker like Trade Republic or Groww, a fund, cash. Tap <b>Add entry</b> to create one, then update balances once a month.</div>`;
+    list.innerHTML = `<div class="empty-list">An entry is anything you own or owe: a bank account, a broker like Trade Republic or Groww, a fund, cash, a flat or a car, a mortgage or a loan. Tap <b>+</b> to create one, then update balances once a month.</div>`;
     return;
   }
-  const sorted = [...S.accounts].sort((a,b) => conv(+b.bal||0, b.cur) - conv(+a.bal||0, a.cur));
-  const pos = S.accounts.reduce((t,a) => t + Math.max(0, conv(+a.bal||0, a.cur)), 0);
+  // assets by value first, then debts
+  const sorted = [...S.accounts].sort((a,b) => (isLiab(a.type) - isLiab(b.type)) || conv(+b.bal||0, b.cur) - conv(+a.bal||0, a.cur));
+  const pos = S.accounts.reduce((t,a) => t + (isLiab(a.type) ? 0 : Math.max(0, conv(+a.bal||0, a.cur))), 0);
   list.innerHTML = "";
-  sorted.forEach(a => {
-    const t = TYPE[a.type] || TYPE.other;
+  const LIM = 5, more = el("div", {class:"more" + (entriesOpen ? " open" : "")}), moreIn = el("div", {class:"more-in"}); more.appendChild(moreIn);
+  sorted.forEach((a, n) => {
+    const t = TYPE[a.type] || TYPE.other, liab = isLiab(a.type);
     const r = el("button", {class:"row" + (a.id===justAdded ? " enter" : "")});
-    const v = conv(+a.bal||0, a.cur), pct = pos > 0 && v > 0 ? v / pos * 100 : null;
-    const share = pct == null ? "" : pct < 1 ? "<1%" : Math.round(pct) + "%";
+    const v = conv(+a.bal||0, a.cur), pct = !liab && pos > 0 && v > 0 ? v / pos * 100 : null;
+    const share = liab ? "Debt" : pct == null ? "" : pct < 1 ? "<1%" : Math.round(pct) + "%";
     const sub = a.cur !== S.base ? `${esc(a.platform || t.n)}, <span class="amt">≈ ${fmt(v, S.base, {dec:0})}</span>` : esc(a.platform ? a.platform + ", " + t.n : t.n);
     r.innerHTML = `${avatar(t)}
       <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
-      <span class="end"><div class="t1 num amt">${fmt(+a.bal||0, a.cur)}</div>${share ? `<div class="t2 num">${share}</div>` : ""}</span>`;
+      <span class="end"><div class="t1 num amt">${liab ? "−" : ""}${fmt(+a.bal||0, a.cur)}</div>${share ? `<div class="t2 num">${share}</div>` : ""}</span>`;
     r.onclick = () => accountSheet(a);
-    list.appendChild(r);
+    (n < LIM || sorted.length <= LIM + 0 ? list : moreIn).appendChild(r);
   });
+  if(sorted.length > LIM){
+    list.appendChild(more);
+    const tg = el("button", {class:"seeall" + (entriesOpen ? " open" : "")}, "");
+    const paint = () => { tg.innerHTML = `<span>${entriesOpen ? "Show less" : "See all " + sorted.length}</span>${ic("expand")}`; tg.classList.toggle("open", entriesOpen); more.classList.toggle("open", entriesOpen); };
+    tg.onclick = () => { entriesOpen = !entriesOpen; paint(); };
+    paint(); list.appendChild(tg);
+  }
   justAdded = null;
 }
 function renderFoot(){
   $("#foot").textContent = "Saved on this device";
 }
 
-/* ---------- monthly history ---------- */
-const CHEV_L = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
-const CHEV_R = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>';
-let tilesShown = false;
-const vsLabel = (p, prev) => (p.x - prev.x === 1) ? mOnly(prev.m) : mShort(prev.m);
+/* ---------- tabs ---------- */
+const TITLES = {worth:"Net worth", monthly:"Monthly", settings:"Settings"};
+const VIEWS = {worth:"#vWorth", monthly:"#vMonthly", settings:"#vSettings"};
 function signed(d, cur, dec){ return (d >= 0 ? "+" : "−") + fmt(Math.abs(d), cur, dec != null ? {dec} : {}); }
 function paintSeg(seg, i){
   const btns = [...seg.querySelectorAll("button")];
   btns.forEach((b,j) => b.setAttribute("aria-pressed", j===i));
   const th = seg.querySelector(".thumb"); th.style.width = `calc((100% - 4px) / ${btns.length})`; th.style.transform = `translateX(${i*100}%)`;
 }
+// distance between two tabs in px (the selected capsule is wider than that, so it moves in px, not percent)
+const tabPitch = () => document.querySelector(".tab").getBoundingClientRect().width || 86;
 function renderTabs(){
-  const tabs = [...document.querySelectorAll(".tab")], i = UI.tab === "monthly" ? 1 : 0;
-  tabs.forEach((t,j) => t.setAttribute("aria-selected", j===i));
-  document.querySelector(".tab-ind").style.transform = `translateX(${i*100}%)`;
-  $("#vWorth").classList.toggle("active", i===0);
-  $("#vMonthly").classList.toggle("active", i===1);
-  const title = i ? "Monthly" : "Net worth";
-  $("#largeTitle").textContent = title; document.querySelector(".nav-title").textContent = title;
+  const i = TABS.indexOf(UI.tab);
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.tab === UI.tab));
+  document.querySelector(".tab-ind").style.transform = `translateX(${i * tabPitch()}px)`;
+  TABS.forEach(t => $(VIEWS[t]).classList.toggle("active", t === UI.tab));
+  $("#largeTitle").textContent = TITLES[UI.tab];
   $("#btnUpdate").style.display = S.accounts.length ? "" : "none";
 }
 function setTab(t){
   if(UI.tab === t){ window.scrollTo({top:0, behavior:"smooth"}); return; }
+  const fromI = TABS.indexOf(UI.tab), toI = TABS.indexOf(t);
   UI.tab = t; saveUI();
+  if(t === "monthly") UI.month = null; // open on the current month
   const h = $("#largeTitle"); h.classList.remove("swap"); void h.offsetWidth; h.classList.add("swap");
-  const toI = t === "monthly" ? 1 : 0, fromI = 1 - toI;
   renderTabs(); window.scrollTo(0, 0);
-  const ind = document.querySelector(".tab-ind");
+  const ind = document.querySelector(".tab-ind"), pitch = tabPitch();
   if(ind.animate && !matchMedia("(prefers-reduced-motion: reduce)").matches) ind.animate([
-    {transform:`translateX(${fromI*100}%) scale(1,1)`},
-    {transform:`translateX(${(fromI+toI)*50}%) scale(1.22,.86)`, offset:.45},
-    {transform:`translateX(${toI*100}%) scale(.96,1.04)`, offset:.8},
-    {transform:`translateX(${toI*100}%) scale(1,1)`}
+    {transform:`translateX(${fromI*pitch}px) scale(1,1)`},
+    {transform:`translateX(${(fromI+toI)*pitch/2}px) scale(1.18,.88)`, offset:.45},
+    {transform:`translateX(${toI*pitch}px) scale(.97,1.03)`, offset:.8},
+    {transform:`translateX(${toI*pitch}px) scale(1,1)`}
   ], {duration:650, easing:"cubic-bezier(.32,.72,0,1)"});
-  if(t === "worth"){ drawChart(true); renderHero(); } else renderMonthly();
+  if(t === "worth"){ drawChart(true); renderHero(); }
+  else if(t === "monthly") renderMonthly();
+  else renderSettings();
 }
 
-function monthRows(){
-  const all = series();
-  return all.map((p,i) => ({...p, prev: i ? all[i-1] : null})).reverse();
+/* ---------- monthly: one month at a time ---------- */
+// every month with a record, plus the current month even before it has one
+function monthList(){
+  const ms = new Set(Object.keys(S.snaps)); ms.add(monthKey());
+  return [...ms].sort();
 }
+function stepMonth(d){
+  const ms = monthList(), i = ms.indexOf(UI.month), j = i + d;
+  if(i < 0 || j < 0 || j >= ms.length) return;
+  UI.month = ms[j]; renderMonthly(d < 0 ? "l" : "r");
+}
+const vsLabel = (m, prevM) => (mIndex(m) - mIndex(prevM) === 1) ? mOnly(prevM) : mShort(prevM);
+// the latest month before m that has a record
+const prevMonth = m => Object.keys(S.snaps).filter(k => k < m).sort().pop() || null;
+
 function renderMonthly(dir){
   if(UI.tab !== "monthly") return;
-  const cm = monthKey(), rows = monthRows();
-  if(!UI.month || !S.snaps[UI.month]) UI.month = rows.length ? rows[0].m : null;
-  paintSeg($("#mmode"), UI.mode === "table" ? 1 : 0);
-  $("#mMonth").style.display = UI.mode === "table" ? "none" : "";
-  $("#mTable").style.display = UI.mode === "table" ? "" : "none";
-  if(UI.mode === "table"){ renderTable(); return; }
-  renderTiles(rows, cm, !dir);
-  renderMonthDetail(dir);
-}
-function renderTiles(rows, cm, pop){
-  const box = $("#tiles"); const keep = box.scrollLeft;
-  box.innerHTML = "";
-  let i = 0;
-  const add = t => { if(pop){ t.classList.add("pop"); t.style.animationDelay = (i * 40) + "ms"; } i++; box.appendChild(t); };
-  if(!S.snaps[cm]){
-    const t = el("button", {class:"tile todo"});
-    t.innerHTML = `<div class="m">${mShort(cm)}</div><div class="c">${S.accounts.length ? "Not updated yet" : "No entries yet"}</div>
-      <div class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>`;
-    t.onclick = () => S.accounts.length ? updateSheet() : accountSheet();
-    add(t);
-  }
-  rows.forEach(p => {
-    const t = el("button", {class:"tile" + (p.m === UI.month ? " sel" : ""), "data-m":p.m});
-    let c = "First month";
-    if(p.prev){ const d = p.v - p.prev.v; c = `<span class="${d >= 0 ? "pos" : "neg"} amt">${signed(d, S.base, 0)}</span>`; }
-    t.innerHTML = `<div class="m"><span>${mShort(p.m)}</span>${p.m === cm ? '<span class="badge">Now</span>' : ""}</div>
-      <div class="v num amt">${fmt(p.v, S.base, {dec:0})}</div><div class="c num">${c}</div>`;
-    t.onclick = () => {
-      if(p.m === UI.month) return;
-      const dir = p.m < UI.month ? "r" : "l";
-      UI.month = p.m;
-      box.querySelectorAll(".tile.sel").forEach(x => x.classList.remove("sel")); t.classList.add("sel");
-      t.scrollIntoView({behavior:"smooth", inline:"nearest", block:"nearest"});
-      renderMonthDetail(dir);
-    };
-    add(t);
-  });
-  box.scrollLeft = keep;
-}
-function renderMonthDetail(dir){
+  const ms = monthList(), cm = monthKey();
+  if(!UI.month || !ms.includes(UI.month)) UI.month = cm;
+  const m = UI.month, i = ms.indexOf(m);
+  $("#mTitle").textContent = mLong(m);
+  $("#mPrev").disabled = i <= 0; $("#mNext").disabled = i >= ms.length - 1;
+
   const box = $("#mDetail"); box.innerHTML = "";
-  const m = UI.month;
-  if(!m){
-    box.innerHTML = `<div class="card mdetail-empty">Your months appear here. Add an entry and its balance becomes this month’s first record.</div>`;
+  const view = el("div", {class:"mview" + (dir ? " slide-" + dir : "")});
+  box.appendChild(view);
+  const snap = S.snaps[m];
+
+  if(!S.accounts.length && !Object.keys(S.snaps).length){
+    const start = el("button", {class:"primary"}, "Add your first entry"); start.onclick = () => accountSheet();
+    view.append(el("div", {class:"card mdetail-empty"}, "Each month you record your balances here, one month at a time. Start by adding what you own and owe."), start);
     return;
   }
-  const all = series(), i = all.findIndex(p => p.m === m);
-  const p = all[i], prev = all[i-1], snap = S.snaps[m], prevSnap = prev ? S.snaps[prev.m] : null;
-  const view = el("div", {class:"mview" + (dir ? " slide-" + dir : "")});
+  const pm = prevMonth(m), prevSnap = pm ? S.snaps[pm] : null;
+  if(!snap){
+    const btn = el("button", {class:"primary"}, "Start " + mOnly(m)); btn.onclick = () => updateSheet(m);
+    view.append(el("div", {class:"card mdetail-empty"}, `${esc(mLong(m))} isn’t recorded yet.` + (pm ? `<br>Start it from ${esc(mOnly(pm))}’s balances and change only what’s different.` : "")), btn);
+    return;
+  }
 
+  // total and change
+  const v = snapTotal(snap), pv = prevSnap ? snapTotal(prevSnap) : null;
   const head = el("div", {class:"mhead"});
-  const lab = el("div", {class:"hero-label"}, "Net worth in " + mLong(m));
-  const tv = el("div", {class:"total num amt"}); tv._v = prev ? prev.v : p.v * 0.94;
+  const tv = el("div", {class:"total num amt"}); tv._v = pv != null ? pv : v * 0.94;
   const dl = el("div", {class:"delta num"});
-  if(prev){ const d = p.v - prev.v, pct = prev.v ? d / Math.abs(prev.v) * 100 : 0;
-    dl.innerHTML = `<span class="chg ${d >= 0 ? "up" : "down"} amt">${ARROW}${fmt(Math.abs(d), S.base, Math.abs(d) >= 100 ? {dec:0} : {})} (${Math.abs(pct).toFixed(1)}%)</span><span class="when">vs ${vsLabel(p, prev)}</span>`;
+  if(pv != null){ const d = v - pv, pct = pv ? d / Math.abs(pv) * 100 : 0;
+    dl.innerHTML = `<span class="chg ${d >= 0 ? "up" : "down"} amt">${ARROW}${fmt(Math.abs(d), S.base, Math.abs(d) >= 100 ? {dec:0} : {})} (${Math.abs(pct).toFixed(1)}%)</span><span class="when">vs ${vsLabel(m, pm)}</span>`;
   } else dl.innerHTML = '<span class="when">First month on record</span>';
-  head.append(lab, tv, dl);
+  head.append(tv, dl);
+  // one action, right under the total: update this month (highlighted while the current month still waits for its check-in)
+  const due = m === cm && S.lastCheckin !== cm;
+  const upd = el("button", {class: due ? "primary" : "ghost wide"}, due ? "Update " + mOnly(m) : `${ic("sync")}<span>Update ${mOnly(m)}</span>`);
+  upd.onclick = () => updateSheet(m);
+  view.append(head, upd);
 
-  const by = {}; let tot = 0;
+  // that month's entries: assets, then debts
+  const rates = snap.rates || S.rates;
   const items = Object.keys(snap.items).map(id => {
     const it = snap.items[id], acc = S.accounts.find(a => a.id === id);
-    const v = conv(+it[0] || 0, it[1], snap.rates || S.rates);
-    by[it[2]] = (by[it[2]] || 0) + Math.max(0, v); tot += Math.max(0, v);
-    return {id, b:+it[0] || 0, cur:it[1], type:it[2], v, name: (acc && acc.name) || it[3] || "Removed entry", platform: acc && acc.platform, prev: prevSnap && prevSnap.items[id]};
+    return {id, b:+it[0] || 0, cur:it[1], type:it[2], v:conv(+it[0] || 0, it[1], rates),
+      name:(acc && acc.name) || it[3] || "Removed entry", platform:acc && acc.platform, prev:prevSnap && prevSnap.items[id]};
   }).sort((a,b) => b.v - a.v);
-  const barEl = el("div", {class:"bar mbar"});
-  TYPES.filter(t => by[t.k] > 0).forEach(t => { const sp = el("span"); sp.style.backgroundColor = t.c; barEl.appendChild(sp);
-    requestAnimationFrame(() => requestAnimationFrame(() => { sp.style.flexBasis = (by[t.k] / tot * 100) + "%"; sp.style.flexGrow = 1; })); });
-
-  const card = el("div", {class:"card"});
-  items.forEach(a => {
-    const t = TYPE[a.type] || TYPE.other;
-    let chg = "";
-    if(prev){
-      if(a.prev && a.prev[1] === a.cur){ const d = a.b - (+a.prev[0] || 0); chg = d === 0 ? '<span class="t2">No change</span>' : `<span class="t2 ${d > 0 ? "pos" : "neg"} amt">${signed(d, a.cur, Math.abs(d) >= 100 ? 0 : 2)}</span>`; }
-      else chg = '<span class="t2">New this month</span>';
-    }
-    const sub = (a.platform || t.n) + (a.cur !== S.base ? `, <span class="amt">≈ ${fmt(a.v, S.base, {dec:0})}</span>` : "");
-    const r = el("div", {class:"row"});
-    r.innerHTML = `${avatar(t)}
-      <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
-      <span class="end"><div class="t1 num amt">${fmt(a.b, a.cur)}</div><div class="num">${chg}</div></span>`;
-    card.appendChild(r);
-  });
-
-  const upd = el("button", {class:"ghost wide"}, `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 0 1-13.7 5.6L4 15M4 20v-5h5"/></svg><span>Update ${mOnly(m)} balances</span>`);
-  upd.onclick = () => updateSheet(m);
-  const del = el("button", {class:"danger"}, "Remove " + mLong(m));
-  armConfirm(del, "Tap again to remove", () => {
-    delete S.snaps[m]; if(m === monthKey()) S.lastCheckin = null;
-    const gone = mLong(m); UI.month = null; commit({keepMonth:true}); toast("Removed " + gone);
-  });
-
-  view.append(head, barEl, el("div", {class:"lbl-s"}, "Balances"), card, upd, del);
-  box.appendChild(view);
-  requestAnimationFrame(() => animateNum(tv, p.v, S.base, 700));
-}
-function renderTable(){
-  const box = $("#mTable"); box.innerHTML = "";
-  const months = Object.keys(S.snaps).sort().reverse();
-  if(!months.length){ box.innerHTML = `<div class="card mdetail-empty">Your months appear here once you add an entry.</div>`; return; }
-  const ids = []; const seen = new Set();
-  [...S.accounts].sort((a,b) => conv(+b.bal||0, b.cur) - conv(+a.bal||0, a.cur)).forEach(a => { ids.push(a.id); seen.add(a.id); });
-  months.forEach(m => Object.keys(S.snaps[m].items).forEach(id => { if(!seen.has(id)){ seen.add(id); ids.push(id); } }));
-  const info = id => {
-    const a = S.accounts.find(x => x.id === id);
-    if(a) return {name:a.name, cur:a.cur};
-    for(const m of months){ const it = S.snaps[m].items[id]; if(it) return {name: it[3] || "Removed entry", cur: it[1]}; }
-    return {name:"Removed entry", cur:S.base};
+  const group = (label, list) => {
+    if(!list.length) return;
+    const card = el("div", {class:"card"});
+    list.forEach(a => {
+      const t = TYPE[a.type] || TYPE.other, liab = isLiab(a.type);
+      let chg = "";
+      if(prevSnap){
+        if(a.prev && a.prev[1] === a.cur){
+          const d = a.b - (+a.prev[0] || 0), good = liab ? d < 0 : d > 0;
+          chg = d === 0 ? '<span class="t2">No change</span>' : `<span class="t2 ${good ? "pos" : "neg"} amt">${signed(liab ? -d : d, a.cur, Math.abs(d) >= 100 ? 0 : 2)}</span>`;
+        } else chg = '<span class="t2">New</span>';
+      }
+      const sub = esc(a.platform || t.n) + (a.cur !== S.base ? `, <span class="amt">≈ ${fmt(a.v, S.base, {dec:0})}</span>` : "");
+      card.appendChild(el("div", {class:"row"}, `${avatar(t)}
+        <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
+        <span class="end"><div class="t1 num amt">${liab ? "−" : ""}${fmt(a.b, a.cur)}</div><div class="num">${chg}</div></span>`));
+    });
+    view.append(el("div", {class:"lbl-s"}, label), card);
   };
-  const totals = months.map(m => snapTotal(S.snaps[m]));
-  let h = `<table class="tbl"><thead><tr><th class="first"></th>${months.map(m => `<th data-m="${m}">${mShort(m)}</th>`).join("")}</tr></thead><tbody>`;
-  h += `<tr class="tot"><td class="first">Net worth<small>${S.base}</small></td>${totals.map((v,i) => {
-    const nxt = totals[i+1]; const cls = nxt == null ? "" : v > nxt ? "up" : v < nxt ? "dn" : "";
-    return `<td class="amt ${cls}">${fmt(v, S.base, {dec:0})}</td>`; }).join("")}</tr>`;
-  ids.forEach(id => {
-    const inf = info(id);
-    h += `<tr><td class="first">${esc(inf.name)}<small>${inf.cur}</small></td>${months.map(m => {
-      const it = S.snaps[m].items[id];
-      return it ? `<td class="amt">${fmt(+it[0] || 0, it[1], {dec:0})}</td>` : `<td class="na">–</td>`; }).join("")}</tr>`;
+  group("Assets", items.filter(a => !isLiab(a.type)));
+  group("Debts", items.filter(a => isLiab(a.type)));
+
+  const del = el("button", {class:"quiet"}, "Remove " + mLong(m));
+  armConfirm(del, "Tap again to remove", () => {
+    delete S.snaps[m]; if(m === cm) S.lastCheckin = null;
+    const gone = mLong(m); commit({keepMonth:true}); toast("Removed " + gone);
   });
-  h += `</tbody></table>`;
-  const card = el("div", {class:"card tbl-wrap"}, h);
-  card.querySelectorAll("th[data-m]").forEach(th => th.onclick = () => { UI.month = th.dataset.m; UI.mode = "month"; saveUI(); renderMonthly(); });
-  box.append(card, el("p", {class:"tbl-note"}, "Each entry in its own currency. Tap a month to see its details."));
+  view.append(del);
+  requestAnimationFrame(() => animateNum(tv, v, S.base, 700));
 }
 
 /* ---------- sheet ---------- */
@@ -1105,20 +1181,25 @@ function toast(msg){
 }
 
 /* ---------- account sheet ---------- */
-function accountSheet(acc, sheetOpts){
+// sheetOpts.after(draft): return to another sheet (the monthly update) instead of closing
+function accountSheet(acc, sheetOpts = {}){
   const editing = !!acc;
   const draft = acc ? {...acc} : {id:uid(), name:"", type:"bank", platform:"", cur:S.base, bal:""};
   openSheet(({bar, body}) => {
     const save = sheetBar(bar, editing ? "Edit entry" : "New entry", "Cancel", {label: editing ? "Done" : "Add", onClick: () => {
       const bal = parseNum(balIn.value);
       draft.name = nameIn.value.trim(); draft.platform = platIn.value.trim();
-      draft.bal = isNaN(bal) ? 0 : bal;
+      draft.bal = isNaN(bal) ? 0 : Math.abs(bal);
+      if(TYPE[draft.type] && TYPE[draft.type].dep != null){ const d = parseNum(depIn.value); draft.dep = isNaN(d) ? TYPE[draft.type].dep : d; }
+      else delete draft.dep;
       if(!draft.name) return;
       if(editing){ const i = S.accounts.findIndex(a => a.id === draft.id); S.accounts[i] = draft; }
       else { S.accounts.push(draft); justAdded = draft.id; }
-      closeSheet(); commit();
+      if(sheetOpts.after){ commit(); sheetOpts.after(draft); }
+      else { closeSheet(); commit(); }
       toast(editing ? "Saved" : "Entry added");
     }});
+    if(sheetOpts.after) bar.querySelector(".l").onclick = () => sheetOpts.after(null);
     const validate = () => { save.disabled = !nameIn.value.trim(); };
 
     // name + amount
@@ -1138,7 +1219,8 @@ function accountSheet(acc, sheetOpts){
     balIn.addEventListener("blur", () => amt.classList.remove("focus"));
     paintBal();
     amt.append(disp, balIn);
-    top.append(nameIn, amt);
+    const oweNote = el("p", {class:"note", style:"text-align:center;margin:-6px 16px 12px"}, "Enter what you still owe. It counts against your net worth.");
+    top.append(nameIn, amt, oweNote);
 
     // compact picker rows
     const rows = el("div", {class:"card"});
@@ -1147,7 +1229,9 @@ function accountSheet(acc, sheetOpts){
       const lab = el("span", {class:"pl"}, label);
       const val = el("span", {class:"pv"});
       const sel = el("select", {"aria-label":label});
-      sel.innerHTML = options.map(o => `<option value="${esc(o.v)}">${esc(o.n)}</option>`).join("");
+      const opt = o => `<option value="${esc(o.v)}">${esc(o.n)}</option>`;
+      const groups = [...new Set(options.map(o => o.g).filter(Boolean))];
+      sel.innerHTML = groups.length ? groups.map(g => `<optgroup label="${esc(g)}">${options.filter(o => o.g === g).map(opt).join("")}</optgroup>`).join("") : options.map(opt).join("");
       sel.value = value;
       const paint = () => { const o = options.find(x => x.v === sel.value); val.innerHTML = (decorate ? decorate(o) : "") + esc(o ? o.n : ""); };
       sel.onchange = () => { onChange(sel.value); paint(); val.classList.remove("bump"); void val.offsetWidth; val.classList.add("bump"); };
@@ -1155,8 +1239,24 @@ function accountSheet(acc, sheetOpts){
       f.append(lab, val, el("span", {class:"chev"}, "›"), sel);
       return f;
     };
-    const typeRow = pick("Type", TYPES.map(t => ({v:t.k, n:t.n})), draft.type, v => draft.type = v,
+    const typeOpts = TYPES.map(t => ({v:t.k, n:t.n, g: t.liab ? "Debts" : "Assets"}));
+    if(!TYPE[draft.type]) draft.type = "other";
+    const typeRow = pick("Type", typeOpts, draft.type, v => { draft.type = v; paintKind(); },
       o => `<span class="dot" style="background:${TYPE[o.v].c}"></span>`);
+    // yearly value change, only for physical assets; prefilled with the type's default
+    const depF = el("div", {class:"field"}, "<label>Value change / year</label>");
+    const depIn = el("input", {inputmode:"decimal", autocomplete:"off", "aria-label":"Value change per year in percent"});
+    depF.append(depIn, el("span", {class:"cur"}, "%"));
+    let depType = null;
+    const paintKind = () => {
+      const t = TYPE[draft.type];
+      oweNote.style.display = t.liab ? "" : "none";
+      depF.style.display = t.dep != null ? "" : "none";
+      if(t.dep != null && depType !== draft.type){
+        depIn.value = draft.dep != null && depType === null ? draft.dep : t.dep;
+        depType = draft.type;
+      }
+    };
     const curSym = c => CURS[c] ? CURS[c].sym : String(c || "");
     const setSym = () => { sym.textContent = curSym(draft.cur); };
     const curOpts = CUR_KEYS.map(c => ({v:c, n:c + " " + CURS[c].sym}));
@@ -1167,9 +1267,13 @@ function accountSheet(acc, sheetOpts){
     const platIn = el("input", {placeholder:"Optional", autocomplete:"off", list:"platforms"}); platIn.value = draft.platform || "";
     const dl = el("datalist", {id:"platforms"}, PLATFORMS.map(p => `<option value="${esc(p)}">`).join(""));
     platF.append(platIn, dl);
-    rows.append(typeRow, curRow, platF);
+    rows.append(typeRow, depF, curRow, platF);
+    paintKind();
 
-    body.append(top, rows);
+    const depNote = el("p", {class:"note"}, "Applied when a new month carries this value over, e.g. −15% a year for a car. You can still type the real value at each update.");
+    const syncDepNote = () => depNote.style.display = depF.style.display;
+    typeRow.querySelector("select").addEventListener("change", syncDepNote); syncDepNote();
+    body.append(top, rows, depNote);
     if(editing){
       const del = el("button", {class:"danger"}, "Delete entry");
       armConfirm(del, "Tap again to delete", () => {
@@ -1185,41 +1289,77 @@ function accountSheet(acc, sheetOpts){
 }
 
 /* ---------- monthly update sheet ---------- */
-function updateSheet(start){
+// What to suggest for entry a in month m when m has no record of it yet: its value from the latest earlier month,
+// moved by its yearly value change (depreciation) for the months in between.
+function carried(a, m){
+  const cm = monthKey();
+  let from = null;
+  for(const k of Object.keys(S.snaps).sort().reverse()){
+    if(k < m && S.snaps[k].items[a.id]){ from = k; break; }
+  }
+  let v, gap = 0;
+  if(m === cm){
+    // the current balance already carries last month's value, unless it was edited since; only an untouched value moves by depreciation
+    v = +a.bal || 0;
+    if(from && v === (+S.snaps[from].items[a.id][0] || 0)) gap = mIndex(m) - mIndex(from);
+  }
+  else if(from){ v = +S.snaps[from].items[a.id][0] || 0; gap = mIndex(m) - mIndex(from); }
+  else return {v:"", from:null};
+  const dep = a.dep != null ? +a.dep : (TYPE[a.type] && TYPE[a.type].dep);
+  if(dep && gap > 0) v = Math.round(v * Math.pow(1 + dep / 100, gap / 12) * 100) / 100;
+  return {v, from};
+}
+// keep: {month, vals} to come back with typed values after adding an entry
+function updateSheet(start, keep){
   const cur = monthKey();
   let month = start && start <= cur ? start : cur;
+  if(keep) month = keep.month;
   openSheet(({bar, body}) => {
     let saveBtn;
     const inputs = {};
     const card = el("div", {class:"card"});
     const totalV = el("span", {class:"v num amt"});
+    const carryNote = el("div", {class:"carry"});
     const saveLabel = () => "Save " + mLong(month);
     const recompute = () => {
       let t = 0;
-      S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); if(!isNaN(v)) t += conv(v, a.cur); });
+      S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); if(!isNaN(v)) t += sgn(a.type) * conv(v, a.cur); });
       animateNum(totalV, t, S.base, 400);
     };
-    const fill = () => {
-      const snap = month !== cur ? S.snaps[month] : null;
+    // a month that is already recorded shows its own values; a new month (or the current month before its check-in) carries the last one over
+    const fill = vals => {
+      const snap = S.snaps[month];
+      const isNew = month === cur ? S.lastCheckin !== cur : !snap;
+      let from = null;
       S.accounts.forEach(a => {
-        let v = a.bal;
-        if(month !== cur) v = snap && snap.items[a.id] ? snap.items[a.id][0] : "";
-        inputs[a.id].value = v === "" ? "" : plain(+v);
+        let v;
+        if(vals && a.id in vals) v = vals[a.id];
+        else if(!isNew && snap) v = snap.items[a.id] ? snap.items[a.id][0] : (month === cur ? a.bal : "");
+        else { const c = carried(a, month); v = c.v; if(c.from && (!from || c.from > from)) from = c.from; }
+        inputs[a.id].value = v === "" || v == null ? "" : plain(+v);
       });
+      carryNote.innerHTML = "";
+      if(isNew && from){
+        const clear = el("button", {class:"link"}, "Clear all");
+        clear.onclick = () => { S.accounts.forEach(a => inputs[a.id].value = ""); carryNote.firstChild.textContent = "Starting from blank."; clear.remove(); recompute(); };
+        carryNote.append(el("span", {}, `Carried over from ${mLong(from)}. Change only what’s different.`), clear);
+      }
       saveBtn.textContent = saveLabel(); recompute();
     };
     const doSave = () => {
       if(month === cur){
-        S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); a.bal = isNaN(v) ? 0 : v; });
+        S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); a.bal = isNaN(v) ? 0 : Math.abs(v); });
         S.lastCheckin = cur;
         closeSheet(); commit();
       } else {
         const items = {}, old = S.snaps[month];
         if(old) for(const id in old.items) if(!S.accounts.some(a => a.id === id)) items[id] = old.items[id];
-        S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); if(!isNaN(v)) items[a.id] = [v, a.cur, a.type, a.name]; });
-        if(Object.keys(items).length) S.snaps[month] = makeSnap(items); else delete S.snaps[month];
+        S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); if(!isNaN(v)) items[a.id] = [Math.abs(v), a.cur, a.type, a.name]; });
+        // a past month keeps the exchange rates it was saved with
+        if(Object.keys(items).length) S.snaps[month] = makeSnap(items, old && old.rates); else delete S.snaps[month];
         closeSheet(); commit({keepMonth:true});
       }
+      UI.month = month;
       toast("Saved " + mLong(month));
     };
     sheetBar(bar, "Update balances", "Cancel", {label:"Save", onClick: doSave});
@@ -1230,137 +1370,169 @@ function updateSheet(start){
     mIn.onchange = () => { if(!mIn.value || mIn.value > cur){ mIn.value = cur; } month = mIn.value; fill(); };
     mf.appendChild(mIn); mCard.appendChild(mf);
 
-    S.accounts.forEach(a => {
+    [...S.accounts].sort((a,b) => isLiab(a.type) - isLiab(b.type)).forEach(a => {
       const t = TYPE[a.type] || TYPE.other;
       const r = el("div", {class:"row upd-row"});
       r.innerHTML = `${avatar(t)}
-        <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${esc(a.platform || t.n)}</div></span>`;
+        <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${esc(a.platform || t.n)}${t.liab ? " · owed" : ""}</div></span>`;
       const end = el("span", {class:"end"});
-      const inp = el("input", {inputmode:"decimal", placeholder:"0", "aria-label":a.name + " balance", autocomplete:"off"});
+      const inp = el("input", {inputmode:"decimal", placeholder:"0", "aria-label":a.name + (t.liab ? " amount owed" : " balance"), autocomplete:"off"});
       inp.oninput = recompute;
       inp.onfocus = () => setTimeout(() => inp.select(), 0);
       inputs[a.id] = inp;
       end.append(inp, el("div", {class:"c"}, a.cur));
       r.appendChild(end); card.appendChild(r);
     });
-    const tot = el("div", {class:"upd-total"}, "<span>Total</span>"); tot.appendChild(totalV);
+    // add a new entry without losing what was typed
+    const add = el("button", {class:"row add-row"}, `<span class="avatar">${ic("add")}</span><span class="mid">New entry</span>`);
+    add.onclick = () => {
+      const vals = {}; S.accounts.forEach(a => vals[a.id] = inputs[a.id].value === "" ? "" : parseNum(inputs[a.id].value));
+      const m = month;
+      accountSheet(null, {after: d => { if(d) vals[d.id] = d.bal; updateSheet(m, {month:m, vals}); }});
+    };
+    card.appendChild(add);
+    const tot = el("div", {class:"upd-total"}, "<span>Net worth</span>"); tot.appendChild(totalV);
     saveBtn = el("button", {class:"primary"}, saveLabel()); saveBtn.onclick = doSave;
-    body.append(mCard, el("p", {class:"note"}, "Pick an earlier month to fill in your history. Leave a field empty to skip that entry."), el("div", {class:"lbl-s"}, "Balances"), card, tot, saveBtn);
-    fill();
+    body.append(mCard, el("p", {class:"note"}, "Pick an earlier month to fill in your history. Leave a field empty to skip that entry."),
+      el("div", {class:"lbl-s"}, "Balances"), carryNote, card, tot, saveBtn);
+    fill(keep && keep.vals);
   });
 }
 
-/* ---------- settings sheet ---------- */
-function settingsSheet(){
-  openSheet(({bar, body}) => {
-    sheetBar(bar, "Settings", "Close");
-    // base currency
-    const seg = el("div", {class:"seg"}); seg.innerHTML = '<span class="thumb"></span>' + CUR_KEYS.map(c => `<button data-c="${c}">${c}</button>`).join("");
-    const ratesCard = el("div", {class:"card"});
-    const paintSeg = () => {
-      const btns = [...seg.querySelectorAll("button")], i = btns.findIndex(b => b.dataset.c === S.base);
-      btns.forEach((b,j) => b.setAttribute("aria-pressed", j===i));
-      const th = seg.querySelector(".thumb"); th.style.width = `calc((100% - 4px) / ${btns.length})`; th.style.transform = `translateX(${i*100}%)`;
-    };
-    const paintRates = () => {
-      ratesCard.innerHTML = "";
-      CUR_KEYS.filter(c => c !== S.base).forEach(c => {
-        const f = el("div", {class:"field"}, `<label>1 ${S.base} =</label>`);
-        const inp = el("input", {inputmode:"decimal", autocomplete:"off", "aria-label":`${c} per ${S.base}`});
-        inp.value = +(S.rates[c] / S.rates[S.base]).toPrecision(6);
-        inp.onchange = () => {
-          const v = parseNum(inp.value);
-          if(!(v > 0)){ inp.value = +(S.rates[c] / S.rates[S.base]).toPrecision(6); return; }
-          S.rates[c] = v * S.rates[S.base]; S.ratesAt = Date.now();
-          commit(); ratesNote.textContent = rateNoteText();
-        };
-        f.append(inp, el("span", {class:"cur"}, c));
-        ratesCard.appendChild(f);
-      });
-    };
-    seg.querySelectorAll("button").forEach(b => b.onclick = () => {
-      S.base = b.dataset.c; paintSeg(); paintRates(); commit({keepMonth:true}); paintHist();
-    });
-    const rateNoteText = () => S.ratesAt
-      ? "Rates last changed " + new Date(S.ratesAt).toLocaleDateString("en-GB",{day:"numeric", month:"long", year:"numeric"}) + ". Each month’s point keeps the rates it was saved with."
-      : "These are approximate mid-2026 rates. Adjust them at each check-in; each month’s point keeps the rates it was saved with.";
-    const ratesNote = el("p", {class:"note"}, rateNoteText());
-
-    const paintHist = () => {}; /* history lives on the main screen */
-    const _unused = () => {
-      hist.innerHTML = "";
-      const all = series().reverse();
-      if(!all.length){ hist.innerHTML = '<div class="empty-list">No months saved yet.</div>'; return; }
-      all.forEach(p => {
-        const r = el("div", {class:"row hist-row", style:"min-height:50px"});
-        r.innerHTML = `<span class="mid"><div class="t1">${mLong(p.m)}</div></span><span class="end"><div class="t1 num amt" style="font-weight:500">${fmt(p.v, S.base, {dec:0})}</div></span>`;
-        const d = el("button", {class:"del"}, "Remove");
-        armConfirm(d, "Confirm", () => {
-          delete S.snaps[p.m];
-          if(p.m === monthKey()) S.lastCheckin = null;
-          commit({keepMonth:true}); paintHist();
-        });
-        r.appendChild(d); hist.appendChild(r);
-      });
-    };
-
-    // backup
-    const bk = el("div", {class:"card"});
-    const copyB = el("button", {class:"plain-btn"}, '<span class="gtext">Copy backup</span>');
-    const restB = el("button", {class:"plain-btn"}, '<span class="gtext">Restore from backup</span>');
-    bk.append(copyB, restB);
-    const area = el("textarea", {class:"backup", placeholder:"Paste a backup here", style:"display:none"});
-    const restoreGo = el("button", {class:"primary", style:"display:none"}, "Restore");
-    copyB.onclick = async () => {
-      const txt = JSON.stringify(S);
-      try{ await navigator.clipboard.writeText(txt); toast("Backup copied"); }
-      catch(e){ area.style.display = ""; area.value = txt; area.select(); restoreGo.style.display = "none"; }
-    };
-    restB.onclick = () => { area.style.display = ""; area.value = ""; restoreGo.style.display = ""; area.focus(); };
-    restoreGo.onclick = () => {
-      try{ const raw = JSON.parse(area.value); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0; const d = normalize(raw); S = d; commit({keepMonth:true}); closeSheet(); toast("Backup restored"); }
-      catch(e){ area.style.boxShadow = "0 0 0 2px var(--down)"; setTimeout(() => area.style.boxShadow = "", 1200); }
-    };
-
-    const erase = el("button", {class:"danger"}, "Erase all data");
-    armConfirm(erase, "Tap again to erase everything", () => {
-      const keep = S.base; S = blank(); S.base = keep; commit({keepMonth:true}); closeSheet(); toast("All data erased");
-    });
-
-    body.append(
-      el("div", {class:"lbl-s"}, "Show totals in"), seg,
-      el("div", {class:"lbl-s"}, "Exchange rates"), ratesCard, ratesNote,
-      el("div", {class:"lbl-s"}, "Backup"), bk, area, restoreGo,
-      erase
-    );
-    paintSeg(); paintRates(); paintHist();
+/* ---------- settings tab ---------- */
+const agoText = t => {
+  const min = Math.round((Date.now() - t) / 60000);
+  if(min < 1) return "just now";
+  if(min < 60) return min + " min ago";
+  const h = Math.round(min / 60);
+  if(h < 24) return h + (h === 1 ? " hour ago" : " hours ago");
+  return new Date(t).toLocaleDateString("en-GB", {day:"numeric", month:"long"});
+};
+function paintRatesInfo(){
+  const card = $("#ratesCard"), note = $("#ratesNote");
+  if(!card) return;
+  card.innerHTML = CUR_KEYS.filter(c => c !== S.base).map(c =>
+    `<div class="rate-row"><span>1 ${S.base}</span><span class="num">${(+(S.rates[c] / S.rates[S.base]).toPrecision(6)).toLocaleString("en-GB", {maximumFractionDigits:4})} ${c}</span></div>`).join("");
+  note.innerHTML = S.ratesSrc
+    ? `Live market rates from ${S.ratesSrc === "er-api" ? '<a href="https://www.exchangerate-api.com" style="color:inherit">ExchangeRate-API</a>' : "Coinbase"}, updated ${agoText(S.ratesAt)}. They refresh every 30 minutes while the app is open. Each month keeps the rates it was saved with.`
+    : "Approximate rates until the first live update. Each month keeps the rates it was saved with.";
+}
+function renderSettings(){
+  const v = $("#vSettings"); v.innerHTML = "";
+  // base currency
+  const seg = el("div", {class:"seg"}); seg.innerHTML = '<span class="thumb"></span>' + CUR_KEYS.map(c => `<button data-c="${c}">${c}</button>`).join("");
+  seg.querySelectorAll("button").forEach(b => b.onclick = () => {
+    S.base = b.dataset.c; paintSeg(seg, CUR_KEYS.indexOf(S.base)); commit({keepMonth:true}); paintRatesInfo();
   });
+
+  // backup
+  const bk = el("div", {class:"card"});
+  const copyB = el("button", {class:"plain-btn"}, '<span class="gtext">Copy backup</span>');
+  const restB = el("button", {class:"plain-btn"}, '<span class="gtext">Restore from backup</span>');
+  bk.append(copyB, restB);
+  const area = el("textarea", {class:"backup", placeholder:"Paste a backup here", style:"display:none"});
+  const restoreGo = el("button", {class:"primary", style:"display:none"}, "Restore");
+  copyB.onclick = async () => {
+    const txt = JSON.stringify(S);
+    try{ await navigator.clipboard.writeText(txt); toast("Backup copied"); }
+    catch(e){ area.style.display = ""; area.value = txt; area.select(); restoreGo.style.display = "none"; }
+  };
+  restB.onclick = () => { area.style.display = ""; area.value = ""; restoreGo.style.display = ""; area.focus(); };
+  restoreGo.onclick = () => {
+    try{ const raw = JSON.parse(area.value); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0; S = normalize(raw); commit({keepMonth:true}); fetchRates(true); setTab("worth"); toast("Backup restored"); }
+    catch(e){ area.style.boxShadow = "0 0 0 2px var(--down)"; setTimeout(() => area.style.boxShadow = "", 1200); }
+  };
+
+  const erase = el("button", {class:"danger"}, "Erase all data");
+  armConfirm(erase, "Tap again to erase everything", () => {
+    const keep = S.base; S = blank(); S.base = keep; commit({keepMonth:true}); fetchRates(true); setTab("worth"); toast("All data erased");
+  });
+
+  v.append(
+    el("div", {class:"lbl-s"}, "Show totals in"), seg,
+    el("div", {class:"lbl-s"}, "Exchange rates"), el("div", {class:"card", id:"ratesCard"}), el("p", {class:"note", id:"ratesNote"}),
+    el("div", {class:"lbl-s"}, "Backup"), bk, area, restoreGo,
+    erase
+  );
+
+  paintSeg(seg, Math.max(0, CUR_KEYS.indexOf(S.base)));
+  paintRatesInfo();
+}
+
+/* ---------- live exchange rates ---------- */
+// Public, keyless and browser-friendly. Coinbase updates about every minute; ExchangeRate-API (open access) once a day as a fallback.
+const RATES_TTL = 30 * 60 * 1000;
+let ratesBusy = false;
+async function fetchRates(force){
+  if(ratesBusy || (!force && S.ratesAt && S.ratesSrc && Date.now() - S.ratesAt < RATES_TTL)) return;
+  if(navigator.onLine === false) return;
+  ratesBusy = true;
+  const get = async url => { const r = await fetch(url, {cache:"no-store"}); if(!r.ok) throw new Error(r.status); return r.json(); };
+  let raw = null, src = null;
+  try{ raw = (await get("https://api.coinbase.com/v2/exchange-rates?currency=EUR")).data.rates; src = "coinbase"; }
+  catch(e){
+    try{ const j = await get("https://open.er-api.com/v6/latest/EUR"); if(j.result !== "success") throw 0; raw = j.rates; src = "er-api"; }
+    catch(e2){ ratesBusy = false; return; } // offline or both down: keep the last rates
+  }
+  ratesBusy = false;
+  const next = {EUR:1};
+  for(const c of CUR_KEYS){ if(c === "EUR") continue; const v = parseFloat(raw && raw[c]); if(!(v > 0)) return; next[c] = v; }
+  S.rates = Object.assign({}, S.rates, next); S.ratesAt = Date.now(); S.ratesSrc = src;
+  // only the current month takes the new rates; earlier months keep theirs
+  if(S.accounts.length) syncCurrentMonth();
+  saveLocal();
+  // quiet refresh, no re-animation
+  if(!scrubbing && !sheet.classList.contains("open")){
+    renderHero(); renderAlloc(); renderList();
+    if(UI.tab === "worth") drawChart(false);
+    if(UI.tab === "monthly") renderMonthly();
+  }
+  paintRatesInfo();
 }
 
 /* ---------- wiring ---------- */
 $("#fab").onclick = () => accountSheet(null, {fromFab:true});
-let lastY = window.scrollY;
-addEventListener("scroll", () => {
-  const y = window.scrollY, bar = $("#tabbar");
-  if(y > 140 && y > lastY + 6) bar.classList.add("min");
-  else if(y < lastY - 6 || y < 80) bar.classList.remove("min");
-  lastY = y;
-}, {passive:true});
 $("#btnUpdate").onclick = () => updateSheet();
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => setTab(t.dataset.tab));
-$("#mmode").querySelectorAll("button").forEach(b => b.onclick = () => { UI.mode = b.dataset.v; saveUI(); renderMonthly(); });
-$("#btnSettings").onclick = settingsSheet;
-$("#btnHide").onclick = () => { UI.hide = !UI.hide; saveUI(); render(false); };
 $("#total").onclick = () => { UI.hide = !UI.hide; saveUI(); render(false); };
+$("#allocMode").querySelectorAll("button").forEach(b => b.onclick = () => { UI.alloc = b.dataset.m; saveUI(); renderAlloc(); });
 $("#range").querySelectorAll("button").forEach(b => b.onclick = () => {
   UI.range = +b.dataset.r; saveUI(); renderRange(); drawChart(true); renderHero();
 });
-new IntersectionObserver(([e]) => document.body.classList.toggle("scrolled", !e.isIntersecting), {rootMargin:"-44px 0px 0px 0px"}).observe($("#largeTitle"));
+// monthly: arrows, and swipe left/right anywhere on the view
+$("#mPrev").onclick = () => stepMonth(-1);
+$("#mNext").onclick = () => stepMonth(1);
+(function(){
+  let x0 = null, y0 = 0;
+  const v = $("#vMonthly");
+  v.addEventListener("touchstart", e => { if(e.touches.length !== 1){ x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, {passive:true});
+  v.addEventListener("touchend", e => {
+    if(x0 == null) return;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) stepMonth(dx < 0 ? 1 : -1);
+  }, {passive:true});
+})();
+// a blurred strip behind the status bar once content scrolls under it
+addEventListener("scroll", () => document.body.classList.toggle("scrolled", scrollY > 8), {passive:true});
 let rw = 0; addEventListener("resize", () => { if(UI.tab !== "worth") return; const w = $("#chartWrap").clientWidth; if(w !== rw){ rw = w; drawChart(false); } });
-document.addEventListener("visibilitychange", () => { if(!document.hidden) render(false); });
+document.addEventListener("visibilitychange", () => { if(!document.hidden){ render(false); fetchRates(); } });
 
+// static icons in the markup: <i data-mi="name"> becomes the svg, other elements get it as content
+document.querySelectorAll("[data-mi]").forEach(n => {
+  if(n.tagName === "I") n.outerHTML = ic(n.dataset.mi); else n.innerHTML = ic(n.dataset.mi);
+});
+
+// Development build only: when there is no data (first launch, or after Erase all data), seed a year of sample data.
+// The generator lives in /dev/sample-data.js, which is removed from production builds (see vercel.json).
+if(window.WORTH_DEV && !S.accounts.length && !Object.keys(S.snaps).length){
+  try{ const {makeSample} = await import("/dev/sample-data.js"); S = normalize(makeSample()); saveLocal(); }catch(e){}
+}
 render(true);
+if(UI.tab === "settings") renderSettings();
 rw = $("#chartWrap").clientWidth;
+// live exchange rates: on start when older than 30 minutes, then checked every 5 minutes (fetches only when stale)
+fetchRates();
+setInterval(() => { if(!document.hidden) fetchRates(); }, 5 * 60 * 1000);
 
 /* ---------- offline ---------- */
 if("serviceWorker" in navigator) addEventListener("load", () => { navigator.serviceWorker.register("/sw.js").catch(() => {}); });
