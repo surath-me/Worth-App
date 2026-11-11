@@ -190,8 +190,11 @@ button.row:active{background:var(--fill)}
 .bub-h .t2{font-size:13px;font-weight:400;color:var(--sec);margin:0 auto}
 .bub-back{display:flex;align-items:center;gap:2px;margin-left:-6px;font-weight:600;font-size:15px;color:var(--text)}
 .bub-back svg{width:22px;height:22px}
-.bub{position:relative;height:300px;margin:0 -8px}
+.bub{position:relative;height:300px;margin:0 -8px;overflow:hidden;border-radius:18px}
+.bub.lvl{height:340px;touch-action:none;cursor:grab}
+.bub.live .bb:not(.gone){transition:opacity .2s ease;transition-delay:0ms!important}
 .bub-leg{margin-top:6px}
+.bubcard{padding:14px 16px 12px}
 .bub-leg .bl{display:flex;align-items:center;gap:10px;width:100%;padding:6px 0;font-size:14px;text-align:left;color:var(--text)}
 .bub-leg .sw{width:10px;height:10px;border-radius:50%;flex:none}
 .bub-leg .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -224,10 +227,6 @@ button.row:active{background:var(--fill)}
 .donut-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
 .donut-c .num{font-size:20px;font-weight:700;letter-spacing:-.02em}
 .donut-c .t2{font-size:12px;color:var(--sec)}
-.ad{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 20px;margin-top:16px}
-.ad .t2{font-size:13px;color:var(--sec)}
-.ad .num{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
-.ad > div:last-child .num{color:var(--down)}
 .more{display:grid;grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows .5s var(--spring),visibility 0s .5s}
 .more.open{grid-template-rows:1fr;visibility:visible;transition:grid-template-rows .5s var(--spring),visibility 0s}
 .more-in{overflow:hidden;min-height:0}
@@ -492,13 +491,13 @@ svg.mi{fill:currentColor}
         <span class="thumb"></span>
         <button data-r="1">1M</button><button data-r="6">6M</button><button data-r="12">1Y</button><button data-r="0">All</button>
       </div>
-      <div class="card ad" id="adCard">
-        <div><div class="t2">Assets</div><div class="num amt" id="adA"></div></div>
-        <div><div class="t2">Debts</div><div class="num amt" id="adD"></div></div>
+      <div id="bubSection">
+        <div class="section-h"><h2>Breakdown</h2></div>
+        <div class="card bubcard"><div class="bub-h" id="bubH"></div><div class="bub" id="bub"></div><div class="bub-leg" id="bubLeg"></div></div>
       </div>
       <div id="allocSection">
         <div class="section-h"><h2>Allocation</h2></div>
-        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="bubbles">Bubbles</button><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocBub"><div class="bub-h" id="bubH"></div><div class="bub" id="bub"></div><div class="bub-leg" id="bubLeg"></div></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
+        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
       </div>
       <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="edit-btn" aria-label="Update balances" data-mi="edit"></button></div>
       <div class="card" id="list"></div>
@@ -743,9 +742,6 @@ function renderHero(){
   if(prevM) setDelta(total, [prevM], "vs " + (mIndex(cm) - prevM.x === 1 ? mOnly(prevM.m) : mShort(prevM.m)));
   else setDelta(total, rangeSeries());
   const debts = liveDebts();
-  $("#adCard").style.display = S.accounts.length ? "" : "none";
-  $("#adA").textContent = fmt(total + debts, S.base, {dec:0});
-  $("#adD").textContent = debts > 0 ? "−" + fmt(debts, S.base, {dec:0}) : fmt(0, S.base, {dec:0});
 }
 function setDelta(value, pts, sinceLabel){
   const d = $("#delta");
@@ -951,6 +947,79 @@ const GROUPS = [
   {k:"debt", n:"Debts", types:["mortgage","loan","card"], c:"#E5484D", liab:true}
 ];
 let bubLevel = null;
+// inside a group the entries sit on a honeycomb you can drag around (like the Apple Watch app grid):
+// bubbles near the middle are full size, those toward the edges shrink and fade
+const hex = {ox:0, oy:0, vx:0, vy:0, maxX:0, maxY:0, raf:0, drag:null, moved:false};
+function hexLayout(items, W, H){
+  const s = 92, dirs = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]], cells = [[0,0]];
+  for(let k = 1; cells.length < items.length; k++){
+    let q = -k, r = k;
+    for(let i = 0; i < 6; i++) for(let j = 0; j < k; j++){ cells.push([q, r]); q += dirs[i][0]; r += dirs[i][1]; }
+  }
+  const vmax = items[0] ? items[0].v : 1;
+  return items.map((x, i) => {
+    const [q, r] = cells[i];
+    return {hx: s * (q + r/2), hy: s * Math.sqrt(3)/2 * r, r: (s - 8) / 2 * (.62 + .38 * Math.sqrt(x.v / vmax))};
+  });
+}
+function fish(hx, hy, W, H){
+  const cx = W/2, cy = H/2, x = cx + hx + hex.ox, y = cy + hy + hex.oy;
+  const d = Math.hypot((x - cx) / (W/2), (y - cy) / (H/2));   // 0 in the middle, 1 at the box edge
+  const f = Math.max(.25, 1 - Math.pow(Math.max(0, d - .35), 1.6) * .9);
+  // edge bubbles also drift a little toward the middle, so the grid looks like a lens
+  const pull = .9 + .1 * f;
+  return {x: cx + (x - cx) * pull, y: cy + (y - cy) * pull, f, o: Math.min(1, Math.max(0, (1.25 - d) * 2.2))};
+}
+function applyFish(){
+  const box = $("#bub"), W = box.clientWidth, H = box.clientHeight;
+  box.querySelectorAll(".bb:not(.gone)").forEach(el => {
+    if(el.dataset.hx == null) return;
+    const r = +el.dataset.r, p = fish(+el.dataset.hx, +el.dataset.hy, W, H);
+    el.dataset.x = p.x; el.dataset.y = p.y;
+    el.style.transform = `translate3d(${p.x - r}px,${p.y - r}px,0) scale(${p.f})`;
+    el.style.opacity = p.o;
+  });
+}
+function hexBounds(P, W, H){
+  let ex = 0, ey = 0; P.forEach(p => { ex = Math.max(ex, Math.abs(p.hx) + p.r); ey = Math.max(ey, Math.abs(p.hy) + p.r); });
+  hex.maxX = Math.max(0, ex - W/2 + 24); hex.maxY = Math.max(0, ey - H/2 + 24);
+}
+const rubber = (v, max) => v > max ? max + (v - max) * .35 : v < -max ? -max + (v + max) * .35 : v;
+function hexMomentum(){
+  cancelAnimationFrame(hex.raf);
+  const step = () => {
+    hex.vx *= .94; hex.vy *= .94;
+    hex.ox += hex.vx; hex.oy += hex.vy;
+    // spring back inside the bounds
+    const sx = Math.max(-hex.maxX, Math.min(hex.maxX, hex.ox)), sy = Math.max(-hex.maxY, Math.min(hex.maxY, hex.oy));
+    if(sx !== hex.ox){ hex.ox += (sx - hex.ox) * .18; hex.vx *= .6; }
+    if(sy !== hex.oy){ hex.oy += (sy - hex.oy) * .18; hex.vy *= .6; }
+    applyFish();
+    if(Math.abs(hex.vx) + Math.abs(hex.vy) > .05 || Math.abs(sx - hex.ox) + Math.abs(sy - hex.oy) > .3) hex.raf = requestAnimationFrame(step);
+  };
+  hex.raf = requestAnimationFrame(step);
+}
+(function(){
+  const box = () => $("#bub");
+  addEventListener("pointerdown", e => {
+    const b = box(); if(!bubLevel || !b.contains(e.target)) return;
+    cancelAnimationFrame(hex.raf); b.classList.add("live");
+    hex.drag = {x:e.clientX, y:e.clientY, ox:hex.ox, oy:hex.oy, t:performance.now(), lx:e.clientX, ly:e.clientY}; hex.moved = false; hex.vx = hex.vy = 0;
+  });
+  addEventListener("pointermove", e => {
+    const d = hex.drag; if(!d) return;
+    const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if(!hex.moved && Math.hypot(dx, dy) < 6) return;
+    hex.moved = true;
+    const now = performance.now(), dt = Math.max(1, now - d.t);
+    hex.vx = (e.clientX - d.lx) / dt * 16; hex.vy = (e.clientY - d.ly) / dt * 16;
+    d.t = now; d.lx = e.clientX; d.ly = e.clientY;
+    hex.ox = rubber(d.ox + dx, hex.maxX); hex.oy = rubber(d.oy + dy, hex.maxY);
+    applyFish();
+  });
+  const up = () => { if(!hex.drag) return; hex.drag = null; hexMomentum(); };
+  addEventListener("pointerup", up); addEventListener("pointercancel", up);
+})();
 // relax circles into a tidy cluster: push overlaps apart, pull toward the middle, stay inside the box
 function packCircles(rs, W, H){
   const cx = W/2, cy = H/2, n = rs.length, gap = 6;
@@ -992,8 +1061,19 @@ function renderBubbles(fromKey){
   // area is true to value (r ∝ √v): scaled so the cluster fills the box and the biggest still fits;
   // only bubbles too small to tap are lifted to a minimum size
   const vmax = items.length ? items[0].v : 1;
-  const k = Math.min(Math.sqrt(W * H * .44 / (Math.PI * sum)), Math.min(W, H) * .4 / Math.sqrt(vmax));
-  const P = packCircles(items.map(x => Math.max(15, k * Math.sqrt(x.v))), W, H);
+  let P;
+  box.classList.toggle("lvl", !!bubLevel);
+  if(bubLevel){
+    P = hexLayout(items, W, H);
+    if(fromKey !== "keep"){ hex.ox = hex.oy = 0; }
+    hexBounds(P, W, H);
+    P.forEach(p => { const q = fish(p.hx, p.hy, W, H); p.x = q.x; p.y = q.y; p.f = q.f; p.o = q.o; });
+  } else {
+    const k = Math.min(Math.sqrt(W * H * .44 / (Math.PI * sum)), Math.min(W, H) * .4 / Math.sqrt(vmax));
+    P = packCircles(items.map(x => Math.max(15, k * Math.sqrt(x.v))), W, H);
+  }
+  box.classList.remove("live"); clearTimeout(hex.liveT);
+  if(bubLevel) hex.liveT = setTimeout(() => box.classList.add("live"), 750 + items.length * 40);
   // header: a back button inside a group, a hint at the top
   const hd = $("#bubH");
   if(bubLevel){
@@ -1037,12 +1117,16 @@ function renderBubbles(fromKey){
       }
     }
     el.dataset.x = p.x; el.dataset.y = p.y; el.dataset.r = p.r;
+    if(bubLevel){ el.dataset.hx = p.hx; el.dataset.hy = p.hy; } else { delete el.dataset.hx; delete el.dataset.hy; }
     el.classList.toggle("sm", d < 96); el.classList.toggle("xs", d < 84); el.classList.toggle("xxs", d < 48);
     el.querySelector(".bv").textContent = (x.liab ? "−" : "") + fmt(x.v, S.base, {dec:0});
-    el.style.transform = at(p.x, p.y, p.r, 1);
+    el.style.transform = at(p.x, p.y, p.r, p.f != null ? p.f : 1);
+    el.style.opacity = p.o != null ? p.o : "";
+    if(bubLevel){ el.classList.toggle("sm", d < 70); el.classList.toggle("xs", d < 50); el.classList.toggle("xxs", d < 36); }
   });
   // legend: every bubble by name, share and value, so even the smallest bubble can be identified and opened
   const leg = $("#bubLeg");
+  leg.style.display = bubLevel ? "none" : "";
   // top level: each asset group as a share of all assets; debts as a share of assets too, labelled so
   const assets = items.filter(x => !x.liab).reduce((t,x) => t + x.v, 0) || 1;
   const pcOf = x => { const base = bubLevel ? sum : assets, p = x.v / base * 100; return (p < 1 ? "<1" : Math.round(p)) + "%"; };
@@ -1056,6 +1140,7 @@ function el_bubble(x){
   el.style.setProperty("--fd", (-Math.random() * 6).toFixed(2) + "s");
   el.innerHTML = `<span class="bf"><span class="bt">${x.icon ? `<span class="bi">${ic(x.icon)}</span>` : ""}<span class="bn">${esc(x.n)}</span><span class="bv num amt"></span></span></span>`;
   el.onclick = () => {
+    if(hex.moved){ hex.moved = false; return; }
     if(x.group){ bubLevel = x.group; renderBubbles(x.key); }
     else if(x.acc) accountSheet(x.acc);
   };
@@ -1063,6 +1148,8 @@ function el_bubble(x){
 }
 
 function renderAlloc(){
+  $("#bubSection").style.display = S.accounts.some(a => conv(+a.bal||0, a.cur) > 0) ? "" : "none";
+  renderBubbles();
   const sec = $("#allocSection");
   const by = {}; let total = 0;
   S.accounts.forEach(a => { if(isLiab(a.type)) return; const v = Math.max(0, conv(+a.bal||0, a.cur)); by[a.type] = (by[a.type]||0) + v; total += v; });
@@ -1081,10 +1168,8 @@ function renderAlloc(){
     c.style.strokeDashoffset = -cum; cum += frac * C;
     requestAnimationFrame(() => requestAnimationFrame(() => { c.style.strokeDasharray = `${len} ${C}`; }));
   });
-  const mode = ["bubbles","pie","bar"].includes(UI.alloc) ? UI.alloc : "bubbles";
-  paintSeg($("#allocMode"), ["bubbles","pie","bar"].indexOf(mode));
-  $("#allocBub").style.display = mode === "bubbles" ? "" : "none";
-  if(mode === "bubbles") renderBubbles();
+  const mode = UI.alloc === "bar" ? "bar" : "pie";
+  paintSeg($("#allocMode"), mode === "bar" ? 1 : 0);
   $("#allocPie").style.display = mode === "pie" ? "" : "none";
   const ab = $("#allocBar"); ab.style.display = mode === "bar" ? "" : "none";
   const sorted = types.slice().sort((a,b) => by[b.k]-by[a.k]), top = sorted.length ? by[sorted[0].k] : 1;
@@ -1666,7 +1751,7 @@ $("#mNext").onclick = () => stepMonth(1);
 })();
 // a blurred strip behind the status bar once content scrolls under it
 addEventListener("scroll", () => document.body.classList.toggle("scrolled", scrollY > 8), {passive:true});
-let rw = 0; addEventListener("resize", () => { if(UI.tab !== "worth") return; const w = $("#chartWrap").clientWidth; if(w !== rw){ rw = w; drawChart(false); if($("#allocBub").style.display !== "none") renderBubbles(); } });
+let rw = 0; addEventListener("resize", () => { if(UI.tab !== "worth") return; const w = $("#chartWrap").clientWidth; if(w !== rw){ rw = w; drawChart(false); renderBubbles(); } });
 document.addEventListener("visibilitychange", () => { if(!document.hidden){ render(false); fetchRates(); } });
 
 // static icons in the markup: <i data-mi="name"> becomes the svg, other elements get it as content
