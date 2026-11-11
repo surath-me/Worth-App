@@ -191,9 +191,11 @@ button.row:active{background:var(--fill)}
 .bub-back{display:flex;align-items:center;gap:2px;margin-left:-6px;font-weight:600;font-size:15px;color:var(--text)}
 .bub-back svg{width:22px;height:22px}
 .bub{position:relative;height:330px;margin:0 -8px}
-.bb{position:absolute;left:0;top:0;border-radius:50%;padding:0;will-change:transform;
-  transition:transform .75s var(--bounce),width .75s var(--bounce),height .75s var(--bounce),opacity .4s}
-.bb.gone{opacity:0;pointer-events:none;transition-duration:.5s,.5s,.5s,.35s}
+.bb{position:absolute;left:0;top:0;border-radius:50%;padding:0;will-change:transform,opacity;transform-origin:50% 50%;
+  transition:transform .7s var(--bounce),opacity .35s ease}
+.bb.gone{opacity:0;pointer-events:none;transition:transform .5s cubic-bezier(.4,0,.2,1),opacity .3s ease}
+.bb .bt{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;transition:opacity .35s ease}
+.bb.pre .bt,.bb.gone .bt{opacity:0;transition-duration:.15s}
 .bf{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;padding:0 6px;
   color:#fff;text-align:center;line-height:1.15;
   background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.38),rgba(255,255,255,0) 58%),var(--bc);
@@ -995,27 +997,42 @@ function renderBubbles(fromKey){
   // where new bubbles grow from and old ones shrink into
   const origin = fromKey && box.querySelector(`[data-key="${fromKey}"]`);
   const ox = origin ? +origin.dataset.x : W/2, oy = origin ? +origin.dataset.y : H/2;
+  // Only transform and opacity animate (GPU, no relayout): a bubble keeps its final size and grows with scale,
+  // so its text scales with it; the text also fades in once the bubble is on its way.
   const keep = new Set(items.map(x => x.key));
+  const at = (x, y, r, sc) => `translate3d(${x - r}px,${y - r}px,0) scale(${sc})`;
   box.querySelectorAll(".bb").forEach(el => {
-    if(keep.has(el.dataset.key)) return;
-    const tx = bubLevel ? (+el.dataset.x - ox) * 1.6 + ox : ox, ty = bubLevel ? (+el.dataset.y - oy) * 1.6 + oy : oy;
-    el.classList.add("gone"); el.style.width = el.style.height = "0px"; el.style.transform = `translate(${tx}px,${ty}px)`;
-    setTimeout(() => el.remove(), 700);
+    if(keep.has(el.dataset.key) || el.classList.contains("gone")) return;
+    const r = +el.dataset.r;
+    const tx = bubLevel ? (+el.dataset.x - ox) * 1.5 + ox : ox, ty = bubLevel ? (+el.dataset.y - oy) * 1.5 + oy : oy;
+    el.classList.add("gone"); el.style.transitionDelay = "0ms"; el.style.transform = at(tx, ty, r, .05);
+    setTimeout(() => el.remove(), 650);
   });
   items.forEach((x, i) => {
     const p = P[i], d = p.r * 2;
     let el = box.querySelector(`[data-key="${x.key}"]:not(.gone)`);
-    if(!el){
-      el = el_bubble(x); box.appendChild(el);
-      el.style.width = el.style.height = "0px"; el.style.transform = `translate(${ox}px,${oy}px)`;
+    const fresh = !el;
+    if(fresh){
+      el = el_bubble(x); el.classList.add("pre"); box.appendChild(el);
+      el.style.width = el.style.height = d + "px";
+      el.style.transform = at(ox, oy, p.r, .05);
       el.getBoundingClientRect();
-      el.style.transitionDelay = (i * 35) + "ms";
-    } else el.style.transitionDelay = "0ms";
-    el.dataset.x = p.x; el.dataset.y = p.y;
+      el.style.transitionDelay = (i * 40) + "ms";
+      setTimeout(() => el.classList.remove("pre"), 160 + i * 40);
+    } else {
+      el.style.transitionDelay = "0ms";
+      const oldR = +el.dataset.r;
+      if(Math.abs(oldR - p.r) > .5){ // keep it looking the same size, then let the scale settle to 1
+        el.style.transition = "none";
+        el.style.width = el.style.height = d + "px";
+        el.style.transform = at(+el.dataset.x, +el.dataset.y, p.r, oldR / p.r);
+        el.getBoundingClientRect(); el.style.transition = "";
+      }
+    }
+    el.dataset.x = p.x; el.dataset.y = p.y; el.dataset.r = p.r;
     el.classList.toggle("sm", d < 76); el.classList.toggle("xs", d < 56);
     el.querySelector(".bv").textContent = (x.liab ? "−" : "") + fmt(x.v, S.base, {dec:0});
-    el.style.width = el.style.height = d + "px";
-    el.style.transform = `translate(${p.x - p.r}px,${p.y - p.r}px)`;
+    el.style.transform = at(p.x, p.y, p.r, 1);
   });
 }
 function el_bubble(x){
@@ -1023,7 +1040,7 @@ function el_bubble(x){
   el.className = "bb" + (x.liab ? " liab" : ""); el.dataset.key = x.key;
   el.style.setProperty("--bc", x.c);
   el.style.setProperty("--fd", (-Math.random() * 6).toFixed(2) + "s");
-  el.innerHTML = `<span class="bf">${x.icon ? `<span class="bi">${ic(x.icon)}</span>` : ""}<span class="bn">${esc(x.n)}</span><span class="bv num amt"></span></span>`;
+  el.innerHTML = `<span class="bf"><span class="bt">${x.icon ? `<span class="bi">${ic(x.icon)}</span>` : ""}<span class="bn">${esc(x.n)}</span><span class="bv num amt"></span></span></span>`;
   el.onclick = () => {
     if(x.group){ bubLevel = x.group; renderBubbles(x.key); }
     else if(x.acc) accountSheet(x.acc);
