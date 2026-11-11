@@ -211,7 +211,12 @@ button.row:active{background:var(--fill)}
   background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.38),rgba(255,255,255,0) 58%),var(--bc);
   box-shadow:inset 0 -6px 14px rgba(0,0,0,.18);
   animation:bfloat 6s ease-in-out infinite;animation-delay:var(--fd);transition:scale .3s var(--bounce)}
-.bb:active .bf{scale:.92}
+.bub{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.bb .bf{transition:scale .5s cubic-bezier(.3,.7,.2,1)}
+.bb.press .bf{scale:.9;transition:scale .55s cubic-bezier(.3,0,.2,1)}
+.bb.lifted{z-index:5}
+.bb.lifted .bf{scale:1.14;box-shadow:inset 0 -6px 14px rgba(0,0,0,.18),0 22px 40px -14px rgba(0,0,0,.65);transition:scale .45s var(--bounce),box-shadow .3s}
+.bub .bb.dragging{transition:none!important}
 .bb.liab .bf{background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.3),rgba(255,255,255,0) 58%),color-mix(in srgb,var(--bc) 82%,#000)}
 .bn{font-size:13px;font-weight:600;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;-webkit-hyphens:auto;hyphens:auto}
 .bv{font-size:12px;font-weight:500;opacity:.88;white-space:nowrap}
@@ -1091,6 +1096,10 @@ function renderBubbles(fromKey){
   let items = bubbleItems();
   if(bubLevel && !items.length){ bubLevel = null; items = bubbleItems(); }
   items.sort((a,b) => b.v - a.v);
+  // inside a group, keep the order you arranged by dragging; new entries go after, biggest first
+  const saved = bubLevel && UI.bubOrder && UI.bubOrder[bubLevel];
+  if(saved){ const pos = k => { const i = saved.indexOf(k); return i < 0 ? 1e6 : i; }; items.sort((a,b) => pos(a.key) - pos(b.key) || b.v - a.v); }
+  box._keys = items.map(x => x.key);
   const sum = items.reduce((t,x) => t + x.v, 0) || 1;
   // area is true to value (r ∝ √v): scaled so the cluster fills the box and the biggest still fits;
   // only bubbles too small to tap are lifted to a minimum size
@@ -1098,7 +1107,7 @@ function renderBubbles(fromKey){
   let P;
   box.classList.toggle("lvl", !!bubLevel);
   if(bubLevel){
-    P = hexLayout(items, W, H);
+    P = hexLayout(items, W, H); box._slots = P;
     hexBounds(P, W, H);
     hex.oy = 0; hex.ox = hex.maxX; // start at the left end
     box.classList.toggle("pan", hex.maxX > 0);
@@ -1174,12 +1183,85 @@ function renderBubbles(fromKey){
   leg.innerHTML = items.map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.c}"></span><span class="nm">${esc(x.n)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("");
   leg.querySelectorAll(".bl").forEach(b => b.onclick = () => { const bb = box.querySelector(`[data-key="${b.dataset.key}"]:not(.gone)`); if(bb) bb.click(); });
 }
+/* press and hold: the bubble sinks slowly; after a moment it lifts and (inside a group) follows your finger.
+   Dropping it near another slot moves it there and the rest slide into the honeycomb around it. */
+const reo = {el:null, timer:0, lifted:false, x0:0, y0:0, gx:0, gy:0, i:0};
+function bubPress(el, e){
+  clearTimeout(reo.timer);
+  Object.assign(reo, {el, lifted:false, x0:e.clientX, y0:e.clientY});
+  el.classList.add("press");
+  reo.timer = setTimeout(() => bubLift(e), 480);
+}
+function bubLift(){
+  const el = reo.el; if(!el) return;
+  el.classList.remove("press");
+  if(!bubLevel){ el.classList.add("lifted"); reo.lifted = "top"; return; } // categories just pop
+  const box = $("#bub");
+  hex.drag = null; cancelAnimationFrame(hex.raf); hex.vx = hex.vy = 0;
+  box.classList.remove("live"); clearTimeout(hex.liveT);
+  reo.lifted = true; reo.i = box._keys.indexOf(el.dataset.key);
+  const r = box.getBoundingClientRect();
+  reo.gx = reo.x0 - r.left - +el.dataset.x; reo.gy = reo.y0 - r.top - +el.dataset.y;
+  el.classList.add("lifted", "dragging");
+}
+function bubSlot(box, i){
+  const W = box.clientWidth, H = box.clientHeight, p = box._slots[i];
+  return {x: W/2 + p.hx + hex.ox, y: H/2 + p.hy + hex.oy, p};
+}
+function bubMove(e){
+  if(!reo.el) return;
+  if(!reo.lifted){
+    if(Math.hypot(e.clientX - reo.x0, e.clientY - reo.y0) > 8){ clearTimeout(reo.timer); reo.el.classList.remove("press"); reo.el = null; }
+    return;
+  }
+  if(reo.lifted !== true) return;
+  const box = $("#bub"), r = box.getBoundingClientRect(), el = reo.el, rad = +el.dataset.r;
+  const x = e.clientX - r.left - reo.gx, y = e.clientY - r.top - reo.gy;
+  el.dataset.x = x; el.dataset.y = y;
+  el.style.transform = `translate3d(${x - rad}px,${y - rad}px,0)`;
+  // nearest honeycomb slot to where the bubble is now
+  let j = 0, bd = Infinity;
+  box._slots.forEach((_, k) => { const s = bubSlot(box, k), d = Math.hypot(s.x - x, s.y - y); if(d < bd){ bd = d; j = k; } });
+  if(j === reo.i) return;
+  const keys = box._keys; keys.splice(reo.i, 1); keys.splice(j, 0, el.dataset.key); reo.i = j;
+  keys.forEach((k, t) => {
+    const b = box.querySelector(`[data-key="${k}"]:not(.gone)`); if(!b || b === el) return;
+    const s = bubSlot(box, t), br = +b.dataset.r;
+    b.dataset.hx = s.p.hx; b.dataset.hy = s.p.hy; b.dataset.x = s.x; b.dataset.y = s.y;
+    b.style.transitionDelay = "0ms"; b.style.transform = `translate3d(${s.x - br}px,${s.y - br}px,0) scale(1)`;
+  });
+}
+function bubRelease(){
+  clearTimeout(reo.timer);
+  const el = reo.el; if(!el) return;
+  el.classList.remove("press");
+  if(reo.lifted){
+    hex.moved = true; // the lift was not a tap
+    setTimeout(() => { hex.moved = false; }, 400);
+    el.classList.remove("lifted");
+    if(reo.lifted === true){
+      const box = $("#bub"), s = bubSlot(box, reo.i), rad = +el.dataset.r;
+      el.classList.remove("dragging");
+      el.dataset.hx = s.p.hx; el.dataset.hy = s.p.hy; el.dataset.x = s.x; el.dataset.y = s.y;
+      el.style.transform = `translate3d(${s.x - rad}px,${s.y - rad}px,0) scale(1)`;
+      UI.bubOrder = UI.bubOrder || {}; UI.bubOrder[bubLevel] = box._keys.slice(); saveUI();
+      hex.liveT = setTimeout(() => box.classList.add("live"), 750);
+    }
+  }
+  reo.el = null; reo.lifted = false;
+}
+addEventListener("pointermove", bubMove);
+addEventListener("pointerup", bubRelease); addEventListener("pointercancel", bubRelease);
+document.addEventListener("touchmove", e => { if(reo.lifted === true) e.preventDefault(); }, {passive:false});
+
 function el_bubble(x){
   const el = document.createElement("button");
   el.className = "bb" + (x.liab ? " liab" : ""); el.dataset.key = x.key;
   el.style.setProperty("--bc", x.c);
   el.style.setProperty("--fd", (-Math.random() * 6).toFixed(2) + "s");
   el.innerHTML = `<span class="bf"><span class="bt">${x.icon ? `<span class="bi">${ic(x.icon)}</span>` : ""}<span class="bn">${esc(x.n)}</span><span class="bv num amt"></span></span></span>`;
+  el.addEventListener("pointerdown", e => bubPress(el, e));
+  el.addEventListener("contextmenu", e => e.preventDefault());
   el.onclick = () => {
     if(hex.moved){ hex.moved = false; return; }
     if(x.group){ bubLevel = x.group; renderBubbles(x.key); }
