@@ -190,14 +190,16 @@ button.row:active{background:var(--fill)}
 .bub-h .t2{font-size:13px;font-weight:400;color:var(--sec);margin:0 auto}
 .bub-back{display:flex;align-items:center;gap:2px;margin-left:-6px;font-weight:600;font-size:15px;color:var(--text)}
 .bub-back svg{width:22px;height:22px}
-.bub{--bub-move:.9s;position:relative;height:320px;margin:0 -8px;overflow:hidden;border-radius:18px}
+/* no clipping, so the spring overshoot never cuts a bubble's edge; only a grid that scrolls sideways clips */
+.bub{--bub-move:.9s;position:relative;height:320px;margin:0 -8px;overflow:visible;border-radius:18px}
+.bub.pan{overflow:hidden}
 .bub.lvl{touch-action:pan-y}
 .bub .bb{touch-action:none}
 
 .bub.lvl.pan{cursor:grab}
 .bub.live .bb:not(.gone){transition:opacity .2s ease;transition-delay:0ms!important}
 .bub-leg{margin-top:6px}
-.bubcard{padding:14px 16px 12px}
+.bubcard{padding:14px 16px 12px;overflow:visible}
 .bub-leg .bl{display:flex;align-items:center;gap:10px;width:100%;padding:6px 0;font-size:14px;text-align:left;color:var(--text)}
 .bub-leg .sw{width:10px;height:10px;border-radius:50%;flex:none}
 .bub-leg .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
