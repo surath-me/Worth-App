@@ -954,7 +954,7 @@ let bubLevel = null;
 const hex = {ox:0, oy:0, vx:0, vy:0, maxX:0, maxY:0, raf:0, drag:null, moved:false};
 // Entries inside a group are all the same size and share the box: one fills it, two split it, and so on.
 // Rows are offset like a honeycomb. Only when even a 76px bubble wouldn't fit do they overflow and become draggable.
-const HEX_FIT_MIN = 76;
+const HEX_FIT_MIN = 76, BUB_MAX_D = 150; // no bubble is ever wider than BUB_MAX_D
 // Every position is a true honeycomb slot (rows rh = cell·√3/2 apart, neighbouring rows offset by cell/2),
 // so centres are always at least one cell apart: bubbles are cell − 8px wide, leaving an 8px gap minimum.
 function hexLayout(items, W, H){
@@ -967,7 +967,7 @@ function hexLayout(items, W, H){
   }
   if(best.cell >= HEX_FIT_MIN){
     // fits: fill row by row, the last (shorter) row placed on the slots closest to the middle
-    let {c, rows, cell} = best; cell = Math.min(cell, Math.min(W, H) - pad);
+    let {c, rows, cell} = best; cell = Math.min(cell, Math.min(W, H) - pad, BUB_MAX_D + 8);
     for(let i = 0; i < n; i++){
       const row = Math.floor(i / c), m = row === rows - 1 ? n - row * c : c;
       const shift = rows > 1 ? (row % 2 ? cell / 4 : -cell / 4) : 0;
@@ -1108,7 +1108,7 @@ function renderBubbles(fromKey){
     // shrink the scale until the packed cluster sits fully inside the box
     let k = Math.min(Math.sqrt(W * H * .5 / (Math.PI * sum)), Math.min(W, H) * .42 / Math.sqrt(vmax));
     for(let t = 0; t < 30; t++){
-      P = packCircles(items.map(x => Math.max(GROUP_MIN_R, k * Math.sqrt(x.v))), W, H);
+      P = packCircles(items.map(x => Math.min(BUB_MAX_D / 2, Math.max(GROUP_MIN_R, k * Math.sqrt(x.v)))), W, H);
       if(packFits(P, W, H)) break;
       k *= .94;
     }
@@ -1163,9 +1163,6 @@ function renderBubbles(fromKey){
     el.querySelector(".bv").textContent = (x.liab ? "−" : "") + fmt(x.v, S.base, {dec:0});
     el.style.transform = at(p.x, p.y, p.r, p.f != null ? p.f : 1);
     el.style.opacity = p.o != null ? p.o : "";
-    // text grows with the bubble; it always shows name and amount
-    const fs = Math.max(10.5, Math.min(22, d * .115));
-    el.querySelector(".bn").style.fontSize = fs + "px"; el.querySelector(".bv").style.fontSize = (fs * .9) + "px";
     el.classList.toggle("sm", d < 96); el.classList.remove("xs", "xxs");
   });
   // legend: every bubble by name, share and value, so even the smallest bubble can be identified and opened
