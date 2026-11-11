@@ -1205,10 +1205,9 @@ function renderBubbles(fromKey){
   outgoing.forEach(el => {
     const r = +el.dataset.r, x = +el.dataset.x, y = +el.dataset.y;
     el.classList.add("gone"); el.style.transitionDelay = "0ms"; el.style.opacity = 0;
-    if(mode === "open"){        // the other categories shrink back a little, blur and fade
-      el.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1), opacity .3s ease, filter .3s ease";
-      el.style.filter = "blur(8px)";
-      el.style.transform = at(C.x + (x - C.x) * .88, C.y + (y - C.y) * .88, r, .85);
+    if(mode === "open"){        // every category shrinks all the way down where it is, fading as it goes
+      el.style.transition = "transform .45s cubic-bezier(.4,0,.2,1), opacity .35s ease .1s";
+      el.style.transform = at(x, y, r, .05);
     } else if(mode === "close"){ // each entry shrinks back into its category's bubble
       el.style.transition = "transform .45s cubic-bezier(.4,0,.2,1), opacity .3s ease .1s";
       el.style.transform = at(O.x, O.y, r, .05);
@@ -1226,16 +1225,15 @@ function renderBubbles(fromKey){
       el.style.transition = "none";
       if(mode === "open"){        // each entry pops out of the tapped bubble, one after another
         el.style.transform = at(O.x, O.y, p.r, .05);
-      } else if(mode === "close"){ // categories come back from a little smaller and blurred
-        el.style.transform = at(C.x + (p.x - C.x) * .88, C.y + (p.y - C.y) * .88, p.r, .85);
-        el.style.opacity = 0; el.style.filter = "blur(8px)";
+      } else if(mode === "close"){ // categories grow back from nothing where they sit, one after another
+        el.style.transform = at(p.x, p.y, p.r, .05);
       } else { el.style.transform = at(C.x, C.y, p.r, .05); el.style.transitionDelay = (i * 40) + "ms"; }
       el.getBoundingClientRect();
       if(mode === "open"){ el.style.transition = ""; el.style.transitionDelay = (60 + i * 40) + "ms"; }
-      else if(mode === "close") el.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1) .08s, opacity .35s ease .08s, filter .4s ease .08s";
+      else if(mode === "close"){ el.style.transition = ""; el.style.transitionDelay = (140 + i * 40) + "ms"; }
       else el.style.transition = "";
       el.style.filter = "";
-      setTimeout(() => el.classList.remove("pre"), mode === "close" ? 120 : 160 + i * 40);
+      setTimeout(() => el.classList.remove("pre"), mode === "close" ? 280 + i * 40 : 160 + i * 40);
       if(mode !== "update") settle(el);
     } else {
       el.style.transitionDelay = "0ms";
