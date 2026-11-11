@@ -1186,36 +1186,20 @@ function renderBubbles(fromKey){
     hd.innerHTML = `<button class="bub-back">${ic("left")}<span>${esc(g.n)}</span></button><span class="num amt">${g.liab ? "−" : ""}${fmt(sum, S.base, {dec:0})}</span>`;
     hd.querySelector("button").onclick = () => { const was = "g:" + bubLevel; bubLevel = null; renderBubbles(was); };
   } else hd.innerHTML = `<span class="t2">Tap a bubble to look inside</span>`;
-  // Opening and closing follow the iOS App Library folder (measured frame by frame from a screen recording):
-  // open  - what was showing zooms in a little toward you, blurs and fades (~0.25s); the group's entries come out of
-  //         the tapped bubble as one block at ~30% size and grow into place with a soft spring (~0.55s), no stagger;
-  // close - faster (~0.3s): the block shrinks back into its category's spot and fades; the categories come back from
-  //         slightly zoomed-in and blurred.
-  const C = {x: W/2, y: H/2};
-  const mode = fromKey && bubLevel ? "open" : fromKey && !bubLevel ? "close" : "update";
-  const at = (x, y, r, sc) => `translate3d(${x - r}px,${y - r}px,0) scale(${sc})`;
-  const mean = pts => pts.length ? {x: pts.reduce((t,p) => t + p.x, 0) / pts.length, y: pts.reduce((t,p) => t + p.y, 0) / pts.length} : C;
-  let O = C;
-  if(mode === "open"){ const t = box.querySelector(`[data-key="${fromKey}"]`); if(t) O = {x:+t.dataset.x, y:+t.dataset.y}; }
-  if(mode === "close"){ const i = items.findIndex(x => x.key === fromKey); if(i >= 0) O = {x:P[i].x, y:P[i].y}; }
+  // where new bubbles grow from and old ones shrink into
+  const origin = fromKey && box.querySelector(`[data-key="${fromKey}"]`);
+  const ox = origin ? +origin.dataset.x : W/2, oy = origin ? +origin.dataset.y : H/2;
+  // Only transform and opacity animate (GPU, no relayout): a bubble keeps its final size and grows with scale,
+  // so its text scales with it; the text also fades in once the bubble is on its way.
   const keep = new Set(items.map(x => x.key));
-  const outgoing = [...box.querySelectorAll(".bb")].filter(el => !keep.has(el.dataset.key) && !el.classList.contains("gone"));
-  const G = mean(outgoing.map(el => ({x:+el.dataset.x, y:+el.dataset.y})));
-  const settle = el => setTimeout(() => { el.style.transition = ""; el.style.filter = ""; }, 900);
-  outgoing.forEach(el => {
-    const r = +el.dataset.r, x = +el.dataset.x, y = +el.dataset.y;
-    el.classList.add("gone"); el.style.transitionDelay = "0ms"; el.style.opacity = 0;
-    if(mode === "open"){        // the other categories shrink back a little, blur and fade
-      el.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1), opacity .3s ease, filter .3s ease";
-      el.style.filter = "blur(8px)";
-      el.style.transform = at(C.x + (x - C.x) * .88, C.y + (y - C.y) * .88, r, .85);
-    } else if(mode === "close"){ // each entry shrinks all the way into its category's bubble; it only fades at the very end
-      el.style.transition = "transform .5s cubic-bezier(.3,0,.2,1), opacity .12s linear .38s";
-      el.style.transform = at(O.x, O.y, r, .02);
-    } else el.style.transform = at(x, y, r, .05);
-    setTimeout(() => el.remove(), 600);
+  const at = (x, y, r, sc) => `translate3d(${x - r}px,${y - r}px,0) scale(${sc})`;
+  box.querySelectorAll(".bb").forEach(el => {
+    if(keep.has(el.dataset.key) || el.classList.contains("gone")) return;
+    const r = +el.dataset.r;
+    const tx = bubLevel ? (+el.dataset.x - ox) * 1.5 + ox : ox, ty = bubLevel ? (+el.dataset.y - oy) * 1.5 + oy : oy;
+    el.classList.add("gone"); el.style.transitionDelay = "0ms"; el.style.transform = at(tx, ty, r, .05);
+    setTimeout(() => el.remove(), 650);
   });
-  const Pc = mean(P);
   items.forEach((x, i) => {
     const p = P[i], d = p.r * 2;
     let el = box.querySelector(`[data-key="${x.key}"]:not(.gone)`);
@@ -1223,20 +1207,10 @@ function renderBubbles(fromKey){
     if(fresh){
       el = el_bubble(x); el.classList.add("pre"); box.appendChild(el);
       el.style.width = el.style.height = d + "px";
-      el.style.transition = "none";
-      if(mode === "open"){        // each entry grows from nothing out of the tapped bubble, one after another
-        el.style.transform = at(O.x, O.y, p.r, .02);
-      } else if(mode === "close"){ // categories come back from a little smaller and blurred
-        el.style.transform = at(C.x + (p.x - C.x) * .88, C.y + (p.y - C.y) * .88, p.r, .85);
-        el.style.opacity = 0; el.style.filter = "blur(8px)";
-      } else { el.style.transform = at(C.x, C.y, p.r, .05); el.style.transitionDelay = (i * 40) + "ms"; }
+      el.style.transform = at(ox, oy, p.r, .05);
       el.getBoundingClientRect();
-      if(mode === "open"){ el.style.transition = ""; el.style.transitionDelay = (60 + i * 40) + "ms"; }
-      else if(mode === "close") el.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1) .08s, opacity .35s ease .08s, filter .4s ease .08s";
-      else el.style.transition = "";
-      el.style.filter = "";
-      setTimeout(() => el.classList.remove("pre"), mode === "close" ? 120 : 160 + i * 40);
-      if(mode !== "update") settle(el);
+      el.style.transitionDelay = (i * 40) + "ms";
+      setTimeout(() => el.classList.remove("pre"), 160 + i * 40);
     } else {
       el.style.transitionDelay = "0ms";
       const oldR = +el.dataset.r;
@@ -1255,8 +1229,6 @@ function renderBubbles(fromKey){
     el.style.opacity = p.o != null ? p.o : "";
     el.classList.toggle("sm", d < 96); el.classList.remove("xs", "xxs");
   });
-  // the header fades in like the folder title
-  if(mode !== "update" && hd.animate) hd.animate([{opacity:0}, {opacity:1}], {duration:300, delay: mode === "open" ? 180 : 80, easing:"ease", fill:"backwards"});
   // legend: every bubble by name, share and value, so even the smallest bubble can be identified and opened
   const leg = $("#bubLeg");
   // top level: each asset group as a share of all assets; debts as a share of assets too, labelled so
