@@ -190,8 +190,8 @@ button.row:active{background:var(--fill)}
 .bub-h .t2{font-size:13px;font-weight:400;color:var(--sec);margin:0 auto}
 .bub-back{display:flex;align-items:center;gap:2px;margin-left:-6px;font-weight:600;font-size:15px;color:var(--text)}
 .bub-back svg{width:22px;height:22px}
-.bub{--bub-move:.9s;position:relative;height:300px;margin:0 -8px;overflow:hidden;border-radius:18px}
-.bub.lvl{height:340px;touch-action:pan-y}
+.bub{--bub-move:.9s;position:relative;height:320px;margin:0 -8px;overflow:hidden;border-radius:18px}
+.bub.lvl{touch-action:pan-y}
 .bub .bb{touch-action:none}
 
 .bub.lvl.pan{cursor:grab}
@@ -1144,7 +1144,7 @@ function bubbleItems(){
 function renderBubbles(fromKey){
   const box = $("#bub");
   if(bubLevel && !GROUPS.some(g => g.k === bubLevel)) bubLevel = null;
-  box.classList.toggle("lvl", !!bubLevel); // set the level's height before measuring
+  box.classList.toggle("lvl", !!bubLevel); // same height at both levels; set before measuring anyway
   const W = box.clientWidth, H = box.clientHeight;
   if(!W) return;
   let items = bubbleItems();
@@ -1226,7 +1226,11 @@ function renderBubbles(fromKey){
   // top level: each asset group as a share of all assets; debts as a share of assets too, labelled so
   const assets = items.filter(x => !x.liab).reduce((t,x) => t + x.v, 0) || 1;
   const pcOf = x => { const base = bubLevel ? sum : assets, p = x.v / base * 100; return (p < 1 ? "<1" : Math.round(p)) + "%"; };
+  const lvlKey = bubLevel || "top", swap = leg._lvl && leg._lvl !== lvlKey; leg._lvl = lvlKey;
   leg.innerHTML = items.slice().sort((a,b) => b.v - a.v).map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.c}"></span><span class="nm">${esc(x.n)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("");
+  // a new level's list fades in (rows one after another) instead of switching instantly
+  if(swap && leg.animate) [...leg.children].forEach((r, i) => r.animate([{opacity:0, transform:"translateY(6px)"}, {opacity:1, transform:"none"}],
+    {duration:450, delay:200 + i * 45, easing:"cubic-bezier(.2,.7,.2,1)", fill:"backwards"}));
   leg.querySelectorAll(".bl").forEach(b => b.onclick = () => { const bb = box.querySelector(`[data-key="${b.dataset.key}"]:not(.gone)`); if(bb) bb.click(); });
 }
 /* press and hold: the bubble sinks slowly; after a moment it lifts and (inside a group) follows your finger.
