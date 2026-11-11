@@ -1233,7 +1233,7 @@ function renderBubbles(fromKey){
       const back = !bubLevel && fromKey, home = back && x.key === fromKey;
       // categories coming back each grow from their own spot (they already know their place)
       el.style.transform = back ? at(p.x, p.y, p.r, .05) : at(ox, oy, p.r, .05);
-      if(back && !home) el.style.opacity = 0; // invisible until its turn, then it fades in as it grows
+      if(!home) el.style.opacity = 0; // invisible until its turn (opening or going back), then it fades in as it grows
       el.getBoundingClientRect();
       const dl = home ? 0 : back ? 300 + i * 40 : i * 40;
       el.style.transitionDelay = dl + "ms";
