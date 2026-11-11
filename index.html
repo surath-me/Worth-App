@@ -199,6 +199,8 @@ button.row:active{background:var(--fill)}
 .bub.lvl.pan{cursor:grab}
 .bub.live .bb:not(.gone){transition:opacity .2s ease;transition-delay:0ms!important}
 .bub-leg{margin-top:6px}
+.bub-ring{position:absolute;border-radius:50%;border:2px solid;pointer-events:none;z-index:5}
+.bb.popping .bt{opacity:0;transition:opacity .12s}
 .pv .pgrp{color:var(--sec);font-weight:400;margin-left:6px}
 .pv .pgrp::before{content:"in ";}
 /* Apple-style secondary button: full width, soft grey fill, not shouting */
@@ -1208,7 +1210,7 @@ function renderBubbles(fromKey){
     if(keep.has(el.dataset.key) || el.classList.contains("gone")) return;
     const r = +el.dataset.r;
     el.classList.add("gone"); el.style.transitionDelay = "0ms";
-    if(bubLevel && el.dataset.key !== fromKey){
+    if(bubLevel && fromKey && el.dataset.key !== fromKey){
       // opening a category: the others recede together, like the App Library behind an open folder —
       // the whole cluster shrinks to ~85% toward the middle, blurs and fades
       const cx = W/2, cy = H/2, x = +el.dataset.x, y = +el.dataset.y;
@@ -1387,6 +1389,32 @@ document.addEventListener("touchmove", e => { if(reo.lifted === true && e.touche
 document.addEventListener("touchend", () => { if(reo.lifted) bubRelease(); });
 document.addEventListener("touchcancel", () => { if(reo.lifted) bubRelease(); });
 document.addEventListener("touchmove", e => { if(reo.lifted === true) e.preventDefault(); }, {passive:false});
+
+/* Delete: the bubble pops like a soap bubble - a quick swell, then it bursts to nothing, with a thin ring
+   flashing outward from its edge. Runs only when the bubble is on screen; otherwise done() right away. */
+function popBubble(key, done){
+  const box = $("#bub"), el = box && box.querySelector(`.bb[data-key="${key}"]:not(.gone)`);
+  const r = el && el.getBoundingClientRect();
+  if(!el || !el.animate || !r.width || r.bottom < 0 || r.top > innerHeight || UI.tab !== "worth" ||
+     matchMedia("(prefers-reduced-motion: reduce)").matches){ done(); return; }
+  const rad = +el.dataset.r, x = +el.dataset.x, y = +el.dataset.y;
+  const at = sc => `translate3d(${x - rad}px,${y - rad}px,0) scale(${sc})`;
+  setTimeout(() => {
+    el.classList.add("popping"); el.style.zIndex = 6;
+    const cs = getComputedStyle(el), col = (cs.getPropertyValue("--bb") || cs.getPropertyValue("--bc")).trim() || "#fff";
+    const ring = document.createElement("span"); ring.className = "bub-ring";
+    ring.style.cssText = `left:${x - rad}px;top:${y - rad}px;width:${rad*2}px;height:${rad*2}px;border-color:${col}`;
+    box.appendChild(ring);
+    ring.animate([{transform:"scale(.95)", opacity:.9}, {transform:"scale(1.5)", opacity:0}], {duration:420, delay:100, easing:"cubic-bezier(.2,.8,.2,1)", fill:"both"})
+      .onfinish = () => ring.remove();
+    const a = el.animate([
+      {transform: at(1), opacity:1, offset:0},
+      {transform: at(1.14), opacity:1, offset:.35, easing:"cubic-bezier(.5,0,.75,0)"},
+      {transform: at(.05), opacity:0, offset:1}
+    ], {duration:320, easing:"cubic-bezier(.2,.8,.2,1)", fill:"forwards"});
+    a.onfinish = () => { el.remove(); done(); };
+  }, 320);
+}
 
 function el_bubble(x){
   const el = document.createElement("button");
@@ -1785,8 +1813,9 @@ function accountSheet(acc, sheetOpts = {}){
     if(editing){
       const del = el("button", {class:"danger"}, "Delete entry");
       armConfirm(del, "Tap again to delete", () => {
-        S.accounts = S.accounts.filter(a => a.id !== draft.id);
-        closeSheet(); commit(); toast("Entry deleted");
+        closeSheet(); toast("Entry deleted");
+        // if its bubble is on screen, it pops first (once the sheet is out of the way), then the rest close the gap
+        popBubble("a:" + draft.id, () => { S.accounts = S.accounts.filter(a => a.id !== draft.id); commit(); });
       });
       body.appendChild(del);
       body.appendChild(el("p", {class:"note"}, "Past months keep this entry’s balance in your history."));
