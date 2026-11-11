@@ -1073,6 +1073,34 @@ function hexMomentum(){
 })();
 // relax circles into a tidy cluster: push overlaps apart, pull toward the middle, stay inside the box
 const GROUP_MIN_R = 44;
+// Categories: area true to value (min GROUP_MIN_R so name and total fit, max BUB_MAX_D), laid out by order —
+// the first sits in the middle, the rest spiral around it — and scaled down until all fit with 8px gaps.
+// Same order in, same layout out, so dragging just changes the order and everything snaps to its new spot.
+function topLayout(vals, W, H){
+  const sum = vals.reduce((t,v) => t + v, 0) || 1, vmax = Math.max(1, ...vals);
+  let k = Math.min(Math.sqrt(W * H * .5 / (Math.PI * sum)), Math.min(W, H) * .42 / Math.sqrt(vmax)), P;
+  for(let t = 0; t < 30; t++){
+    P = packCircles(vals.map(v => Math.min(BUB_MAX_D / 2, Math.max(GROUP_MIN_R, k * Math.sqrt(v)))), W, H);
+    if(packFits(P, W, H)) break;
+    k *= .94;
+  }
+  return P;
+}
+// Fixed spots for categories: the default layout (biggest first) defines where the spots are. A custom order puts
+// each category on the spot for its position; the spots then grow or shrink to that category's size and the
+// cluster relaxes so nothing overlaps (8px gaps). Same order in, same layout out.
+function arrange(keys, vals, W, H){
+  const sorted = keys.slice().sort((a,b) => vals[b] - vals[a]);
+  const base = topLayout(sorted.map(k => vals[k]), W, H);
+  const rOf = Object.fromEntries(sorted.map((k, i) => [k, base[i].r]));
+  let sc = 1, P;
+  for(let t = 0; t < 20; t++){
+    P = packCircles(keys.map(k => rOf[k] * sc), W, H, {init: keys.map((_, i) => ({x: base[i].x, y: base[i].y})), its: 300});
+    if(packFits(P, W, H)) break;
+    sc *= .96;
+  }
+  return P;
+}
 function packFits(P, W, H){
   for(let i = 0; i < P.length; i++){
     const a = P[i]; if(a.x - a.r < 1 || a.y - a.r < 1 || a.x + a.r > W - 1 || a.y + a.r > H - 1) return false;
@@ -1121,7 +1149,7 @@ function renderBubbles(fromKey){
   if(bubLevel && !items.length){ bubLevel = null; items = bubbleItems(); }
   items.sort((a,b) => b.v - a.v);
   // inside a group, keep the order you arranged by dragging; new entries go after, biggest first
-  const saved = bubLevel && UI.bubOrder && UI.bubOrder[bubLevel];
+  const saved = UI.bubOrder && UI.bubOrder[bubLevel || "top"];
   if(saved){ const pos = k => { const i = saved.indexOf(k); return i < 0 ? 1e6 : i; }; items.sort((a,b) => pos(a.key) - pos(b.key) || b.v - a.v); }
   box._keys = items.map(x => x.key);
   const sum = items.reduce((t,x) => t + x.v, 0) || 1;
@@ -1137,15 +1165,8 @@ function renderBubbles(fromKey){
     box.classList.toggle("pan", hex.maxX > 0);
     P.forEach(p => { const q = fish(p.hx, p.hy, W, H, p.r); p.x = q.x; p.y = q.y; p.f = q.f; p.o = q.o; });
   } else {
-    // area true to value, but a group bubble is never smaller than GROUP_MIN_R so its name and total always fit;
-    // shrink the scale until the packed cluster sits fully inside the box
-    let k = Math.min(Math.sqrt(W * H * .5 / (Math.PI * sum)), Math.min(W, H) * .42 / Math.sqrt(vmax));
-    for(let t = 0; t < 30; t++){
-      const sp = UI.bubPos, init = sp && items.map(x => sp[x.key] && {x: sp[x.key][0] * W, y: sp[x.key][1] * H});
-      P = packCircles(items.map(x => Math.min(BUB_MAX_D / 2, Math.max(GROUP_MIN_R, k * Math.sqrt(x.v)))), W, H, {init: init && init.every(Boolean) ? init : null});
-      if(packFits(P, W, H)) break;
-      k *= .94;
-    }
+    box._vals = Object.fromEntries(items.map(x => [x.key, x.v]));
+    P = arrange(items.map(x => x.key), box._vals, W, H);
   }
   box.classList.remove("live"); clearTimeout(hex.liveT);
   if(bubLevel) hex.liveT = setTimeout(() => box.classList.add("live"), 750 + items.length * 40);
@@ -1205,7 +1226,7 @@ function renderBubbles(fromKey){
   // top level: each asset group as a share of all assets; debts as a share of assets too, labelled so
   const assets = items.filter(x => !x.liab).reduce((t,x) => t + x.v, 0) || 1;
   const pcOf = x => { const base = bubLevel ? sum : assets, p = x.v / base * 100; return (p < 1 ? "<1" : Math.round(p)) + "%"; };
-  leg.innerHTML = items.map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.c}"></span><span class="nm">${esc(x.n)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("");
+  leg.innerHTML = items.slice().sort((a,b) => b.v - a.v).map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.c}"></span><span class="nm">${esc(x.n)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("");
   leg.querySelectorAll(".bl").forEach(b => b.onclick = () => { const bb = box.querySelector(`[data-key="${b.dataset.key}"]:not(.gone)`); if(bb) bb.click(); });
 }
 /* press and hold: the bubble sinks slowly; after a moment it lifts and (inside a group) follows your finger.
@@ -1223,28 +1244,11 @@ function bubLift(){
   const box = $("#bub");
   hex.drag = null; cancelAnimationFrame(hex.raf); hex.vx = hex.vy = 0;
   box.classList.remove("live"); clearTimeout(hex.liveT);
-  reo.lifted = true; reo.i = box._keys.indexOf(el.dataset.key); reo.free = !bubLevel; reo.home = {x:+el.dataset.x, y:+el.dataset.y};
+  reo.lifted = true; reo.i = box._keys.indexOf(el.dataset.key); reo.free = !bubLevel; reo.home = {x:+el.dataset.x, y:+el.dataset.y}; delete el.dataset.sx; delete el.dataset.sy;
   if(reo.free) box.classList.add("reflow");
   const r = box.getBoundingClientRect();
   reo.gx = reo.x0 - r.left - +el.dataset.x; reo.gy = reo.y0 - r.top - +el.dataset.y;
   el.classList.add("lifted", "dragging");
-}
-function freeReflow(box, el, its, final){
-  const bs = [...box.querySelectorAll(".bb:not(.gone)")], W = box.clientWidth, H = box.clientHeight, fi = bs.indexOf(el);
-  const ex = +el.dataset.x, ey = +el.dataset.y, er = +el.dataset.r;
-  if(!final){
-    // hovering over another bubble: it jumps to the spot the dragged one came from (a swap), so nothing gets trapped
-    const hit = bs.find(b => b !== el && Math.hypot(+b.dataset.x - ex, +b.dataset.y - ey) < Math.max(+b.dataset.r, er) * .55);
-    if(hit && reo.home){ const hx = +hit.dataset.x, hy = +hit.dataset.y; hit.dataset.x = reo.home.x; hit.dataset.y = reo.home.y; reo.home = {x:hx, y:hy}; }
-  } else {
-    el.dataset.x = Math.min(W - er - 2, Math.max(er + 2, ex)); el.dataset.y = Math.min(H - er - 2, Math.max(er + 2, ey));
-  }
-  const P = packCircles(bs.map(b => +b.dataset.r), W, H, {init: bs.map(b => ({x:+b.dataset.x, y:+b.dataset.y})), fixed: fi, its});
-  bs.forEach((b, i) => {
-    if(i === fi && !final) return;
-    const p = P[i]; b.dataset.x = p.x; b.dataset.y = p.y;
-    b.style.transitionDelay = "0ms"; b.style.transform = `translate3d(${p.x - p.r}px,${p.y - p.r}px,0) scale(1)`;
-  });
 }
 function bubSlot(box, i){
   const W = box.clientWidth, H = box.clientHeight, p = box._slots[i];
@@ -1261,7 +1265,26 @@ function bubMove(e){
   const x = e.clientX - r.left - reo.gx, y = e.clientY - r.top - reo.gy;
   el.dataset.x = x; el.dataset.y = y;
   el.style.transform = `translate3d(${x - rad}px,${y - rad}px,0)`;
-  if(reo.free){ freeReflow(box, el, 50); return; }
+  if(reo.free){
+    // over another category: take its place in the order; everything re-lays out around the dragged one's new spot
+    // nearest spot wins (its own spot included), with a little slack so it doesn't flicker between two
+    const keys = box._keys, own = el.dataset.sx != null ? {x:+el.dataset.sx, y:+el.dataset.sy} : reo.home;
+    let hit = null, bd = Math.hypot(own.x - x, own.y - y) - 12;
+    keys.forEach(k => { if(k === el.dataset.key) return; const b = box.querySelector(`[data-key="${k}"]:not(.gone)`);
+      const d = b ? Math.hypot(+b.dataset.x - x, +b.dataset.y - y) : Infinity; if(d < bd){ bd = d; hit = k; } });
+    if(!hit) return;
+    const j = keys.indexOf(hit); keys.splice(reo.i, 1); keys.splice(j, 0, el.dataset.key); reo.i = j;
+    const P = arrange(keys, box._vals, box.clientWidth, box.clientHeight);
+    keys.forEach((k, t) => {
+      const b = box.querySelector(`[data-key="${k}"]:not(.gone)`), p = P[t];
+      b.dataset.r = p.r; b.dataset.sx = p.x; b.dataset.sy = p.y; // its new home
+      b.style.width = b.style.height = p.r * 2 + "px";
+      if(b === el) return;
+      b.dataset.x = p.x; b.dataset.y = p.y;
+      b.style.transitionDelay = "0ms"; b.style.transform = `translate3d(${p.x - p.r}px,${p.y - p.r}px,0) scale(1)`;
+    });
+    return;
+  }
   // nearest honeycomb slot to where the bubble is now
   let j = 0, bd = Infinity;
   box._slots.forEach((_, k) => { const s = bubSlot(box, k), d = Math.hypot(s.x - x, s.y - y); if(d < bd){ bd = d; j = k; } });
@@ -1283,12 +1306,12 @@ function bubRelease(){
     setTimeout(() => { hex.moved = false; }, 400);
     el.classList.remove("lifted");
     if(reo.lifted === true && reo.free){
-      // categories: the dropped bubble stays where you put it (nudged inside), the others settle around it
+      // categories: snap into the spot its place in the order gives it, and remember the order
       const box = $("#bub"); el.classList.remove("dragging");
-      freeReflow(box, el, 360, true);
-      const W = box.clientWidth, H = box.clientHeight; UI.bubPos = {};
-      box.querySelectorAll(".bb:not(.gone)").forEach(b => { UI.bubPos[b.dataset.key] = [+b.dataset.x / W, +b.dataset.y / H]; });
-      saveUI();
+      const rad = +el.dataset.r, sx = el.dataset.sx != null ? +el.dataset.sx : reo.home.x, sy = el.dataset.sy != null ? +el.dataset.sy : reo.home.y;
+      el.dataset.x = sx; el.dataset.y = sy;
+      el.style.transform = `translate3d(${sx - rad}px,${sy - rad}px,0) scale(1)`;
+      UI.bubOrder = UI.bubOrder || {}; UI.bubOrder.top = box._keys.slice(); delete UI.bubPos; saveUI();
       setTimeout(() => box.classList.remove("reflow"), 600);
     } else if(reo.lifted === true){
       const box = $("#bub"), s = bubSlot(box, reo.i), rad = +el.dataset.r;
