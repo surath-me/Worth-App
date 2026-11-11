@@ -1196,8 +1196,18 @@ function renderBubbles(fromKey){
   box.querySelectorAll(".bb").forEach(el => {
     if(keep.has(el.dataset.key) || el.classList.contains("gone")) return;
     const r = +el.dataset.r;
-    const tx = bubLevel ? (+el.dataset.x - ox) * 1.5 + ox : ox, ty = bubLevel ? (+el.dataset.y - oy) * 1.5 + oy : oy;
-    el.classList.add("gone"); el.style.transitionDelay = "0ms"; el.style.transform = at(tx, ty, r, .05);
+    el.classList.add("gone"); el.style.transitionDelay = "0ms";
+    if(bubLevel && el.dataset.key !== fromKey){
+      // opening a category: the others recede together, like the App Library behind an open folder —
+      // the whole cluster shrinks to ~85% toward the middle, blurs and fades
+      const cx = W/2, cy = H/2, x = +el.dataset.x, y = +el.dataset.y;
+      el.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1), opacity .35s ease, filter .35s ease";
+      el.style.filter = "blur(8px)";
+      el.style.transform = at(cx + (x - cx) * .85, cy + (y - cy) * .85, r, .85);
+    } else {
+      const tx = bubLevel ? (+el.dataset.x - ox) * 1.5 + ox : ox, ty = bubLevel ? (+el.dataset.y - oy) * 1.5 + oy : oy;
+      el.style.transform = at(tx, ty, r, .05);
+    }
     setTimeout(() => el.remove(), 650);
   });
   items.forEach((x, i) => {
