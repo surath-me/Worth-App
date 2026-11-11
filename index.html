@@ -1195,6 +1195,7 @@ function renderBubbles(fromKey){
   // so its text scales with it; the text also fades in once the bubble is on its way.
   const keep = new Set(items.map(x => x.key));
   const at = (x, y, r, sc) => `translate3d(${x - r}px,${y - r}px,0) scale(${sc})`;
+  const outs = [...box.querySelectorAll(".bb")].filter(b => !keep.has(b.dataset.key) && !b.classList.contains("gone"));
   box.querySelectorAll(".bb").forEach(el => {
     if(keep.has(el.dataset.key) || el.classList.contains("gone")) return;
     const r = +el.dataset.r;
@@ -1206,11 +1207,19 @@ function renderBubbles(fromKey){
       el.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1), opacity .35s ease, filter .35s ease";
       el.style.filter = "blur(8px)";
       el.style.transform = at(cx + (x - cx) * .85, cy + (y - cy) * .85, r, .85);
+    } else if(!bubLevel && fromKey){
+      // going back: each entry travels back into its category's bubble along the path it came out on
+      // (the reverse of the pop-out: last out, first in), shrinking as it goes and fading only at the end
+      const ti = items.findIndex(x => x.key === fromKey), T = ti >= 0 ? P[ti] : {x: W/2, y: H/2};
+      const k = Math.max(0, outs.length - 1 - outs.indexOf(el)) * 30;
+      el.style.transition = `transform .42s cubic-bezier(.5,0,.75,0) ${k}ms, opacity .12s linear ${k + 320}ms`;
+      el.style.opacity = 0;
+      el.style.transform = at(T.x, T.y, r, .05);
     } else {
       const tx = bubLevel ? (+el.dataset.x - ox) * 1.5 + ox : ox, ty = bubLevel ? (+el.dataset.y - oy) * 1.5 + oy : oy;
       el.style.transform = at(tx, ty, r, .05);
     }
-    setTimeout(() => el.remove(), 650);
+    setTimeout(() => el.remove(), 1000);
   });
   items.forEach((x, i) => {
     const p = P[i], d = p.r * 2;
@@ -1219,10 +1228,14 @@ function renderBubbles(fromKey){
     if(fresh){
       el = el_bubble(x); el.classList.add("pre"); box.appendChild(el);
       el.style.width = el.style.height = d + "px";
-      el.style.transform = at(ox, oy, p.r, .05);
+      // going back: the category you were in grows back first, in its own spot, so its entries have somewhere
+      // to fly into; the other categories follow once the entries are mostly in
+      const back = !bubLevel && fromKey, home = back && x.key === fromKey;
+      el.style.transform = home ? at(p.x, p.y, p.r, .05) : at(ox, oy, p.r, .05);
       el.getBoundingClientRect();
-      el.style.transitionDelay = (i * 40) + "ms";
-      setTimeout(() => el.classList.remove("pre"), 160 + i * 40);
+      const dl = home ? 0 : back ? 300 + i * 40 : i * 40;
+      el.style.transitionDelay = dl + "ms";
+      setTimeout(() => el.classList.remove("pre"), 160 + dl);
     } else {
       el.style.transitionDelay = "0ms";
       const oldR = +el.dataset.r;
