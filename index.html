@@ -190,7 +190,13 @@ button.row:active{background:var(--fill)}
 .bub-h .t2{font-size:13px;font-weight:400;color:var(--sec);margin:0 auto}
 .bub-back{display:flex;align-items:center;gap:2px;margin-left:-6px;font-weight:600;font-size:15px;color:var(--text)}
 .bub-back svg{width:22px;height:22px}
-.bub{position:relative;height:330px;margin:0 -8px}
+.bub{position:relative;height:300px;margin:0 -8px}
+.bub-leg{margin-top:6px}
+.bub-leg .bl{display:flex;align-items:center;gap:10px;width:100%;padding:6px 0;font-size:14px;text-align:left;color:var(--text)}
+.bub-leg .sw{width:10px;height:10px;border-radius:50%;flex:none}
+.bub-leg .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bub-leg .pc{color:var(--sec);width:44px;text-align:right}
+.bub-leg .vl{width:104px;text-align:right;font-weight:500}
 .bb{position:absolute;left:0;top:0;border-radius:50%;padding:0;will-change:transform,opacity;transform-origin:50% 50%;
   transition:transform .7s var(--bounce),opacity .35s ease}
 .bb.gone{opacity:0;pointer-events:none;transition:transform .5s cubic-bezier(.4,0,.2,1),opacity .3s ease}
@@ -207,7 +213,7 @@ button.row:active{background:var(--fill)}
 .bv{font-size:12px;font-weight:500;opacity:.88;white-space:nowrap}
 .bi svg{width:18px;height:18px;fill:#fff;opacity:.9}
 .bb.sm .bn{font-size:10.5px} .bb.sm .bv{font-size:10.5px} .bb.sm .bi{display:none}
-.bb.xs .bn{display:none}
+.bb.xs .bn{display:none} .bb.xxs .bv{display:none}
 @keyframes bfloat{0%,100%{translate:0 0}25%{translate:1.5px -3px}50%{translate:-1px 2px}75%{translate:-2px -1.5px}}
 @media (prefers-reduced-motion: reduce){.bf{animation:none}}
 .donut-wrap{position:relative;width:170px;height:170px;margin:4px auto 8px}
@@ -492,7 +498,7 @@ svg.mi{fill:currentColor}
       </div>
       <div id="allocSection">
         <div class="section-h"><h2>Allocation</h2></div>
-        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="bubbles">Bubbles</button><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocBub"><div class="bub-h" id="bubH"></div><div class="bub" id="bub"></div></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
+        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="bubbles">Bubbles</button><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocBub"><div class="bub-h" id="bubH"></div><div class="bub" id="bub"></div><div class="bub-leg" id="bubLeg"></div></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
       </div>
       <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="edit-btn" aria-label="Update balances" data-mi="edit"></button></div>
       <div class="card" id="list"></div>
@@ -940,7 +946,8 @@ function drawChart(animate){
 const GROUPS = [
   {k:"cash", n:"Cash & bank", types:["bank","cash"], c:"#0A84FF"},
   {k:"inv", n:"Investments", types:["etf","stocks","mf","crypto"], c:"#14B8A6"},
-  {k:"real", n:"Property & more", types:["property","vehicle","valuables","other"], c:"#C79A3B"},
+  {k:"property", n:"Property", types:["property"], c:"#C79A3B"},
+  {k:"more", n:"More", types:["vehicle","valuables","other"], c:"#64748B"},
   {k:"debt", n:"Debts", types:["mortgage","loan","card"], c:"#E5484D", liab:true}
 ];
 let bubLevel = null;
@@ -982,11 +989,11 @@ function renderBubbles(fromKey){
   if(bubLevel && !items.length){ bubLevel = null; items = bubbleItems(); }
   items.sort((a,b) => b.v - a.v);
   const sum = items.reduce((t,x) => t + x.v, 0) || 1;
-  // sizes follow value, softened (v^0.4 instead of area-true v^0.5) so small entries stay big enough to read
-  const E = .4, wsum = items.reduce((t,x) => t + Math.pow(x.v, 2*E), 0) || 1;
-  const k = Math.sqrt(W * H * (bubLevel ? .42 : .46) / (Math.PI * wsum));
-  const maxR = Math.min(W, H) * .34, minR = items.length > 8 ? 28 : 36;
-  const P = packCircles(items.map(x => Math.min(maxR, Math.max(minR, k * Math.pow(x.v, E)))), W, H);
+  // area is true to value (r ∝ √v): scaled so the cluster fills the box and the biggest still fits;
+  // only bubbles too small to tap are lifted to a minimum size
+  const vmax = items.length ? items[0].v : 1;
+  const k = Math.min(Math.sqrt(W * H * .44 / (Math.PI * sum)), Math.min(W, H) * .4 / Math.sqrt(vmax));
+  const P = packCircles(items.map(x => Math.max(15, k * Math.sqrt(x.v))), W, H);
   // header: a back button inside a group, a hint at the top
   const hd = $("#bubH");
   if(bubLevel){
@@ -1030,10 +1037,17 @@ function renderBubbles(fromKey){
       }
     }
     el.dataset.x = p.x; el.dataset.y = p.y; el.dataset.r = p.r;
-    el.classList.toggle("sm", d < 76); el.classList.toggle("xs", d < 56);
+    el.classList.toggle("sm", d < 96); el.classList.toggle("xs", d < 84); el.classList.toggle("xxs", d < 48);
     el.querySelector(".bv").textContent = (x.liab ? "−" : "") + fmt(x.v, S.base, {dec:0});
     el.style.transform = at(p.x, p.y, p.r, 1);
   });
+  // legend: every bubble by name, share and value, so even the smallest bubble can be identified and opened
+  const leg = $("#bubLeg");
+  // top level: each asset group as a share of all assets; debts as a share of assets too, labelled so
+  const assets = items.filter(x => !x.liab).reduce((t,x) => t + x.v, 0) || 1;
+  const pcOf = x => { const base = bubLevel ? sum : assets, p = x.v / base * 100; return (p < 1 ? "<1" : Math.round(p)) + "%"; };
+  leg.innerHTML = items.map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.c}"></span><span class="nm">${esc(x.n)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("");
+  leg.querySelectorAll(".bl").forEach(b => b.onclick = () => { const bb = box.querySelector(`[data-key="${b.dataset.key}"]:not(.gone)`); if(bb) bb.click(); });
 }
 function el_bubble(x){
   const el = document.createElement("button");
