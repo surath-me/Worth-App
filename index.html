@@ -503,12 +503,6 @@ svg.mi{fill:currentColor}
         <div class="section-h"><h2>Breakdown</h2></div>
         <div class="card bubcard"><div class="bub-h" id="bubH"></div><div class="bub" id="bub"></div><div class="bub-leg" id="bubLeg"></div></div>
       </div>
-      <div id="allocSection">
-        <div class="section-h"><h2>Allocation</h2></div>
-        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
-      </div>
-      <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="edit-btn" aria-label="Update balances" data-mi="edit"></button></div>
-      <div class="card" id="list"></div>
     </section>
 
     <section class="view" id="vMonthly">
@@ -518,6 +512,11 @@ svg.mi{fill:currentColor}
         <button class="icon-btn" id="mNext" aria-label="Next month" data-mi="right"></button>
       </div>
       <div id="mDetail"></div>
+      <div id="allocSection">
+        <div class="section-h"><h2>Allocation</h2></div>
+        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
+      </div>
+      <div id="mFoot"></div>
     </section>
 
     <section class="view" id="vSettings"></section>
@@ -736,6 +735,7 @@ function render(animateChart){
   renderHero();
   renderRange();
   if(UI.tab === "worth") drawChart(animateChart !== false);
+  renderBreakdown();
   renderAlloc();
   renderList();
   renderMonthly();
@@ -1353,14 +1353,21 @@ function el_bubble(x){
   return el;
 }
 
-function renderAlloc(){
+function renderBreakdown(){
   $("#bubSection").style.display = S.accounts.some(a => conv(+a.bal||0, a.cur) > 0) ? "" : "none";
   renderBubbles();
+}
+// Allocation lives on the Monthly tab and follows the month shown there: that month's record,
+// or today's balances for the current month before it is recorded.
+function renderAlloc(){
   const sec = $("#allocSection");
-  const by = {}; let total = 0;
-  S.accounts.forEach(a => { if(isLiab(a.type)) return; const v = Math.max(0, conv(+a.bal||0, a.cur)); by[a.type] = (by[a.type]||0) + v; total += v; });
+  const m = UI.month || monthKey(), snap = S.snaps[m];
+  let rows = null;
+  if(snap){ const rates = snap.rates || S.rates; rows = Object.values(snap.items).map(it => ({type:it[2], v:conv(+it[0] || 0, it[1], rates)})); }
+  else if(m === monthKey()) rows = S.accounts.map(a => ({type:a.type, v:conv(+a.bal||0, a.cur)}));
+  const by = {}; let total = 0, debts = 0;
+  (rows || []).forEach(r => { if(isLiab(r.type)){ debts += Math.max(0, r.v); return; } const v = Math.max(0, r.v); by[r.type] = (by[r.type]||0) + v; total += v; });
   const types = TYPES.filter(t => by[t.k] > 0);
-  const debts = liveDebts();
   sec.style.display = types.length || debts > 0 ? "" : "none";
   if(!types.length && !(debts > 0)) return;
   const C = 2 * Math.PI * 46, dn = $("#donut"); let cum = 0;
@@ -1388,7 +1395,7 @@ function renderAlloc(){
 
 let justAdded = null, entriesOpen = false;
 function renderList(){
-  const list = $("#list");
+  const list = $("#list"); if(!list) return; // the entries list moved: Monthly shows them, Breakdown edits them
   if(!S.accounts.length){
     list.innerHTML = `<div class="empty-list">An entry is anything you own or owe: a bank account, a broker like Trade Republic or Groww, a fund, cash, a flat or a car, a mortgage or a loan. Tap <b>+</b> to create one, then update balances once a month.</div>`;
     return;
@@ -1440,7 +1447,6 @@ function renderTabs(){
   document.querySelector(".tab-ind").style.transform = `translateX(${i * tabPitch()}px)`;
   TABS.forEach(t => $(VIEWS[t]).classList.toggle("active", t === UI.tab));
   $("#largeTitle").textContent = TITLES[UI.tab];
-  $("#btnUpdate").style.display = S.accounts.length ? "" : "none";
 }
 function setTab(t){
   if(UI.tab === t){ window.scrollTo({top:0, behavior:"smooth"}); return; }
@@ -1456,7 +1462,7 @@ function setTab(t){
     {transform:`translateX(${toI*pitch}px) scale(.97,1.03)`, offset:.8},
     {transform:`translateX(${toI*pitch}px) scale(1,1)`}
   ], {duration:650, easing:"cubic-bezier(.32,.72,0,1)"});
-  if(t === "worth"){ drawChart(true); renderHero(); renderAlloc(); }
+  if(t === "worth"){ drawChart(true); renderHero(); renderBreakdown(); }
   else if(t === "monthly") renderMonthly();
   else renderSettings();
 }
@@ -1481,10 +1487,11 @@ function renderMonthly(dir){
   const ms = monthList(), cm = monthKey();
   if(!UI.month || !ms.includes(UI.month)) UI.month = cm;
   const m = UI.month, i = ms.indexOf(m);
+  renderAlloc();
   $("#mTitle").textContent = mLong(m);
   $("#mPrev").disabled = i <= 0; $("#mNext").disabled = i >= ms.length - 1;
 
-  const box = $("#mDetail"); box.innerHTML = "";
+  const box = $("#mDetail"); box.innerHTML = ""; $("#mFoot").innerHTML = "";
   const view = el("div", {class:"mview" + (dir ? " slide-" + dir : "")});
   box.appendChild(view);
   const snap = S.snaps[m];
@@ -1536,9 +1543,13 @@ function renderMonthly(dir){
         } else chg = '<span class="t2">New</span>';
       }
       const sub = esc(a.platform || t.n) + (a.cur !== S.base ? `, <span class="amt">≈ ${fmt(a.v, S.base, {dec:0})}</span>` : "");
-      card.appendChild(el("div", {class:"row"}, `${avatar(t)}
+      // tap an entry to edit it (name, type, balance); removed entries stay read-only
+      const acc = S.accounts.find(x => x.id === a.id);
+      const row = el(acc ? "button" : "div", {class:"row"}, `${avatar(t)}
         <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
-        <span class="end"><div class="t1 num amt">${liab ? "−" : ""}${fmt(a.b, a.cur)}</div><div class="num">${chg}</div></span>`));
+        <span class="end"><div class="t1 num amt">${liab ? "−" : ""}${fmt(a.b, a.cur)}</div><div class="num">${chg}</div></span>`);
+      if(acc) row.onclick = () => accountSheet(acc);
+      card.appendChild(row);
     });
     view.append(el("div", {class:"lbl-s"}, label), card);
   };
@@ -1550,7 +1561,7 @@ function renderMonthly(dir){
     delete S.snaps[m]; if(m === cm) S.lastCheckin = null;
     const gone = mLong(m); commit({keepMonth:true}); toast("Removed " + gone);
   });
-  view.append(del);
+  $("#mFoot").appendChild(del); // at the very bottom, under Allocation
   requestAnimationFrame(() => animateNum(tv, v, S.base, 700));
 }
 
@@ -1926,7 +1937,7 @@ async function fetchRates(force){
   saveLocal();
   // quiet refresh, no re-animation
   if(!scrubbing && !sheet.classList.contains("open")){
-    renderHero(); renderAlloc(); renderList();
+    renderHero(); renderBreakdown(); renderAlloc(); renderList();
     if(UI.tab === "worth") drawChart(false);
     if(UI.tab === "monthly") renderMonthly();
   }
@@ -1935,7 +1946,6 @@ async function fetchRates(force){
 
 /* ---------- wiring ---------- */
 $("#fab").onclick = () => accountSheet(null, {fromFab:true});
-$("#btnUpdate").onclick = () => updateSheet();
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => setTab(t.dataset.tab));
 $("#total").onclick = () => { UI.hide = !UI.hide; saveUI(); render(false); };
 $("#allocMode").querySelectorAll("button").forEach(b => b.onclick = () => { UI.alloc = b.dataset.m; saveUI(); renderAlloc(); });
