@@ -215,7 +215,7 @@ button.row:active{background:var(--fill)}
 .bn{font-size:13px;font-weight:600;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;-webkit-hyphens:auto;hyphens:auto}
 .bv{font-size:12px;font-weight:500;opacity:.88;white-space:nowrap}
 .bi svg{width:18px;height:18px;fill:#fff;opacity:.9}
-.bb.sm .bn{font-size:10.5px} .bb.sm .bv{font-size:10.5px} .bb.sm .bi{display:none}
+.bb.sm .bi{display:none}
 .bb.xs .bn{display:none} .bb.xxs .bv{display:none}
 @keyframes bfloat{0%,100%{translate:0 0}25%{translate:1.5px -3px}50%{translate:-1px 2px}75%{translate:-2px -1.5px}}
 @media (prefers-reduced-motion: reduce){.bf{animation:none}}
@@ -951,24 +951,37 @@ let bubLevel = null;
 // inside a group the entries sit on a honeycomb you can drag around (like the Apple Watch app grid):
 // bubbles near the middle are full size, those toward the edges shrink and fade
 const hex = {ox:0, oy:0, vx:0, vy:0, maxX:0, maxY:0, raf:0, drag:null, moved:false};
+// Entries inside a group are all the same size and share the box: one fills it, two split it, and so on.
+// Rows are offset like a honeycomb. Only when even a 76px bubble wouldn't fit do they overflow and become draggable.
+const HEX_FIT_MIN = 76;
 function hexLayout(items, W, H){
-  const s = 92, dirs = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]], cells = [[0,0]];
-  for(let k = 1; cells.length < items.length; k++){
-    let q = -k, r = k;
-    for(let i = 0; i < 6; i++) for(let j = 0; j < k; j++){ cells.push([q, r]); q += dirs[i][0]; r += dirs[i][1]; }
+  const n = items.length, pad = 8, s3 = Math.sqrt(3)/2;
+  let best = null;
+  for(let c = 1; c <= n; c++){
+    const rows = Math.ceil(n / c), off = rows > 1 && c > 1 ? .5 : 0;
+    const cell = Math.min((W - pad) / (c + off), (H - pad) / (1 + (rows - 1) * s3));
+    if(!best || cell > best.cell) best = {c, rows, cell};
   }
-  const vmax = items[0] ? items[0].v : 1;
-  return items.map((x, i) => {
-    const [q, r] = cells[i];
-    return {hx: s * (q + r/2), hy: s * Math.sqrt(3)/2 * r, r: (s - 8) / 2 * (.78 + .22 * Math.sqrt(x.v / vmax))};
-  });
+  let {c, rows, cell} = best;
+  if(cell < HEX_FIT_MIN){ // too many to fit: as many columns as fit at the minimum, stretched to the full width, then drag
+    c = Math.max(1, Math.floor((W - pad - HEX_FIT_MIN/2) / HEX_FIT_MIN)); rows = Math.ceil(n / c);
+    cell = (W - pad) / (c + (rows > 1 && c > 1 ? .5 : 0));
+  }
+  cell = Math.min(cell, Math.min(W, H) - pad);
+  const out = [], rh = cell * s3, top = -(rows - 1) * rh / 2;
+  for(let i = 0; i < n; i++){
+    const row = Math.floor(i / c), inRow = row === rows - 1 ? n - row * c : c, col = i - row * c;
+    const shift = rows > 1 && c > 1 && row % 2 ? cell / 2 : 0;
+    const x = (col - (inRow - 1) / 2) * cell + (inRow === c ? shift - (rows > 1 && c > 1 ? cell / 4 : 0) : 0);
+    out.push({hx: x, hy: top + row * rh, r: (cell - 8) / 2});
+  }
+  return out;
 }
 const HEX_MIN_D = 64; // never shrink a bubble below this, so its name and amount stay readable
 function fish(hx, hy, W, H, r){
-  // bubbles stay on their grid spots (gaps never close); only their size eases down toward the edges
   const cx = W/2, cy = H/2, x = cx + hx + hex.ox, y = cy + hy + hex.oy;
   const d = Math.hypot((x - cx) / (W/2), (y - cy) / (H/2));   // 0 in the middle, 1 at the box edge
-  const f = Math.max(Math.min(1, HEX_MIN_D / (2 * r)), 1 - Math.pow(Math.max(0, d - .35), 1.6) * .9);
+  const f = 1; // all entries stay the same size, also while dragging
   return {x, y, f, o: 1};
 }
 function applyFish(){
@@ -983,7 +996,7 @@ function applyFish(){
 }
 function hexBounds(P, W, H){
   let ex = 0, ey = 0; P.forEach(p => { ex = Math.max(ex, Math.abs(p.hx) + p.r); ey = Math.max(ey, Math.abs(p.hy) + p.r); });
-  hex.maxX = Math.max(0, ex - W/2 + 24); hex.maxY = Math.max(0, ey - H/2 + 24);
+  hex.maxX = ex > W/2 ? ex - W/2 + 16 : 0; hex.maxY = ey > H/2 ? ey - H/2 + 16 : 0;
 }
 const rubber = (v, max) => v > max ? max + (v - max) * .35 : v < -max ? -max + (v + max) * .35 : v;
 function hexMomentum(){
@@ -1022,6 +1035,14 @@ function hexMomentum(){
   addEventListener("pointerup", up); addEventListener("pointercancel", up);
 })();
 // relax circles into a tidy cluster: push overlaps apart, pull toward the middle, stay inside the box
+const GROUP_MIN_R = 44;
+function packFits(P, W, H){
+  for(let i = 0; i < P.length; i++){
+    const a = P[i]; if(a.x - a.r < 1 || a.y - a.r < 1 || a.x + a.r > W - 1 || a.y + a.r > H - 1) return false;
+    for(let j = i+1; j < P.length; j++){ const b = P[j]; if(Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + 2) return false; }
+  }
+  return true;
+}
 function packCircles(rs, W, H){
   const cx = W/2, cy = H/2, n = rs.length, gap = 6;
   const P = rs.map((r,i) => { const a = i * 2.39996, d = i ? 18 * Math.sqrt(i) : 0; return {x: cx + Math.cos(a)*d, y: cy + Math.sin(a)*d, r}; });
@@ -1070,8 +1091,14 @@ function renderBubbles(fromKey){
     hexBounds(P, W, H);
     P.forEach(p => { const q = fish(p.hx, p.hy, W, H, p.r); p.x = q.x; p.y = q.y; p.f = q.f; p.o = q.o; });
   } else {
-    const k = Math.min(Math.sqrt(W * H * .44 / (Math.PI * sum)), Math.min(W, H) * .4 / Math.sqrt(vmax));
-    P = packCircles(items.map(x => Math.max(15, k * Math.sqrt(x.v))), W, H);
+    // area true to value, but a group bubble is never smaller than GROUP_MIN_R so its name and total always fit;
+    // shrink the scale until the packed cluster sits fully inside the box
+    let k = Math.min(Math.sqrt(W * H * .5 / (Math.PI * sum)), Math.min(W, H) * .42 / Math.sqrt(vmax));
+    for(let t = 0; t < 30; t++){
+      P = packCircles(items.map(x => Math.max(GROUP_MIN_R, k * Math.sqrt(x.v))), W, H);
+      if(packFits(P, W, H)) break;
+      k *= .94;
+    }
   }
   box.classList.remove("live"); clearTimeout(hex.liveT);
   if(bubLevel) hex.liveT = setTimeout(() => box.classList.add("live"), 750 + items.length * 40);
@@ -1119,11 +1146,14 @@ function renderBubbles(fromKey){
     }
     el.dataset.x = p.x; el.dataset.y = p.y; el.dataset.r = p.r;
     if(bubLevel){ el.dataset.hx = p.hx; el.dataset.hy = p.hy; } else { delete el.dataset.hx; delete el.dataset.hy; }
-    el.classList.toggle("sm", d < 96); el.classList.toggle("xs", d < 84); el.classList.toggle("xxs", d < 48);
+
     el.querySelector(".bv").textContent = (x.liab ? "−" : "") + fmt(x.v, S.base, {dec:0});
     el.style.transform = at(p.x, p.y, p.r, p.f != null ? p.f : 1);
     el.style.opacity = p.o != null ? p.o : "";
-    if(bubLevel){ el.classList.toggle("sm", true); el.classList.toggle("xs", false); el.classList.toggle("xxs", false); }
+    // text grows with the bubble; it always shows name and amount
+    const fs = Math.max(10.5, Math.min(22, d * .115));
+    el.querySelector(".bn").style.fontSize = fs + "px"; el.querySelector(".bv").style.fontSize = (fs * .9) + "px";
+    el.classList.toggle("sm", d < 96); el.classList.remove("xs", "xxs");
   });
   // legend: every bubble by name, share and value, so even the smallest bubble can be identified and opened
   const leg = $("#bubLeg");
