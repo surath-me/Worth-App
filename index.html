@@ -1195,9 +1195,9 @@ function renderBubbles(fromKey){
   const mode = fromKey && bubLevel ? "open" : fromKey && !bubLevel ? "close" : "update";
   const at = (x, y, r, sc) => `translate3d(${x - r}px,${y - r}px,0) scale(${sc})`;
   const mean = pts => pts.length ? {x: pts.reduce((t,p) => t + p.x, 0) / pts.length, y: pts.reduce((t,p) => t + p.y, 0) / pts.length} : C;
-  let O = C;
-  if(mode === "open"){ const t = box.querySelector(`[data-key="${fromKey}"]`); if(t) O = {x:+t.dataset.x, y:+t.dataset.y}; }
-  if(mode === "close"){ const i = items.findIndex(x => x.key === fromKey); if(i >= 0) O = {x:P[i].x, y:P[i].y}; }
+  let O = C, OR = 40; // where the group's bubble is, and its radius
+  if(mode === "open"){ const t = box.querySelector(`[data-key="${fromKey}"]`); if(t){ O = {x:+t.dataset.x, y:+t.dataset.y}; OR = +t.dataset.r; } }
+  if(mode === "close"){ const i = items.findIndex(x => x.key === fromKey); if(i >= 0){ O = {x:P[i].x, y:P[i].y}; OR = P[i].r; } }
   const keep = new Set(items.map(x => x.key));
   const outgoing = [...box.querySelectorAll(".bb")].filter(el => !keep.has(el.dataset.key) && !el.classList.contains("gone"));
   const G = mean(outgoing.map(el => ({x:+el.dataset.x, y:+el.dataset.y})));
@@ -1205,13 +1205,16 @@ function renderBubbles(fromKey){
   outgoing.forEach(el => {
     const r = +el.dataset.r, x = +el.dataset.x, y = +el.dataset.y;
     el.classList.add("gone"); el.style.transitionDelay = "0ms"; el.style.opacity = 0;
-    if(mode === "open"){        // the other categories shrink back a little, blur and fade
-      el.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1), opacity .3s ease, filter .3s ease";
+    if(mode === "open" && el.dataset.key === fromKey){ // the tapped bubble swells and dissolves into its entries
+      el.style.transition = "transform .6s cubic-bezier(.2,.8,.2,1), opacity .4s ease .08s";
+      el.style.transform = at(x, y, r, 1.7);
+    } else if(mode === "open"){ // the other categories shrink back a little, blur and fade
+      el.style.transition = "transform .6s cubic-bezier(.2,.8,.2,1), opacity .4s ease, filter .4s ease";
       el.style.filter = "blur(8px)";
       el.style.transform = at(C.x + (x - C.x) * .88, C.y + (y - C.y) * .88, r, .85);
     } else if(mode === "close"){ // each entry shrinks back into its category's bubble
-      el.style.transition = "transform .45s cubic-bezier(.4,0,.2,1), opacity .3s ease .1s";
-      el.style.transform = at(O.x, O.y, r, .05);
+      el.style.transition = "transform .5s cubic-bezier(.4,0,.2,1), opacity .35s ease .1s";
+      el.style.transform = at(O.x, O.y, r, Math.min(1, OR / r) * .5);
     } else el.style.transform = at(x, y, r, .05);
     setTimeout(() => el.remove(), 600);
   });
@@ -1224,18 +1227,23 @@ function renderBubbles(fromKey){
       el = el_bubble(x); el.classList.add("pre"); box.appendChild(el);
       el.style.width = el.style.height = d + "px";
       el.style.transition = "none";
-      if(mode === "open"){        // each entry pops out of the tapped bubble, one after another
-        el.style.transform = at(O.x, O.y, p.r, .05);
-      } else if(mode === "close"){ // categories come back from a little smaller and blurred
+      if(mode === "open"){        // each entry grows out of the tapped bubble's body, one after another
+        el.style.transform = at(O.x, O.y, p.r, Math.min(1, OR / p.r) * .5);
+        el.style.opacity = 0;
+      } else if(mode === "close" && x.key === fromKey){ // its category shrinks back into place from swollen
+        el.style.transform = at(p.x, p.y, p.r, 1.7);
+        el.style.opacity = 0;
+      } else if(mode === "close"){ // other categories come back from a little smaller and blurred
         el.style.transform = at(C.x + (p.x - C.x) * .88, C.y + (p.y - C.y) * .88, p.r, .85);
         el.style.opacity = 0; el.style.filter = "blur(8px)";
       } else { el.style.transform = at(C.x, C.y, p.r, .05); el.style.transitionDelay = (i * 40) + "ms"; }
       el.getBoundingClientRect();
-      if(mode === "open"){ el.style.transition = ""; el.style.transitionDelay = (60 + i * 40) + "ms"; }
-      else if(mode === "close") el.style.transition = "transform .5s cubic-bezier(.2,.8,.2,1) .08s, opacity .35s ease .08s, filter .4s ease .08s";
+      if(mode === "open"){ const dl = 40 + i * 30;
+        el.style.transition = `transform .7s cubic-bezier(.34,1.25,.64,1) ${dl}ms, opacity .35s ease ${dl}ms`; }
+      else if(mode === "close") el.style.transition = "transform .6s cubic-bezier(.2,.8,.2,1) .08s, opacity .4s ease .08s, filter .45s ease .08s";
       else el.style.transition = "";
       el.style.filter = "";
-      setTimeout(() => el.classList.remove("pre"), mode === "close" ? 120 : 160 + i * 40);
+      setTimeout(() => el.classList.remove("pre"), mode === "close" ? 140 : 180 + i * 30);
       if(mode !== "update") settle(el);
     } else {
       el.style.transitionDelay = "0ms";
