@@ -1228,10 +1228,12 @@ function renderBubbles(fromKey){
     if(fresh){
       el = el_bubble(x); el.classList.add("pre"); box.appendChild(el);
       el.style.width = el.style.height = d + "px";
-      // going back: the category you were in grows back first, in its own spot, so its entries have somewhere
-      // to fly into; the other categories follow once the entries are mostly in
+      // going back: the category you were in grows back first, so its entries have somewhere to fly into;
+      // the other categories follow once the entries are mostly in
       const back = !bubLevel && fromKey, home = back && x.key === fromKey;
-      el.style.transform = home ? at(p.x, p.y, p.r, .05) : at(ox, oy, p.r, .05);
+      // categories coming back each grow from their own spot (they already know their place)
+      el.style.transform = back ? at(p.x, p.y, p.r, .05) : at(ox, oy, p.r, .05);
+      if(back && !home) el.style.opacity = 0; // invisible until its turn, then it fades in as it grows
       el.getBoundingClientRect();
       const dl = home ? 0 : back ? 300 + i * 40 : i * 40;
       el.style.transitionDelay = dl + "ms";
