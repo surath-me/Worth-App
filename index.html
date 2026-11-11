@@ -190,10 +190,10 @@ button.row:active{background:var(--fill)}
 .bub-h .t2{font-size:13px;font-weight:400;color:var(--sec);margin:0 auto}
 .bub-back{display:flex;align-items:center;gap:2px;margin-left:-6px;font-weight:600;font-size:15px;color:var(--text)}
 .bub-back svg{width:22px;height:22px}
-.bub{position:relative;height:300px;margin:0 -8px;overflow:hidden;border-radius:18px}
+.bub{--bub-move:.9s;position:relative;height:300px;margin:0 -8px;overflow:hidden;border-radius:18px}
 .bub.lvl{height:340px;touch-action:pan-y}
 .bub .bb{touch-action:none}
-.bub.reflow .bb:not(.dragging){transition:transform .4s var(--spring)!important}
+
 .bub.lvl.pan{cursor:grab}
 .bub.live .bb:not(.gone){transition:opacity .2s ease;transition-delay:0ms!important}
 .bub-leg{margin-top:6px}
@@ -204,7 +204,7 @@ button.row:active{background:var(--fill)}
 .bub-leg .pc{color:var(--sec);width:44px;text-align:right}
 .bub-leg .vl{width:104px;text-align:right;font-weight:500}
 .bb{position:absolute;left:0;top:0;border-radius:50%;padding:0;will-change:transform,opacity;transform-origin:50% 50%;
-  transition:transform .7s var(--bounce),opacity .35s ease}
+  transition:transform var(--bub-move) var(--bounce),opacity .35s ease}
 .bb.gone{opacity:0;pointer-events:none;transition:transform .5s cubic-bezier(.4,0,.2,1),opacity .3s ease}
 .bb .bt{display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;transition:opacity .35s ease}
 .bb.pre .bt,.bb.gone .bt{opacity:0;transition-duration:.15s}
@@ -1142,11 +1142,13 @@ function bubbleItems(){
   }).filter(x => x.v > 0);
 }
 function renderBubbles(fromKey){
-  const box = $("#bub"), W = box.clientWidth, H = box.clientHeight;
-  if(!W) return;
+  const box = $("#bub");
   if(bubLevel && !GROUPS.some(g => g.k === bubLevel)) bubLevel = null;
+  box.classList.toggle("lvl", !!bubLevel); // set the level's height before measuring
+  const W = box.clientWidth, H = box.clientHeight;
+  if(!W) return;
   let items = bubbleItems();
-  if(bubLevel && !items.length){ bubLevel = null; items = bubbleItems(); }
+  if(bubLevel && !items.length){ bubLevel = null; return renderBubbles(); }
   items.sort((a,b) => b.v - a.v);
   // inside a group, keep the order you arranged by dragging; new entries go after, biggest first
   const saved = UI.bubOrder && UI.bubOrder[bubLevel || "top"];
@@ -1157,7 +1159,6 @@ function renderBubbles(fromKey){
   // only bubbles too small to tap are lifted to a minimum size
   const vmax = items.length ? items[0].v : 1;
   let P;
-  box.classList.toggle("lvl", !!bubLevel);
   if(bubLevel){
     P = hexLayout(items, W, H); box._slots = P;
     hexBounds(P, W, H);
@@ -1222,7 +1223,6 @@ function renderBubbles(fromKey){
   });
   // legend: every bubble by name, share and value, so even the smallest bubble can be identified and opened
   const leg = $("#bubLeg");
-  leg.style.display = bubLevel ? "none" : "";
   // top level: each asset group as a share of all assets; debts as a share of assets too, labelled so
   const assets = items.filter(x => !x.liab).reduce((t,x) => t + x.v, 0) || 1;
   const pcOf = x => { const base = bubLevel ? sum : assets, p = x.v / base * 100; return (p < 1 ? "<1" : Math.round(p)) + "%"; };
