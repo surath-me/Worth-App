@@ -191,7 +191,8 @@ button.row:active{background:var(--fill)}
 .bub-back{display:flex;align-items:center;gap:2px;margin-left:-6px;font-weight:600;font-size:15px;color:var(--text)}
 .bub-back svg{width:22px;height:22px}
 .bub{position:relative;height:300px;margin:0 -8px;overflow:hidden;border-radius:18px}
-.bub.lvl{height:340px;touch-action:none;cursor:grab}
+.bub.lvl{height:340px;touch-action:pan-y}
+.bub.lvl.pan{cursor:grab}
 .bub.live .bb:not(.gone){transition:opacity .2s ease;transition-delay:0ms!important}
 .bub-leg{margin-top:6px}
 .bubcard{padding:14px 16px 12px}
@@ -954,27 +955,37 @@ const hex = {ox:0, oy:0, vx:0, vy:0, maxX:0, maxY:0, raf:0, drag:null, moved:fal
 // Entries inside a group are all the same size and share the box: one fills it, two split it, and so on.
 // Rows are offset like a honeycomb. Only when even a 76px bubble wouldn't fit do they overflow and become draggable.
 const HEX_FIT_MIN = 76;
+// Every position is a true honeycomb slot (rows rh = cell·√3/2 apart, neighbouring rows offset by cell/2),
+// so centres are always at least one cell apart: bubbles are cell − 8px wide, leaving an 8px gap minimum.
 function hexLayout(items, W, H){
-  const n = items.length, pad = 8, s3 = Math.sqrt(3)/2;
+  const n = items.length, pad = 8, s3 = Math.sqrt(3)/2, out = [];
   let best = null;
   for(let c = 1; c <= n; c++){
-    const rows = Math.ceil(n / c), off = rows > 1 && c > 1 ? .5 : 0;
+    const rows = Math.ceil(n / c), off = rows > 1 ? .5 : 0;
     const cell = Math.min((W - pad) / (c + off), (H - pad) / (1 + (rows - 1) * s3));
     if(!best || cell > best.cell) best = {c, rows, cell};
   }
-  let {c, rows, cell} = best;
-  if(cell < HEX_FIT_MIN){ // too many to fit: as many columns as fit at the minimum, stretched to the full width, then drag
-    c = Math.max(1, Math.floor((W - pad - HEX_FIT_MIN/2) / HEX_FIT_MIN)); rows = Math.ceil(n / c);
-    cell = (W - pad) / (c + (rows > 1 && c > 1 ? .5 : 0));
+  if(best.cell >= HEX_FIT_MIN){
+    // fits: fill row by row, the last (shorter) row placed on the slots closest to the middle
+    let {c, rows, cell} = best; cell = Math.min(cell, Math.min(W, H) - pad);
+    for(let i = 0; i < n; i++){
+      const row = Math.floor(i / c), m = row === rows - 1 ? n - row * c : c;
+      const shift = rows > 1 ? (row % 2 ? cell / 4 : -cell / 4) : 0;
+      const col = (i - row * c) + Math.round((c - m) / 2 + (m < c && row % 2 ? -.01 : .01));
+      out.push({hx: (col - (c - 1) / 2) * cell + shift, hy: (row - (rows - 1) / 2) * cell * s3, r: (cell - 8) / 2});
+    }
+    return out;
   }
-  cell = Math.min(cell, Math.min(W, H) - pad);
-  const out = [], rh = cell * s3, top = -(rows - 1) * rh / 2;
+  // too many: as many rows as fit the height, columns run off to the right and you drag sideways
+  const R = Math.max(1, Math.floor((H - pad - HEX_FIT_MIN) / (HEX_FIT_MIN * s3)) + 1);
+  const cell = (H - pad) / (1 + (R - 1) * s3);
   for(let i = 0; i < n; i++){
-    const row = Math.floor(i / c), inRow = row === rows - 1 ? n - row * c : c, col = i - row * c;
-    const shift = rows > 1 && c > 1 && row % 2 ? cell / 2 : 0;
-    const x = (col - (inRow - 1) / 2) * cell + (inRow === c ? shift - (rows > 1 && c > 1 ? cell / 4 : 0) : 0);
-    out.push({hx: x, hy: top + row * rh, r: (cell - 8) / 2});
+    const col = Math.floor(i / R), row = i % R;
+    out.push({hx: col * cell + (row % 2 ? cell / 2 : 0), hy: row * cell * s3, r: (cell - 8) / 2});
   }
+  const xs = out.map(p => p.hx), ys = out.map(p => p.hy);
+  const mx = (Math.min(...xs) + Math.max(...xs)) / 2, my = (Math.min(...ys) + Math.max(...ys)) / 2;
+  out.forEach(p => { p.hx -= mx; p.hy -= my; });
   return out;
 }
 const HEX_MIN_D = 64; // never shrink a bubble below this, so its name and amount stay readable
@@ -996,7 +1007,7 @@ function applyFish(){
 }
 function hexBounds(P, W, H){
   let ex = 0, ey = 0; P.forEach(p => { ex = Math.max(ex, Math.abs(p.hx) + p.r); ey = Math.max(ey, Math.abs(p.hy) + p.r); });
-  hex.maxX = ex > W/2 ? ex - W/2 + 16 : 0; hex.maxY = ey > H/2 ? ey - H/2 + 16 : 0;
+  hex.maxX = ex > W/2 ? ex - W/2 + 12 : 0; hex.maxY = 0; // sideways only
 }
 const rubber = (v, max) => v > max ? max + (v - max) * .35 : v < -max ? -max + (v + max) * .35 : v;
 function hexMomentum(){
@@ -1024,11 +1035,12 @@ function hexMomentum(){
     const d = hex.drag; if(!d) return;
     const dx = e.clientX - d.x, dy = e.clientY - d.y;
     if(!hex.moved && Math.hypot(dx, dy) < 6) return;
+    if(!hex.maxX){ hex.moved = true; return; }
     hex.moved = true;
     const now = performance.now(), dt = Math.max(1, now - d.t);
     hex.vx = (e.clientX - d.lx) / dt * 16; hex.vy = (e.clientY - d.ly) / dt * 16;
     d.t = now; d.lx = e.clientX; d.ly = e.clientY;
-    hex.ox = rubber(d.ox + dx, hex.maxX); hex.oy = rubber(d.oy + dy, hex.maxY);
+    hex.ox = rubber(d.ox + dx, hex.maxX); hex.vy = 0;
     applyFish();
   });
   const up = () => { if(!hex.drag) return; hex.drag = null; hexMomentum(); };
@@ -1039,12 +1051,12 @@ const GROUP_MIN_R = 44;
 function packFits(P, W, H){
   for(let i = 0; i < P.length; i++){
     const a = P[i]; if(a.x - a.r < 1 || a.y - a.r < 1 || a.x + a.r > W - 1 || a.y + a.r > H - 1) return false;
-    for(let j = i+1; j < P.length; j++){ const b = P[j]; if(Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + 2) return false; }
+    for(let j = i+1; j < P.length; j++){ const b = P[j]; if(Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + 8) return false; }
   }
   return true;
 }
 function packCircles(rs, W, H){
-  const cx = W/2, cy = H/2, n = rs.length, gap = 6;
+  const cx = W/2, cy = H/2, n = rs.length, gap = 9;
   const P = rs.map((r,i) => { const a = i * 2.39996, d = i ? 18 * Math.sqrt(i) : 0; return {x: cx + Math.cos(a)*d, y: cy + Math.sin(a)*d, r}; });
   for(let it = 0; it < 360; it++){
     const pull = .035 * (1 - it/360) + .004;
@@ -1087,8 +1099,9 @@ function renderBubbles(fromKey){
   box.classList.toggle("lvl", !!bubLevel);
   if(bubLevel){
     P = hexLayout(items, W, H);
-    if(fromKey !== "keep"){ hex.ox = hex.oy = 0; }
     hexBounds(P, W, H);
+    hex.oy = 0; hex.ox = hex.maxX; // start at the left end
+    box.classList.toggle("pan", hex.maxX > 0);
     P.forEach(p => { const q = fish(p.hx, p.hy, W, H, p.r); p.x = q.x; p.y = q.y; p.f = q.f; p.o = q.o; });
   } else {
     // area true to value, but a group bubble is never smaller than GROUP_MIN_R so its name and total always fit;
