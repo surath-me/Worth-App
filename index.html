@@ -199,8 +199,12 @@ button.row:active{background:var(--fill)}
 .bub.lvl.pan{cursor:grab}
 .bub.live .bb:not(.gone){transition:opacity .2s ease;transition-delay:0ms!important}
 .bub-leg{margin-top:6px}
-.bub-add{display:flex;align-items:center;justify-content:center;gap:4px;width:100%;margin-top:6px;padding:12px 0 4px;color:var(--text);font-size:14px;font-weight:600;transition:opacity .2s}
-.bub-add svg{width:20px;height:20px} .bub-add:active{opacity:.6}
+.pv .pgrp{color:var(--sec);font-weight:400;margin-left:6px}
+.pv .pgrp::before{content:"in ";}
+/* Apple-style secondary button: full width, soft grey fill, not shouting */
+.bub-add{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:46px;margin:12px 0 4px;border-radius:14px;
+  background:var(--fill);color:var(--text);font-size:15px;font-weight:600;transition:transform .25s var(--spring),background-color .2s}
+.bub-add svg{width:20px;height:20px;opacity:.9} .bub-add:active{transform:scale(.97);background:var(--fill2,var(--fill))}
 .bubcard{padding:14px 16px 12px;overflow:visible}
 .bub-leg .bl{display:flex;align-items:center;gap:10px;width:100%;padding:6px 0;font-size:14px;text-align:left;color:var(--text)}
 .bub-leg .sw{width:10px;height:10px;border-radius:50%;flex:none}
@@ -1726,7 +1730,7 @@ function accountSheet(acc, sheetOpts = {}){
 
     // compact picker rows
     const rows = el("div", {class:"card"});
-    const pick = (label, options, value, onChange, decorate) => {
+    const pick = (label, options, value, onChange, decorate, after) => {
       const f = el("label", {class:"field pick"});
       const lab = el("span", {class:"pl"}, label);
       const val = el("span", {class:"pv"});
@@ -1735,16 +1739,18 @@ function accountSheet(acc, sheetOpts = {}){
       const groups = [...new Set(options.map(o => o.g).filter(Boolean))];
       sel.innerHTML = groups.length ? groups.map(g => `<optgroup label="${esc(g)}">${options.filter(o => o.g === g).map(opt).join("")}</optgroup>`).join("") : options.map(opt).join("");
       sel.value = value;
-      const paint = () => { const o = options.find(x => x.v === sel.value); val.innerHTML = (decorate ? decorate(o) : "") + esc(o ? o.n : ""); };
+      const paint = () => { const o = options.find(x => x.v === sel.value); val.innerHTML = (decorate ? decorate(o) : "") + esc(o ? o.n : "") + (after && o ? after(o) : ""); };
       sel.onchange = () => { onChange(sel.value); paint(); val.classList.remove("bump"); void val.offsetWidth; val.classList.add("bump"); };
       paint();
       f.append(lab, val, el("span", {class:"chev"}, "›"), sel);
       return f;
     };
-    const typeOpts = TYPES.map(t => ({v:t.k, n:t.n, g: t.liab ? "Debts" : "Assets"}));
+    // types are grouped by the Breakdown category they belong to, and the row shows that category too
+    const typeOpts = GROUPS.flatMap(g => g.types.filter(k => TYPE[k]).map(k => ({v:k, n:TYPE[k].n, g:g.n})));
     if(!TYPE[draft.type]) draft.type = "other";
     const typeRow = pick("Type", typeOpts, draft.type, v => { draft.type = v; paintKind(); },
-      o => `<span class="dot" style="background:${TYPE[o.v].c}"></span>`);
+      o => `<span class="dot" style="background:${TYPE[o.v].c}"></span>`,
+      o => o.g !== o.n ? `<span class="pgrp">${esc(o.g)}</span>` : "");
     // yearly value change, only for physical assets; prefilled with the type's default
     const depF = el("div", {class:"field"}, "<label>Value change / year</label>");
     const depIn = el("input", {inputmode:"decimal", autocomplete:"off", "aria-label":"Value change per year in percent"});
