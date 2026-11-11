@@ -192,6 +192,7 @@ button.row:active{background:var(--fill)}
 .bub-back svg{width:22px;height:22px}
 .bub{position:relative;height:300px;margin:0 -8px;overflow:hidden;border-radius:18px}
 .bub.lvl{height:340px;touch-action:pan-y}
+.bub.lvl .bb{touch-action:none}
 .bub.lvl.pan{cursor:grab}
 .bub.live .bb:not(.gone){transition:opacity .2s ease;transition-delay:0ms!important}
 .bub-leg{margin-top:6px}
@@ -1034,21 +1035,39 @@ function hexMomentum(){
   addEventListener("pointerdown", e => {
     const b = box(); if(!bubLevel || !b.contains(e.target)) return;
     cancelAnimationFrame(hex.raf); b.classList.add("live");
-    hex.drag = {x:e.clientX, y:e.clientY, ox:hex.ox, oy:hex.oy, t:performance.now(), lx:e.clientX, ly:e.clientY}; hex.moved = false; hex.vx = hex.vy = 0;
+    cancelAnimationFrame(hex.sraf);
+    hex.drag = {x:e.clientX, y:e.clientY, ox:hex.ox, oy:hex.oy, t:performance.now(), lx:e.clientX, ly:e.clientY,
+      sy:scrollY, axis:null, own: e.pointerType === "touch" && !!e.target.closest(".bb")}; hex.moved = false; hex.vx = hex.vy = 0;
   });
   addEventListener("pointermove", e => {
     const d = hex.drag; if(!d) return;
     const dx = e.clientX - d.x, dy = e.clientY - d.y;
     if(!hex.moved && Math.hypot(dx, dy) < 6) return;
-    if(!hex.maxX){ hex.moved = true; return; }
     hex.moved = true;
+    if(!d.axis) d.axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
     const now = performance.now(), dt = Math.max(1, now - d.t);
     hex.vx = (e.clientX - d.lx) / dt * 16; hex.vy = (e.clientY - d.ly) / dt * 16;
     d.t = now; d.lx = e.clientX; d.ly = e.clientY;
-    hex.ox = rubber(d.ox + dx, hex.maxX); hex.vy = 0;
+    if(d.axis === "y"){
+      // bubbles inside a group take every touch themselves (touch-action:none, so Safari can't cancel a drag);
+      // a vertical swipe that starts on one scrolls the page by hand instead
+      if(d.own) window.scrollTo(0, d.sy - dy);
+      return;
+    }
+    if(!hex.maxX) return;
+    hex.ox = rubber(d.ox + dx, hex.maxX);
     applyFish();
   });
-  const up = () => { if(!hex.drag) return; hex.drag = null; hexMomentum(); };
+  const up = () => {
+    const d = hex.drag; if(!d) return; hex.drag = null;
+    if(d.axis === "y"){
+      if(!d.own) return;
+      let v = -hex.vy; hex.vy = 0; // keep gliding like a normal scroll
+      const step = () => { v *= .95; if(Math.abs(v) < .3) return; window.scrollBy(0, v); hex.sraf = requestAnimationFrame(step); };
+      hex.sraf = requestAnimationFrame(step); return;
+    }
+    hex.vy = 0; hexMomentum();
+  };
   addEventListener("pointerup", up); addEventListener("pointercancel", up);
 })();
 // relax circles into a tidy cluster: push overlaps apart, pull toward the middle, stay inside the box
@@ -1251,7 +1270,12 @@ function bubRelease(){
   reo.el = null; reo.lifted = false;
 }
 addEventListener("pointermove", bubMove);
-addEventListener("pointerup", bubRelease); addEventListener("pointercancel", bubRelease);
+addEventListener("pointerup", bubRelease);
+addEventListener("pointercancel", () => { if(reo.lifted !== true) bubRelease(); });
+// Safari fallback: if it cancels the pointer anyway, keep following the finger with touch events
+document.addEventListener("touchmove", e => { if(reo.lifted === true && e.touches[0]) bubMove({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
+document.addEventListener("touchend", () => { if(reo.lifted) bubRelease(); });
+document.addEventListener("touchcancel", () => { if(reo.lifted) bubRelease(); });
 document.addEventListener("touchmove", e => { if(reo.lifted === true) e.preventDefault(); }, {passive:false});
 
 function el_bubble(x){
