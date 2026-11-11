@@ -210,7 +210,7 @@ button.row:active{background:var(--fill)}
 .bb.pre .bt,.bb.gone .bt{opacity:0;transition-duration:.15s}
 .bf{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;padding:0 6px;
   color:#fff;text-align:center;line-height:1.15;
-  background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.38),rgba(255,255,255,0) 58%),var(--bc);
+  background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),rgba(255,255,255,0) 55%),linear-gradient(140deg,var(--ba,var(--bc)) 10%,var(--bb,var(--bc)) 90%);
   box-shadow:inset 0 -6px 14px rgba(0,0,0,.18);
   animation:bfloat 6s ease-in-out infinite;animation-delay:var(--fd);transition:scale .3s var(--bounce)}
 .bub{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -219,7 +219,7 @@ button.row:active{background:var(--fill)}
 .bb.lifted{z-index:5}
 .bb.lifted .bf{scale:1.14;box-shadow:inset 0 -6px 14px rgba(0,0,0,.18),0 22px 40px -14px rgba(0,0,0,.65);transition:scale .45s var(--bounce),box-shadow .3s}
 .bub .bb.dragging{transition:none!important}
-.bb.liab .bf{background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.3),rgba(255,255,255,0) 58%),color-mix(in srgb,var(--bc) 82%,#000)}
+
 .bn{font-size:13px;font-weight:600;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;-webkit-hyphens:auto;hyphens:auto}
 .bv{font-size:12px;font-weight:500;opacity:.88;white-space:nowrap}
 .bi svg{width:18px;height:18px;fill:#fff;opacity:.9}
@@ -947,6 +947,13 @@ function drawChart(animate){
 })();
 
 /* ---------- bubbles: groups you can open ---------- */
+// two-colour gradients for bubbles (light → deep), in the spirit of the app's teal→blue
+const BGRAD = {
+  savings:["#40B8F0","#0A5CFF"], bank:["#40B8F0","#0A5CFF"], cash:["#5BE37D","#11A08A"],
+  inv:["#2DD4BF","#0A84FF"], etf:["#2DD4BF","#0A84FF"], stocks:["#8B7CF6","#4F46E5"], mf:["#FFB340","#FF6A3D"], crypto:["#D77CF7","#7C4DFF"],
+  property:["#F2C14E","#C2763A"], more:["#9AA8BC","#4A5568"], vehicle:["#9AA8BC","#4A5568"], valuables:["#D9AE7E","#8C6239"], other:["#A1A1AA","#5A5A60"],
+  debt:["#FF6B6B","#C81E5A"], mortgage:["#FF6B6B","#C81E5A"], loan:["#FF7A7A","#D9304F"], card:["#FFA06B","#F2555A"]
+};
 const GROUPS = [
   {k:"savings", n:"Savings", types:["bank"], c:"#0A84FF"},
   {k:"cash", n:"Cash", types:["cash"], c:"#34C759"},
@@ -969,8 +976,9 @@ function hexLayout(items, W, H){
   let best = null;
   for(let c = 1; c <= n; c++){
     const rows = Math.ceil(n / c), off = rows > 1 ? .5 : 0;
-    const cell = Math.min((W - pad) / (c + off), (H - pad) / (1 + (rows - 1) * s3));
-    if(!best || cell > best.cell) best = {c, rows, cell};
+    const cell = Math.min((W - pad) / (c + off), (H - pad) / (1 + (rows - 1) * s3), BUB_MAX_D + 8);
+    // biggest bubbles win; on a tie (both at the max size) prefer fewer rows, i.e. side by side
+    if(!best || cell > best.cell + .5 || (Math.abs(cell - best.cell) <= .5 && rows < best.rows)) best = {c, rows, cell};
   }
   if(best.cell >= HEX_FIT_MIN){
     // fits: fill row by row, the last (shorter) row placed on the slots closest to the middle
@@ -1132,13 +1140,13 @@ function bubbleItems(){
   if(!bubLevel){
     return GROUPS.map(g => {
       const v = S.accounts.filter(a => g.types.includes(a.type)).reduce((t,a) => t + Math.max(0, conv(+a.bal||0, a.cur)), 0);
-      return {key:"g:" + g.k, n:g.n, v, c:g.c, liab:g.liab, group:g.k};
+      return {key:"g:" + g.k, n:g.n, v, c:g.c, g:BGRAD[g.k], liab:g.liab, group:g.k};
     }).filter(x => x.v > 0);
   }
   const g = GROUPS.find(x => x.k === bubLevel);
   return S.accounts.filter(a => g.types.includes(a.type)).map(a => {
     const t = TYPE[a.type] || TYPE.other;
-    return {key:"a:" + a.id, n:a.name, v:Math.max(0, conv(+a.bal||0, a.cur)), c:t.c, liab:g.liab, acc:a, icon:t.k};
+    return {key:"a:" + a.id, n:a.name, v:Math.max(0, conv(+a.bal||0, a.cur)), c:t.c, g:BGRAD[t.k], liab:g.liab, acc:a, icon:t.k};
   }).filter(x => x.v > 0);
 }
 function renderBubbles(fromKey){
@@ -1227,7 +1235,7 @@ function renderBubbles(fromKey){
   const assets = items.filter(x => !x.liab).reduce((t,x) => t + x.v, 0) || 1;
   const pcOf = x => { const base = bubLevel ? sum : assets, p = x.v / base * 100; return (p < 1 ? "<1" : Math.round(p)) + "%"; };
   const lvlKey = bubLevel || "top", swap = leg._lvl && leg._lvl !== lvlKey; leg._lvl = lvlKey;
-  leg.innerHTML = items.slice().sort((a,b) => b.v - a.v).map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.c}"></span><span class="nm">${esc(x.n)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("");
+  leg.innerHTML = items.slice().sort((a,b) => b.v - a.v).map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.g ? `linear-gradient(140deg,${x.g[0]},${x.g[1]})` : x.c}"></span><span class="nm">${esc(x.n)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("");
   // a new level's list fades in (rows one after another) instead of switching instantly
   if(swap && leg.animate) [...leg.children].forEach((r, i) => r.animate([{opacity:0, transform:"translateY(6px)"}, {opacity:1, transform:"none"}],
     {duration:450, delay:200 + i * 45, easing:"cubic-bezier(.2,.7,.2,1)", fill:"backwards"}));
@@ -1341,6 +1349,7 @@ function el_bubble(x){
   const el = document.createElement("button");
   el.className = "bb" + (x.liab ? " liab" : ""); el.dataset.key = x.key;
   el.style.setProperty("--bc", x.c);
+  if(x.g){ el.style.setProperty("--ba", x.g[0]); el.style.setProperty("--bb", x.g[1]); }
   el.style.setProperty("--fd", (-Math.random() * 6).toFixed(2) + "s");
   el.innerHTML = `<span class="bf"><span class="bt">${x.icon ? `<span class="bi">${ic(x.icon)}</span>` : ""}<span class="bn">${esc(x.n)}</span><span class="bv num amt"></span></span></span>`;
   el.addEventListener("pointerdown", e => bubPress(el, e));
