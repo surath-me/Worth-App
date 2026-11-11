@@ -186,6 +186,28 @@ button.row:active{background:var(--fill)}
 
 /* allocation */
 .alloc{padding:16px}
+.bub-h{display:flex;align-items:center;justify-content:space-between;min-height:30px;margin:-2px 0 4px;font-size:15px;font-weight:600}
+.bub-h .t2{font-size:13px;font-weight:400;color:var(--sec);margin:0 auto}
+.bub-back{display:flex;align-items:center;gap:2px;margin-left:-6px;font-weight:600;font-size:15px;color:var(--text)}
+.bub-back svg{width:22px;height:22px}
+.bub{position:relative;height:330px;margin:0 -8px}
+.bb{position:absolute;left:0;top:0;border-radius:50%;padding:0;will-change:transform;
+  transition:transform .75s var(--bounce),width .75s var(--bounce),height .75s var(--bounce),opacity .4s}
+.bb.gone{opacity:0;pointer-events:none;transition-duration:.5s,.5s,.5s,.35s}
+.bf{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;padding:0 6px;
+  color:#fff;text-align:center;line-height:1.15;
+  background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.38),rgba(255,255,255,0) 58%),var(--bc);
+  box-shadow:inset 0 -6px 14px rgba(0,0,0,.18),0 10px 24px -12px var(--bc);
+  animation:bfloat 6s ease-in-out infinite;animation-delay:var(--fd);transition:scale .3s var(--bounce)}
+.bb:active .bf{scale:.92}
+.bb.liab .bf{background:radial-gradient(circle at 32% 26%,rgba(255,255,255,.3),rgba(255,255,255,0) 58%),color-mix(in srgb,var(--bc) 82%,#000)}
+.bn{font-size:13px;font-weight:600;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;-webkit-hyphens:auto;hyphens:auto}
+.bv{font-size:12px;font-weight:500;opacity:.88;white-space:nowrap}
+.bi svg{width:18px;height:18px;fill:#fff;opacity:.9}
+.bb.sm .bn{font-size:10.5px} .bb.sm .bv{font-size:10.5px} .bb.sm .bi{display:none}
+.bb.xs .bn{display:none}
+@keyframes bfloat{0%,100%{translate:0 0}25%{translate:1.5px -3px}50%{translate:-1px 2px}75%{translate:-2px -1.5px}}
+@media (prefers-reduced-motion: reduce){.bf{animation:none}}
 .donut-wrap{position:relative;width:170px;height:170px;margin:4px auto 8px}
 #donut{width:100%;height:100%;transform:rotate(-90deg)}
 #donut circle{fill:none;stroke-width:14}
@@ -468,7 +490,7 @@ svg.mi{fill:currentColor}
       </div>
       <div id="allocSection">
         <div class="section-h"><h2>Allocation</h2></div>
-        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
+        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="bubbles">Bubbles</button><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocBub"><div class="bub-h" id="bubH"></div><div class="bub" id="bub"></div></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
       </div>
       <div class="section-h"><h2>Entries</h2><button id="btnUpdate" class="edit-btn" aria-label="Update balances" data-mi="edit"></button></div>
       <div class="card" id="list"></div>
@@ -912,6 +934,103 @@ function drawChart(animate){
   wrap.addEventListener("touchmove", e => { if(scrubbing) e.preventDefault(); }, {passive:false});
 })();
 
+/* ---------- bubbles: groups you can open ---------- */
+const GROUPS = [
+  {k:"cash", n:"Cash & bank", types:["bank","cash"], c:"#0A84FF"},
+  {k:"inv", n:"Investments", types:["etf","stocks","mf","crypto"], c:"#14B8A6"},
+  {k:"real", n:"Property & more", types:["property","vehicle","valuables","other"], c:"#C79A3B"},
+  {k:"debt", n:"Debts", types:["mortgage","loan","card"], c:"#E5484D", liab:true}
+];
+let bubLevel = null;
+// relax circles into a tidy cluster: push overlaps apart, pull toward the middle, stay inside the box
+function packCircles(rs, W, H){
+  const cx = W/2, cy = H/2, n = rs.length, gap = 6;
+  const P = rs.map((r,i) => { const a = i * 2.39996, d = i ? 18 * Math.sqrt(i) : 0; return {x: cx + Math.cos(a)*d, y: cy + Math.sin(a)*d, r}; });
+  for(let it = 0; it < 360; it++){
+    const pull = .035 * (1 - it/360) + .004;
+    P.forEach(p => { p.x += (cx - p.x) * pull; p.y += (cy - p.y) * pull; });
+    for(let i = 0; i < n; i++) for(let j = i+1; j < n; j++){
+      const a = P[i], b = P[j]; let dx = b.x - a.x, dy = b.y - a.y; let d = Math.hypot(dx, dy) || .01;
+      const min = a.r + b.r + gap;
+      if(d < min){ const push = (min - d) / 2, ux = dx/d, uy = dy/d, wa = b.r/(a.r+b.r), wb = a.r/(a.r+b.r);
+        a.x -= ux*push*2*wa; a.y -= uy*push*2*wa; b.x += ux*push*2*wb; b.y += uy*push*2*wb; }
+    }
+    P.forEach(p => { p.x = Math.min(W - p.r - 2, Math.max(p.r + 2, p.x)); p.y = Math.min(H - p.r - 2, Math.max(p.r + 2, p.y)); });
+  }
+  return P;
+}
+function bubbleItems(){
+  if(!bubLevel){
+    return GROUPS.map(g => {
+      const v = S.accounts.filter(a => g.types.includes(a.type)).reduce((t,a) => t + Math.max(0, conv(+a.bal||0, a.cur)), 0);
+      return {key:"g:" + g.k, n:g.n, v, c:g.c, liab:g.liab, group:g.k};
+    }).filter(x => x.v > 0);
+  }
+  const g = GROUPS.find(x => x.k === bubLevel);
+  return S.accounts.filter(a => g.types.includes(a.type)).map(a => {
+    const t = TYPE[a.type] || TYPE.other;
+    return {key:"a:" + a.id, n:a.name, v:Math.max(0, conv(+a.bal||0, a.cur)), c:t.c, liab:g.liab, acc:a, icon:t.k};
+  }).filter(x => x.v > 0);
+}
+function renderBubbles(fromKey){
+  const box = $("#bub"), W = box.clientWidth, H = box.clientHeight;
+  if(!W) return;
+  if(bubLevel && !GROUPS.some(g => g.k === bubLevel)) bubLevel = null;
+  let items = bubbleItems();
+  if(bubLevel && !items.length){ bubLevel = null; items = bubbleItems(); }
+  items.sort((a,b) => b.v - a.v);
+  const sum = items.reduce((t,x) => t + x.v, 0) || 1;
+  // sizes follow value, softened (v^0.4 instead of area-true v^0.5) so small entries stay big enough to read
+  const E = .4, wsum = items.reduce((t,x) => t + Math.pow(x.v, 2*E), 0) || 1;
+  const k = Math.sqrt(W * H * (bubLevel ? .42 : .46) / (Math.PI * wsum));
+  const maxR = Math.min(W, H) * .34, minR = items.length > 8 ? 28 : 36;
+  const P = packCircles(items.map(x => Math.min(maxR, Math.max(minR, k * Math.pow(x.v, E)))), W, H);
+  // header: a back button inside a group, a hint at the top
+  const hd = $("#bubH");
+  if(bubLevel){
+    const g = GROUPS.find(x => x.k === bubLevel);
+    hd.innerHTML = `<button class="bub-back">${ic("left")}<span>${esc(g.n)}</span></button><span class="num amt">${g.liab ? "−" : ""}${fmt(sum, S.base, {dec:0})}</span>`;
+    hd.querySelector("button").onclick = () => { const was = "g:" + bubLevel; bubLevel = null; renderBubbles(was); };
+  } else hd.innerHTML = `<span class="t2">Tap a bubble to look inside</span>`;
+  // where new bubbles grow from and old ones shrink into
+  const origin = fromKey && box.querySelector(`[data-key="${fromKey}"]`);
+  const ox = origin ? +origin.dataset.x : W/2, oy = origin ? +origin.dataset.y : H/2;
+  const keep = new Set(items.map(x => x.key));
+  box.querySelectorAll(".bb").forEach(el => {
+    if(keep.has(el.dataset.key)) return;
+    const tx = bubLevel ? (+el.dataset.x - ox) * 1.6 + ox : ox, ty = bubLevel ? (+el.dataset.y - oy) * 1.6 + oy : oy;
+    el.classList.add("gone"); el.style.width = el.style.height = "0px"; el.style.transform = `translate(${tx}px,${ty}px)`;
+    setTimeout(() => el.remove(), 700);
+  });
+  items.forEach((x, i) => {
+    const p = P[i], d = p.r * 2;
+    let el = box.querySelector(`[data-key="${x.key}"]:not(.gone)`);
+    if(!el){
+      el = el_bubble(x); box.appendChild(el);
+      el.style.width = el.style.height = "0px"; el.style.transform = `translate(${ox}px,${oy}px)`;
+      el.getBoundingClientRect();
+      el.style.transitionDelay = (i * 35) + "ms";
+    } else el.style.transitionDelay = "0ms";
+    el.dataset.x = p.x; el.dataset.y = p.y;
+    el.classList.toggle("sm", d < 76); el.classList.toggle("xs", d < 56);
+    el.querySelector(".bv").textContent = (x.liab ? "−" : "") + fmt(x.v, S.base, {dec:0});
+    el.style.width = el.style.height = d + "px";
+    el.style.transform = `translate(${p.x - p.r}px,${p.y - p.r}px)`;
+  });
+}
+function el_bubble(x){
+  const el = document.createElement("button");
+  el.className = "bb" + (x.liab ? " liab" : ""); el.dataset.key = x.key;
+  el.style.setProperty("--bc", x.c);
+  el.style.setProperty("--fd", (-Math.random() * 6).toFixed(2) + "s");
+  el.innerHTML = `<span class="bf">${x.icon ? `<span class="bi">${ic(x.icon)}</span>` : ""}<span class="bn">${esc(x.n)}</span><span class="bv num amt"></span></span>`;
+  el.onclick = () => {
+    if(x.group){ bubLevel = x.group; renderBubbles(x.key); }
+    else if(x.acc) accountSheet(x.acc);
+  };
+  return el;
+}
+
 function renderAlloc(){
   const sec = $("#allocSection");
   const by = {}; let total = 0;
@@ -931,8 +1050,10 @@ function renderAlloc(){
     c.style.strokeDashoffset = -cum; cum += frac * C;
     requestAnimationFrame(() => requestAnimationFrame(() => { c.style.strokeDasharray = `${len} ${C}`; }));
   });
-  const mode = UI.alloc === "bar" ? "bar" : "pie";
-  paintSeg($("#allocMode"), mode === "bar" ? 1 : 0);
+  const mode = ["bubbles","pie","bar"].includes(UI.alloc) ? UI.alloc : "bubbles";
+  paintSeg($("#allocMode"), ["bubbles","pie","bar"].indexOf(mode));
+  $("#allocBub").style.display = mode === "bubbles" ? "" : "none";
+  if(mode === "bubbles") renderBubbles();
   $("#allocPie").style.display = mode === "pie" ? "" : "none";
   const ab = $("#allocBar"); ab.style.display = mode === "bar" ? "" : "none";
   const sorted = types.slice().sort((a,b) => by[b.k]-by[a.k]), top = sorted.length ? by[sorted[0].k] : 1;
@@ -1013,7 +1134,7 @@ function setTab(t){
     {transform:`translateX(${toI*pitch}px) scale(.97,1.03)`, offset:.8},
     {transform:`translateX(${toI*pitch}px) scale(1,1)`}
   ], {duration:650, easing:"cubic-bezier(.32,.72,0,1)"});
-  if(t === "worth"){ drawChart(true); renderHero(); }
+  if(t === "worth"){ drawChart(true); renderHero(); renderAlloc(); }
   else if(t === "monthly") renderMonthly();
   else renderSettings();
 }
@@ -1514,7 +1635,7 @@ $("#mNext").onclick = () => stepMonth(1);
 })();
 // a blurred strip behind the status bar once content scrolls under it
 addEventListener("scroll", () => document.body.classList.toggle("scrolled", scrollY > 8), {passive:true});
-let rw = 0; addEventListener("resize", () => { if(UI.tab !== "worth") return; const w = $("#chartWrap").clientWidth; if(w !== rw){ rw = w; drawChart(false); } });
+let rw = 0; addEventListener("resize", () => { if(UI.tab !== "worth") return; const w = $("#chartWrap").clientWidth; if(w !== rw){ rw = w; drawChart(false); if($("#allocBub").style.display !== "none") renderBubbles(); } });
 document.addEventListener("visibilitychange", () => { if(!document.hidden){ render(false); fetchRates(); } });
 
 // static icons in the markup: <i data-mi="name"> becomes the svg, other elements get it as content
