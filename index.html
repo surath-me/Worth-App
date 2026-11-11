@@ -575,7 +575,7 @@ const DEFAULT_RATES = {EUR:1, INR:110, USD:1.16, GBP:0.87, CHF:0.93};
 /* Entry types. The icon is MI[k]. liab: a debt, entered as the positive amount owed and subtracted from net worth.
    dep: physical assets get a yearly value change (%) that is applied when a month is carried over; the number is the default. */
 const TYPES = [
-  {k:"bank", n:"Bank", c:"#0A84FF"},
+  {k:"bank", n:"Savings", c:"#0A84FF"},
   {k:"stocks", n:"Stocks", c:"#5E5CE6"},
   {k:"etf", n:"ETFs", c:"#14B8A6"},
   {k:"mf", n:"Mutual funds", c:"#FF9F0A"},
@@ -940,7 +940,8 @@ function drawChart(animate){
 
 /* ---------- bubbles: groups you can open ---------- */
 const GROUPS = [
-  {k:"cash", n:"Cash & bank", types:["bank","cash"], c:"#0A84FF"},
+  {k:"savings", n:"Savings", types:["bank"], c:"#0A84FF"},
+  {k:"cash", n:"Cash", types:["cash"], c:"#34C759"},
   {k:"inv", n:"Investments", types:["etf","stocks","mf","crypto"], c:"#14B8A6"},
   {k:"property", n:"Property", types:["property"], c:"#C79A3B"},
   {k:"more", n:"More", types:["vehicle","valuables","other"], c:"#64748B"},
@@ -959,22 +960,22 @@ function hexLayout(items, W, H){
   const vmax = items[0] ? items[0].v : 1;
   return items.map((x, i) => {
     const [q, r] = cells[i];
-    return {hx: s * (q + r/2), hy: s * Math.sqrt(3)/2 * r, r: (s - 8) / 2 * (.62 + .38 * Math.sqrt(x.v / vmax))};
+    return {hx: s * (q + r/2), hy: s * Math.sqrt(3)/2 * r, r: (s - 8) / 2 * (.78 + .22 * Math.sqrt(x.v / vmax))};
   });
 }
-function fish(hx, hy, W, H){
+const HEX_MIN_D = 64; // never shrink a bubble below this, so its name and amount stay readable
+function fish(hx, hy, W, H, r){
+  // bubbles stay on their grid spots (gaps never close); only their size eases down toward the edges
   const cx = W/2, cy = H/2, x = cx + hx + hex.ox, y = cy + hy + hex.oy;
   const d = Math.hypot((x - cx) / (W/2), (y - cy) / (H/2));   // 0 in the middle, 1 at the box edge
-  const f = Math.max(.25, 1 - Math.pow(Math.max(0, d - .35), 1.6) * .9);
-  // edge bubbles also drift a little toward the middle, so the grid looks like a lens
-  const pull = .9 + .1 * f;
-  return {x: cx + (x - cx) * pull, y: cy + (y - cy) * pull, f, o: Math.min(1, Math.max(0, (1.25 - d) * 2.2))};
+  const f = Math.max(Math.min(1, HEX_MIN_D / (2 * r)), 1 - Math.pow(Math.max(0, d - .35), 1.6) * .9);
+  return {x, y, f, o: 1};
 }
 function applyFish(){
   const box = $("#bub"), W = box.clientWidth, H = box.clientHeight;
   box.querySelectorAll(".bb:not(.gone)").forEach(el => {
     if(el.dataset.hx == null) return;
-    const r = +el.dataset.r, p = fish(+el.dataset.hx, +el.dataset.hy, W, H);
+    const r = +el.dataset.r, p = fish(+el.dataset.hx, +el.dataset.hy, W, H, r);
     el.dataset.x = p.x; el.dataset.y = p.y;
     el.style.transform = `translate3d(${p.x - r}px,${p.y - r}px,0) scale(${p.f})`;
     el.style.opacity = p.o;
@@ -1067,7 +1068,7 @@ function renderBubbles(fromKey){
     P = hexLayout(items, W, H);
     if(fromKey !== "keep"){ hex.ox = hex.oy = 0; }
     hexBounds(P, W, H);
-    P.forEach(p => { const q = fish(p.hx, p.hy, W, H); p.x = q.x; p.y = q.y; p.f = q.f; p.o = q.o; });
+    P.forEach(p => { const q = fish(p.hx, p.hy, W, H, p.r); p.x = q.x; p.y = q.y; p.f = q.f; p.o = q.o; });
   } else {
     const k = Math.min(Math.sqrt(W * H * .44 / (Math.PI * sum)), Math.min(W, H) * .4 / Math.sqrt(vmax));
     P = packCircles(items.map(x => Math.max(15, k * Math.sqrt(x.v))), W, H);
@@ -1122,7 +1123,7 @@ function renderBubbles(fromKey){
     el.querySelector(".bv").textContent = (x.liab ? "−" : "") + fmt(x.v, S.base, {dec:0});
     el.style.transform = at(p.x, p.y, p.r, p.f != null ? p.f : 1);
     el.style.opacity = p.o != null ? p.o : "";
-    if(bubLevel){ el.classList.toggle("sm", d < 70); el.classList.toggle("xs", d < 50); el.classList.toggle("xxs", d < 36); }
+    if(bubLevel){ el.classList.toggle("sm", true); el.classList.toggle("xs", false); el.classList.toggle("xxs", false); }
   });
   // legend: every bubble by name, share and value, so even the smallest bubble can be identified and opened
   const leg = $("#bubLeg");
