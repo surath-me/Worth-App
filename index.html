@@ -980,26 +980,26 @@ let bubLevel = null;
 const hex = {ox:0, oy:0, vx:0, vy:0, maxX:0, maxY:0, raf:0, drag:null, moved:false};
 // Entries inside a group are all the same size and share the box: one fills it, two split it, and so on.
 // Rows are offset like a honeycomb. Only when even a 76px bubble wouldn't fit do they overflow and become draggable.
-const HEX_FIT_MIN = 76, BUB_MAX_D = 150; // no bubble is ever wider than BUB_MAX_D
+const HEX_FIT_MIN = 76, BUB_MAX_D = 150, BUB_GAP = 18; // BUB_GAP: room between bubbles, enough that the spring's overshoot never makes them touch // no bubble is ever wider than BUB_MAX_D
 // Every position is a true honeycomb slot (rows rh = cell·√3/2 apart, neighbouring rows offset by cell/2),
-// so centres are always at least one cell apart: bubbles are cell − 8px wide, leaving an 8px gap minimum.
+// so centres are always at least one cell apart: bubbles are cell − BUB_GAP wide, leaving a BUB_GAP gap minimum.
 function hexLayout(items, W, H){
-  const n = items.length, pad = 8, s3 = Math.sqrt(3)/2, out = [];
+  const n = items.length, pad = BUB_GAP, s3 = Math.sqrt(3)/2, out = [];
   let best = null;
   for(let c = 1; c <= n; c++){
     const rows = Math.ceil(n / c), off = rows > 1 ? .5 : 0;
-    const cell = Math.min((W - pad) / (c + off), (H - pad) / (1 + (rows - 1) * s3), BUB_MAX_D + 8);
+    const cell = Math.min((W - pad) / (c + off), (H - pad) / (1 + (rows - 1) * s3), BUB_MAX_D + BUB_GAP);
     // biggest bubbles win; on a tie (both at the max size) prefer fewer rows, i.e. side by side
     if(!best || cell > best.cell + .5 || (Math.abs(cell - best.cell) <= .5 && rows < best.rows)) best = {c, rows, cell};
   }
   if(best.cell >= HEX_FIT_MIN){
     // fits: fill row by row, the last (shorter) row placed on the slots closest to the middle
-    let {c, rows, cell} = best; cell = Math.min(cell, Math.min(W, H) - pad, BUB_MAX_D + 8);
+    let {c, rows, cell} = best; cell = Math.min(cell, Math.min(W, H) - pad, BUB_MAX_D + BUB_GAP);
     for(let i = 0; i < n; i++){
       const row = Math.floor(i / c), m = row === rows - 1 ? n - row * c : c;
       const shift = rows > 1 ? (row % 2 ? cell / 4 : -cell / 4) : 0;
       const col = (i - row * c) + Math.round((c - m) / 2 + (m < c && row % 2 ? -.01 : .01));
-      out.push({hx: (col - (c - 1) / 2) * cell + shift, hy: (row - (rows - 1) / 2) * cell * s3, r: (cell - 8) / 2});
+      out.push({hx: (col - (c - 1) / 2) * cell + shift, hy: (row - (rows - 1) / 2) * cell * s3, r: (cell - BUB_GAP) / 2});
     }
     return out;
   }
@@ -1008,7 +1008,7 @@ function hexLayout(items, W, H){
   const cell = (H - pad) / (1 + (R - 1) * s3);
   for(let i = 0; i < n; i++){
     const col = Math.floor(i / R), row = i % R;
-    out.push({hx: col * cell + (row % 2 ? cell / 2 : 0), hy: row * cell * s3, r: (cell - 8) / 2});
+    out.push({hx: col * cell + (row % 2 ? cell / 2 : 0), hy: row * cell * s3, r: (cell - BUB_GAP) / 2});
   }
   const xs = out.map(p => p.hx), ys = out.map(p => p.hy);
   const mx = (Math.min(...xs) + Math.max(...xs)) / 2, my = (Math.min(...ys) + Math.max(...ys)) / 2;
@@ -1124,13 +1124,13 @@ function arrange(keys, vals, W, H){
 function packFits(P, W, H){
   for(let i = 0; i < P.length; i++){
     const a = P[i]; if(a.x - a.r < 1 || a.y - a.r < 1 || a.x + a.r > W - 1 || a.y + a.r > H - 1) return false;
-    for(let j = i+1; j < P.length; j++){ const b = P[j]; if(Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + 8) return false; }
+    for(let j = i+1; j < P.length; j++){ const b = P[j]; if(Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + BUB_GAP) return false; }
   }
   return true;
 }
 // opts.init: start positions (keeps an arrangement you dragged); opts.fixed: index of a bubble that must not move
 function packCircles(rs, W, H, opts = {}){
-  const cx = W/2, cy = H/2, n = rs.length, gap = 9, init = opts.init, fx = opts.fixed == null ? -1 : opts.fixed, its = opts.its || 360;
+  const cx = W/2, cy = H/2, n = rs.length, gap = BUB_GAP + 1, init = opts.init, fx = opts.fixed == null ? -1 : opts.fixed, its = opts.its || 360;
   const P = rs.map((r,i) => { if(init && init[i]) return {x:init[i].x, y:init[i].y, r};
     const a = i * 2.39996, d = i ? 18 * Math.sqrt(i) : 0; return {x: cx + Math.cos(a)*d, y: cy + Math.sin(a)*d, r}; });
   for(let it = 0; it < its; it++){
