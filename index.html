@@ -2259,7 +2259,7 @@ function accountSheet(acc, sheetOpts = {}){
     grid.onclick = e => { const b = e.target.closest("button"); if(!b) return;
       const k = b.dataset.k; if(k === typeIcon(TYPE[draft.type] || TYPE.other)) delete draft.icon; else draft.icon = k;
       paintIcon(); if(navigator.vibrate) navigator.vibrate(6);
-      clearTimeout(iconShut); iconShut = setTimeout(() => showIcons(false), 350); }; // let the pick register, then fold the grid away
+      clearTimeout(iconShut); iconShut = setTimeout(() => showIcons(false), 140); }; // same beat as the currency tray: the pick lights up, then it folds away
     let iconShut = 0;
     const showIcons = open => { clearTimeout(iconShut); iconMore.classList.toggle("open", open); iconRow.setAttribute("aria-expanded", String(open)); };
     iconRow.onclick = () => showIcons(!iconMore.classList.contains("open"));
