@@ -526,6 +526,13 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{display:none}
 .bn-cur{position:relative;display:inline-flex;align-items:center;gap:4px;height:34px;margin-top:14px;padding:0 10px 0 14px;border-radius:17px;background:var(--card);font-size:15px;font-weight:600;color:var(--text)}
 .bn-cur svg{width:18px;height:18px;fill:var(--sec)}
 .bn-cur select{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:16px;-webkit-appearance:none;appearance:none}
+.onb-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 10px;margin:4px -6px 0;flex:none}
+.onb-keys button{height:54px;border-radius:18px;font-size:28px;font-weight:500;color:var(--text);display:grid;place-items:center;-webkit-tap-highlight-color:transparent;transition:background-color .2s,transform .2s cubic-bezier(.2,.8,.2,1)}
+.onb-keys button:active{background:var(--fill);transform:scale(.92);transition-duration:.05s}
+.onb-keys svg{width:28px;height:28px;fill:currentColor}
+.onb-pg.bal .onb-amtwrap{padding:4px 0}
+.onb-pg.bal .onb-foot{padding-top:12px}
+.onb-big input{pointer-events:none}
 .onb-amtwrap .onb-hint{margin-top:12px}
 /* Keyboard: the layer never resizes. Its bottom padding grows by the keyboard's height with the same feel as the
    keyboard itself, so the auto spacing above and below the amount shrinks smoothly and everything rises with it.
@@ -747,6 +754,7 @@ svg.mi{fill:currentColor}
 /* ---------- icons ---------- */
 /* Material Symbols Rounded (Apache-2.0), 400 weight, viewBox 0 -960 960 960. Swap for SF Symbols in the Swift app. */
 const MI = {
+  "backspace":"M360-200q-20 0-37.5-9T294-234L120-480l174-246q11-16 28.5-25t37.5-9h400q33 0 56.5 23.5T840-680v400q0 33-23.5 56.5T760-200H360Zm96-120 104-104 104 104 56-56-104-104 104-104-56-56-104 104-104-104-56 56 104 104-104 104 56 56Z",
   "edit":"M120-120v-150l490-490q15-15 35-15t35 15l65 65q15 15 15 35t-15 35L270-120H120Zm60-60h60l395-395-60-60-395 395v60Zm455-455 25-25-30-30-25 25 30 30Z",
   "expand":"M480-361q-8 0-15-2.500t-13-8.500L268-556q-11-11-11-28t11-28q11-11 28-11t28 11l156 156 156-156q11-11 28-11t28 11q11 11 11 28t-11 28L508-372q-6 6-13 8.500t-15 2.500Z",
   "chart":"M93-266q0-13 10-23l234-234q17-17 42.5-17.5T422-523l118 118 278-312q8-9 20.5-10t21.5 8q8 8 8.5 20t-7.5 21L582-363q-17 20-43 20.5T495-360L380-474 149-243q-10 10-23 10t-23-10q-10-10-10-23Z",
@@ -2522,11 +2530,12 @@ function openOnboarding(){
       edit.onclick = () => { name.focus(); name.select(); try{ name.setSelectionRange(0, name.value.length); }catch(e){} };
       name.oninput = () => { r.name = name.value; };
       head.append(av, name, edit);
-      pg.append(head, el("p", {class:"onb-sub onb-a"}, ASK(r.t)));
+      pg.append(head, el("p", {class:"onb-sub onb-a"}, ASK(r.t) + " Rough is fine."));
       // the amount is the hero: big, centred, grouped as you type; the currency is a small pill under it
       const box = el("label", {class:"onb-big onb-a"});
       const sym = el("span", {class:"bn-sym"}, esc(symOf(r.cur)));
-      const inp = el("input", {inputmode:"decimal", placeholder:"0", "aria-label":"Amount", autocomplete:"off", enterkeyhint:"next"});
+      // display only: the app's own keypad types into it, so the system keyboard never opens (no jumping layout)
+      const inp = el("input", {readonly:"", inputmode:"none", tabindex:"-1", placeholder:"0", "aria-label":"Amount", autocomplete:"off"});
       const sizer = el("span", {class:"bn-size", "aria-hidden":"true"});
       box.append(sym, inp, sizer);
       const pill = el("label", {class:"bn-cur onb-a"}, `<span>${r.cur}</span>${ic("expand")}`);
@@ -2553,14 +2562,36 @@ function openOnboarding(){
       const next = cta(last ? "Finish" : "Next", () => { if(isNaN(parseNum(inp.value))) return; if(last) finish(); else { st.i++; go(4); } });
       const ok = () => { next.disabled = isNaN(parseNum(inp.value)); };
       sel.onchange = () => { r.cur = sel.value; sym.textContent = symOf(r.cur); pill.firstChild.textContent = r.cur; inp.value = tidy(inp.value); r.bal = inp.value; fit(); };
-      inp.oninput = e => { if(e && (e.data === "," || e.data === ".") && !/[.]/.test(inp.value.slice(0, -1).replace(/,/g, ""))) inp.value = inp.value.replace(/[,.]$/, "") + "."; const v = tidy(inp.value); if(v !== inp.value){ inp.value = v; try{ inp.setSelectionRange(v.length, v.length); }catch(e){} } r.bal = inp.value; ok(); fit(); };
-      inp.onkeydown = name.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); if(e.target === name) inp.focus(); else next.click(); } };
+      // keypad: digits, one decimal point (two decimals max), backspace (hold to clear)
+      let raw = (() => { const v = parseNum(r.bal); return isNaN(v) ? "" : String(v); })();
+      const show = () => { inp.value = tidy(raw); r.bal = inp.value; ok(); fit(); };
+      const press = k => {
+        if(k === "del") raw = raw.slice(0, -1);
+        else if(k === "."){ if(!raw.includes(".")) raw = (raw || "0") + "."; }
+        else { const d = raw.indexOf("."); if(d >= 0 && raw.length - d > 2) return; if(d < 0 && raw.replace(/^0+/, "").length >= 12) return; raw = raw === "0" ? k : raw + k; }
+        if(navigator.vibrate) navigator.vibrate(6);
+        show();
+      };
+      const pad = el("div", {class:"onb-keys onb-a", role:"group", "aria-label":"Keypad"});
+      ["1","2","3","4","5","6","7","8","9",".","0","del"].forEach(k => {
+        const b = el("button", {type:"button", "aria-label":k === "del" ? "Delete" : k === "." ? "Decimal point" : k}, k === "del" ? ic("backspace") : k);
+        let hold = 0;
+        b.addEventListener("pointerdown", e => { e.preventDefault(); press(k); if(k === "del") hold = setTimeout(() => { raw = ""; show(); }, 550); });
+        ["pointerup","pointerleave","pointercancel"].forEach(ev => b.addEventListener(ev, () => clearTimeout(hold)));
+        pad.appendChild(b);
+      });
+      // a hardware keyboard works too (while the name isn't being edited)
+      const onKey = e => { if(!pg.isConnected){ removeEventListener("keydown", onKey); return; } if(e.target === name) return;
+        if(/^[0-9]$/.test(e.key)) press(e.key); else if(e.key === "." || e.key === ",") press("."); else if(e.key === "Backspace") press("del"); else if(e.key === "Enter") next.click(); else return; e.preventDefault(); };
+      addEventListener("keydown", onKey);
+      name.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); name.blur(); } };
       const more = el("button", {class:"onb-text"}, `${ic("add")}<span>Add another</span>`);
       more.onclick = () => { const same = st.rows.filter(x => x.t === r.t).length;
         st.rows.splice(st.i + 1, 0, {t:r.t, name:`${KINDS.find(k => k.t === r.t).n} ${same + 1}`, cur:r.cur, bal:""}); r.bal = inp.value; st.i++; go(4); };
-      pg.append(el("div", {class:"onb-amtwrap"}, ""), foot(next, more));
-      pg.querySelector(".onb-amtwrap").append(box, pill, el("p", {class:"onb-hint onb-a"}, "Rough is fine."));
-      ok(); requestAnimationFrame(fit);
+      pg.append(el("div", {class:"onb-amtwrap"}, ""), pad, foot(next, more));
+      pg.querySelector(".onb-amtwrap").append(box, pill);
+      pg.classList.add("bal");
+      show(); requestAnimationFrame(fit);
     },
     done(pg){
       pg.classList.add("center", "intro");
