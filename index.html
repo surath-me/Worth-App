@@ -348,6 +348,10 @@ h1.large.swap{animation:viewin .45s var(--spring)}
 .row .chev{color:var(--ter);font-size:22px;line-height:1;margin-left:-4px;flex:none}
 .pos,.row .pos{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:600}
 .neg,.row .neg{color:var(--down);font-weight:600}
+.fx-row .avatar{background:var(--fill)!important} .fx-row .avatar svg{fill:var(--g1)}
+.m-none{padding:18px 16px;color:var(--sec);font-size:14px;text-align:center}
+.m-unch{margin-top:2px}
+#mDetail .seeall{margin-top:4px}
 .more-btn{display:block;margin:10px auto 0;font-size:14px;font-weight:600;padding:6px 12px}
 .mnav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;margin:4px 0 6px}
 .mnav .icon-btn:disabled{opacity:.2;pointer-events:none}
@@ -1739,38 +1743,72 @@ function renderMonthly(dir){
   upd.onclick = () => updateSheet(m);
   view.append(head, upd);
 
-  // that month's entries: assets, then debts
-  const rates = snap.rates || S.rates;
+  // That month's story, not a ledger: what moved (entries whose balance changed in their own currency, plus new and removed
+  // ones), biggest effect on net worth first; what exchange rates did to foreign balances that didn't change; the rest folds
+  // into "N unchanged". The first month on record just lists everything.
+  const rates = snap.rates || S.rates, prates = prevSnap ? (prevSnap.rates || S.rates) : null;
   const items = Object.keys(snap.items).map(id => {
-    const it = snap.items[id], acc = S.accounts.find(a => a.id === id);
-    return {id, b:+it[0] || 0, cur:it[1], type:it[2], v:conv(+it[0] || 0, it[1], rates),
-      name:(acc && acc.name) || it[3] || "Removed entry", platform:acc && acc.platform, prev:prevSnap && prevSnap.items[id]};
-  }).sort((a,b) => b.v - a.v);
-  const group = (label, list) => {
-    if(!list.length) return;
-    const card = el("div", {class:"card"});
-    list.forEach(a => {
-      const t = TYPE[a.type] || TYPE.other, liab = isLiab(a.type);
-      let chg = "";
-      if(prevSnap){
-        if(a.prev && a.prev[1] === a.cur){
-          const d = a.b - (+a.prev[0] || 0), good = liab ? d < 0 : d > 0;
-          chg = d === 0 ? '<span class="t2">No change</span>' : `<span class="t2 ${good ? "pos" : "neg"} amt">${signed(liab ? -d : d, a.cur, Math.abs(d) >= 100 ? 0 : 2)}</span>`;
-        } else chg = '<span class="t2">New</span>';
-      }
-      const sub = esc(a.platform || t.n) + (a.cur !== S.base ? `, <span class="amt">≈ ${fmt(a.v, S.base, {dec:0})}</span>` : "");
-      // tap an entry to edit it (name, type, balance); removed entries stay read-only
-      const acc = S.accounts.find(x => x.id === a.id);
-      const row = el(acc ? "button" : "div", {class:"row"}, `${avatar(t)}
-        <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
-        <span class="end"><div class="t1 num amt">${liab ? "−" : ""}${fmt(a.b, a.cur)}</div><div class="num">${chg}</div></span>`);
-      if(acc) row.onclick = () => accountSheet(acc);
-      card.appendChild(row);
-    });
-    view.append(el("div", {class:"lbl-s"}, label), card);
+    const it = snap.items[id], acc = S.accounts.find(a => a.id === id), prev = prevSnap && prevSnap.items[id];
+    const b = +it[0] || 0, sg = sgn(it[2]), v = conv(b, it[1], rates);
+    const same = prev && prev[1] === it[1], pb = same ? +prev[0] || 0 : null;
+    const changed = !!prevSnap && (!same || Math.abs(b - pb) >= .005);
+    const impact = !prevSnap ? 0 : same ? sg * (v - conv(pb, it[1], rates)) : sg * v - (prev ? sgn(prev[2]) * conv(+prev[0] || 0, prev[1], prates) : 0);
+    return {id, b, cur:it[1], type:it[2], v, acc, prev, same, pb, changed, impact,
+      name:(acc && acc.name) || it[3] || "Removed entry", platform:acc && acc.platform};
+  });
+  const rowFor = (a, chg) => {
+    const t = TYPE[a.type] || TYPE.other, liab = isLiab(a.type);
+    const sub = esc(a.platform || t.n) + (liab ? " · owed" : "") + (a.cur !== S.base && !a.gone ? `, <span class="amt">≈ ${fmt(a.v, S.base, {dec:0})}</span>` : "");
+    // tap an entry to edit it (name, type, balance); removed entries stay read-only
+    const row = el(a.acc && !a.gone ? "button" : "div", {class:"row"}, `${avatar(t)}
+      <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${sub}</div></span>
+      <span class="end"><div class="t1 num amt">${liab ? "−" : ""}${fmt(a.b, a.cur)}</div>${chg ? `<div class="num">${chg}</div>` : ""}</span>`);
+    if(a.acc && !a.gone) row.onclick = () => accountSheet(a.acc);
+    return row;
   };
-  group("Assets", items.filter(a => !isLiab(a.type)));
-  group("Debts", items.filter(a => isLiab(a.type)));
+  const byValue = (x, y) => (isLiab(x.type) - isLiab(y.type)) || y.v - x.v;
+  if(!prevSnap){
+    const card = el("div", {class:"card"}); items.sort(byValue).forEach(a => card.appendChild(rowFor(a)));
+    view.append(el("div", {class:"lbl-s"}, "Entries"), card);
+  } else {
+    // entries recorded last month but not this month
+    Object.keys(prevSnap.items).filter(id => !snap.items[id]).forEach(id => {
+      const it = prevSnap.items[id], acc = S.accounts.find(a => a.id === id);
+      items.push({id, b:+it[0] || 0, cur:it[1], type:it[2], v:conv(+it[0] || 0, it[1], prates), acc, gone:true, changed:true,
+        impact:-sgn(it[2]) * conv(+it[0] || 0, it[1], prates), name:(acc && acc.name) || it[3] || "Removed entry", platform:acc && acc.platform});
+    });
+    const moved = items.filter(a => a.changed).sort((x, y) => Math.abs(y.impact) - Math.abs(x.impact));
+    const still = items.filter(a => !a.changed).sort(byValue);
+    // exchange rates: what the month's rates did to balances that stayed the same in their own currency
+    let fx = 0; const fxCurs = new Set();
+    items.forEach(a => { if(a.same && a.cur !== S.base){ const d = sgn(a.type) * (conv(a.pb, a.cur, rates) - conv(a.pb, a.cur, prates)); if(Math.abs(d) >= .5){ fx += d; fxCurs.add(a.cur); } } });
+    const card = el("div", {class:"card"});
+    moved.forEach(a => {
+      const liab = isLiab(a.type);
+      let chg;
+      if(a.gone) chg = '<span class="t2">Removed</span>';
+      else if(!a.same) chg = '<span class="t2">New</span>';
+      else { const d = a.b - a.pb, good = liab ? d < 0 : d > 0, dec = Math.abs(d) >= 100 ? {dec:0} : {};
+        chg = liab ? `<span class="t2 ${good ? "pos" : "neg"} amt">${fmt(Math.abs(d), a.cur, dec)} ${d < 0 ? "paid off" : "more owed"}</span>`
+          : `<span class="t2 ${good ? "pos" : "neg"} amt">${signed(d, a.cur, Math.abs(d) >= 100 ? 0 : 2)}</span>`; }
+      card.appendChild(rowFor(a, chg));
+    });
+    if(Math.abs(fx) >= 1){
+      const r = el("div", {class:"row fx-row"}, `<span class="avatar">${ic("sync")}</span>
+        <span class="mid"><div class="t1">Exchange rates</div><div class="t2">On your ${[...fxCurs].join(" and ")} balances</div></span>
+        <span class="end"><div class="t1 num amt ${fx > 0 ? "pos" : "neg"}">${signed(fx, S.base, 0)}</div></span>`);
+      card.appendChild(r);
+    }
+    if(!card.childElementCount) card.appendChild(el("div", {class:"m-none"}, `Nothing changed since ${esc(vsLabel(m, pm))}.`));
+    view.append(el("div", {class:"lbl-s"}, `What moved since ${esc(vsLabel(m, pm))}`), card);
+    if(still.length){
+      const more = el("div", {class:"more" + (UI.mUnch ? " open" : "")}), inner = el("div", {class:"more-in"}), sc = el("div", {class:"card m-unch"});
+      still.forEach(a => sc.appendChild(rowFor(a))); inner.appendChild(sc); more.appendChild(inner);
+      const btn = el("button", {class:"seeall" + (UI.mUnch ? " open" : ""), "aria-expanded":String(!!UI.mUnch)}, `<span>${still.length} ${due ? "not updated yet" : "unchanged"}</span>${ic("expand")}`);
+      btn.onclick = () => { UI.mUnch = !UI.mUnch; saveUI(); more.classList.toggle("open", UI.mUnch); btn.classList.toggle("open", UI.mUnch); btn.setAttribute("aria-expanded", String(UI.mUnch)); };
+      view.append(btn, more);
+    }
+  }
 
   const del = el("button", {class:"quiet"}, "Remove " + mLong(m));
   armConfirm(del, "Tap again to remove", () => {
