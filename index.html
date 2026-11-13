@@ -527,19 +527,15 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{display:none}
 .bn-cur svg{width:18px;height:18px;fill:var(--sec)}
 .bn-cur select{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:16px;-webkit-appearance:none;appearance:none}
 .onb-amtwrap .onb-hint{margin-top:12px}
-/* keyboard up: a compact balance screen so the amount and the button both stay in view */
-.onb.kb .onb-count,.onb.kb .onb-hint,.onb.kb .onb-foot .onb-text{display:none}
-.onb.kb .onb-av{width:40px;height:40px} .onb.kb .onb-av svg{width:20px;height:20px}
-.onb.kb .onb-name{font-size:22px}
-.onb.kb .onb-entry{margin:0 0 4px}
-.onb.kb .onb-sub{margin-bottom:4px;font-size:15px}
-.onb.kb .onb-amtwrap{margin:6px 0;padding:0}
-.onb.kb .bn-cur{margin-top:8px}
-.onb.kb .onb-foot{padding-top:12px}
-/* keyboard up: stack everything just above it (no gaps in between); spare room goes to the top */
-.onb.kb .onb-pg{justify-content:flex-end;padding-bottom:4px}
-.onb.kb .onb-amtwrap{margin:14px 0 0}
-.onb.kb .onb-foot{margin-top:6px;position:static;background:none}
+/* Keyboard: the layer never resizes. Its bottom padding grows by the keyboard's height with the same feel as the
+   keyboard itself, so the auto spacing above and below the amount shrinks smoothly and everything rises with it.
+   The step count, the hint and "Add another" fold away (height + opacity), nothing else changes size. */
+.onb{transition:padding-bottom .34s cubic-bezier(.2,.85,.25,1)}
+.onb.kb{padding-bottom:calc(var(--kb, 300px) + 8px)}
+.onb-count,.onb-hint,.onb-foot .onb-text{max-height:60px;overflow:hidden;transition:max-height .3s cubic-bezier(.2,.85,.25,1),opacity .2s ease,margin .3s cubic-bezier(.2,.85,.25,1)}
+.onb.kb .onb-count,.onb.kb .onb-hint,.onb.kb .onb-foot .onb-text{max-height:0;opacity:0;margin-top:0;margin-bottom:0}
+.onb-foot{transition:padding .3s cubic-bezier(.2,.85,.25,1)}
+.onb.kb .onb-foot{padding-top:14px}
 .onb-amt{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-radius:22px;background:var(--card);box-shadow:inset 0 0 0 2px transparent;transition:box-shadow .2s}
 .onb-amt:focus-within{box-shadow:inset 0 0 0 2px var(--accent)}
 .onb-amt select{flex:none;-webkit-appearance:none;appearance:none;border:0;border-radius:14px;background:var(--fill);color:var(--text);font-size:16px;font-weight:600;padding:10px 12px}
@@ -2546,7 +2542,7 @@ function openOnboarding(){
       };
       const fit = () => {
         const txt = inp.value || "0"; sizer.textContent = txt;
-        const n = txt.length; let fs = n > 13 ? 34 : n > 10 ? 42 : n > 7 ? 50 : 58; if($("#onb").classList.contains("kb")) fs = Math.min(fs, 46);
+        const n = txt.length; let fs = n > 13 ? 34 : n > 10 ? 42 : n > 7 ? 50 : 58;
         box.style.setProperty("--bn", fs + "px");
         inp.style.width = Math.ceil(sizer.getBoundingClientRect().width) + 10 + "px"; inp.scrollLeft = 0;
         box.classList.toggle("empty", !inp.value);
@@ -2617,19 +2613,26 @@ function openOnboarding(){
   const fullH = () => standalone && screen.height > window.innerHeight ? screen.height : 0;
   // give the (otherwise empty) page a full screen of height, so iOS lays it out at full height too
   if(standalone) document.body.style.minHeight = screen.height + "px";
-  const fitVV = () => { if(!onbOpen) return;
-    const kb = !!vv && vv.height < window.innerHeight - 120, tall = fullH();
-    root.classList.toggle("kb", kb);
-    root.style.bottom = kb || tall ? "auto" : ""; root.style.height = kb ? vv.height + "px" : tall ? tall + "px" : ""; root.style.transform = kb && vv.offsetTop ? `translateY(${vv.offsetTop}px)` : "";
-    if(root._fit) requestAnimationFrame(root._fit); };
+  if(fullH()){ root.style.bottom = "auto"; root.style.height = fullH() + "px"; }
+  // Keyboard: go into keyboard mode the moment a field is focused (before iOS reports anything), using the last known
+  // keyboard height, so the layout rises together with the keyboard; the real height then fine-tunes it. On blur it
+  // drops right away, again in step with the keyboard going down.
+  let kbH = +(sessionStorage.getItem("worth.kbH") || 0) || Math.round(screen.height * .39);
+  const setKb = on => { root.style.setProperty("--kb", kbH + "px"); root.classList.toggle("kb", on); };
+  const fitVV = () => { if(!onbOpen || !vv) return;
+    const h = Math.round(window.innerHeight - vv.height);
+    if(h > 120){ kbH = h; try{ sessionStorage.setItem("worth.kbH", h); }catch(e){} setKb(true); }
+    else if(!root.contains(document.activeElement) || document.activeElement.tagName !== "INPUT") setKb(false);
+    if(vv.offsetTop) window.scrollTo(0, 0); };
+  root.addEventListener("focusin", e => { if(e.target.tagName === "INPUT" && e.target.type !== "file") setKb(true); });
+  root.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if(!(a && root.contains(a) && a.tagName === "INPUT")) setKb(false); }, 60));
   if(vv){ vv.addEventListener("resize", fitVV); vv.addEventListener("scroll", fitVV); root._vv = fitVV; }
-  fitVV();
   go(0);
   if(!still) root.animate([{opacity:0}, {opacity:1}], {duration:400, easing:"ease"});
 }
 function closeOnboarding(){
   const root = $("#onb");
-  const end = () => { if(root._vv && window.visualViewport){ visualViewport.removeEventListener("resize", root._vv); visualViewport.removeEventListener("scroll", root._vv); } root.style.height = root.style.transform = root.style.bottom = ""; document.body.style.minHeight = ""; root.classList.remove("kb"); root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
+  const end = () => { if(root._vv && window.visualViewport){ visualViewport.removeEventListener("resize", root._vv); visualViewport.removeEventListener("scroll", root._vv); } root.style.height = root.style.transform = root.style.bottom = ""; root.style.removeProperty("--kb"); document.body.style.minHeight = ""; root.classList.remove("kb"); root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
   if(matchMedia("(prefers-reduced-motion: reduce)").matches || !root.animate) return end();
   root.animate([{opacity:1, transform:"none"}, {opacity:0, transform:"scale(1.04)"}], {duration:380, easing:"cubic-bezier(.4,0,.2,1)", fill:"forwards"}).onfinish = end;
 }
