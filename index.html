@@ -116,11 +116,14 @@ h1.large{font-size:22px;font-weight:700;letter-spacing:.005em;margin:18px 4px 8p
 .split b{font-weight:500;color:var(--text)}
 .total{font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1.08;margin:2px 0 4px;white-space:nowrap;
   transition:filter .45s var(--spring),font-size .3s var(--spring)}
-.delta{font-size:13px;font-weight:600;height:20px;display:flex;align-items:center;gap:6px;color:var(--sec)}
+.delta{font-size:15px;font-weight:600;height:22px;display:flex;align-items:center;gap:6px;color:var(--sec)}
 .delta .chg{display:inline-flex;align-items:center;gap:3px;transition:color .3s}
 .delta .chg.up{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.delta .chg.up svg{color:var(--g1)} .delta .chg.down{color:var(--down)}
 .delta .when{font-weight:400;color:var(--sec)}
-.delta svg{width:11px;height:11px;transition:transform .4s var(--spring)}
+.insight{font-size:13px;color:var(--sec);min-height:18px;margin-top:3px;transition:opacity .2s}
+.insight.off{opacity:0}
+.insight b{font-weight:600;color:var(--text)}
+.delta svg{width:12px;height:12px;transition:transform .4s var(--spring)}
 .delta .down svg{transform:rotate(180deg)}
 body.hide .amt{filter:blur(10px)}
 
@@ -131,6 +134,7 @@ body.hide .amt{filter:blur(10px)}
 #chart .area{transition:opacity .8s ease .25s}
 #chart .base{stroke:var(--ter);stroke-width:1;stroke-dasharray:2 4}
 #chart .lbl{fill:var(--ter);font-size:11px}
+#chart .lbl .lv{fill:var(--sec);font-weight:600}
 #chart .scrub{opacity:0;transition:opacity .15s}
 #chart.scrubbing .scrub{opacity:1}
 #chart.scrubbing .enddot,#chart.scrubbing .pulse{opacity:0}
@@ -213,6 +217,8 @@ button.row:active{background:var(--fill)}
 .bub-leg .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bub-leg .pc{color:var(--sec);width:44px;text-align:right}
 .bub-leg .vl{width:104px;text-align:right;font-weight:500}
+.bub-leg .tot,.legend .tot{display:flex;align-items:center;gap:10px;margin-top:6px;padding:10px 0 4px;border-top:.5px solid var(--sep);font-size:14px;font-weight:600}
+.bub-leg .tot .nm,.legend .tot .nm{flex:1} .bub-leg .tot .vl,.legend .tot .vl{text-align:right}
 .bb{position:absolute;left:0;top:0;border-radius:50%;padding:0;will-change:transform,opacity;transform-origin:50% 50%;
   transition:transform var(--bub-move) var(--bounce),opacity .35s ease}
 .bb.gone{opacity:0;pointer-events:none;transition:transform .5s cubic-bezier(.4,0,.2,1),opacity .3s ease}
@@ -501,6 +507,7 @@ svg.mi{fill:currentColor}
         
         <div class="total num amt" id="total">€0</div>
         <div class="delta num" id="delta"></div>
+        <div class="insight" id="insight"></div>
       </section>
       <div class="chart-wrap" id="chartWrap">
         <svg id="chart" aria-label="Net worth over time"></svg>
@@ -526,7 +533,7 @@ svg.mi{fill:currentColor}
       <div id="mDetail"></div>
       <div id="allocSection">
         <div class="section-h"><h2>Allocation</h2></div>
-        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Assets</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
+        <div class="card alloc"><div class="seg" id="allocMode" role="group" aria-label="Allocation view"><span class="thumb"></span><button data-m="pie">Pie</button><button data-m="bar">Bar</button></div><div id="allocPie"><div class="donut-wrap"><svg id="donut" viewBox="0 0 120 120" aria-label="Allocation"><circle class="dbg" cx="60" cy="60" r="46"/></svg><div class="donut-c"><div class="num amt" id="donutV"></div><div class="t2">Net worth</div></div></div><div class="legend" id="legend"></div></div><div id="allocBar" class="abars"></div></div>
       </div>
       <div id="mFoot"></div>
     </section>
@@ -758,10 +765,43 @@ function renderHero(){
   const total = liveTotal();
   animateNum($("#total"), total, S.base);
   setTimeout(fitTotal, 950); fitTotal();
-  const cm = monthKey(), prevM = series().filter(p => p.m !== cm).pop();
-  if(prevM) setDelta(total, [prevM], "vs " + (mIndex(cm) - prevM.x === 1 ? mOnly(prevM.m) : mShort(prevM.m)));
-  else setDelta(total, rangeSeries());
-  const debts = liveDebts();
+  // the change follows the range picked under the chart: vs last month, in 6 months, in the past year, since the start
+  const cm = monthKey(), pts = rangeSeries(), ref = pts.find(p => p.m !== cm);
+  setDelta(total, pts, ref ? rangeLabel(ref) : "");
+  renderInsight(total, ref);
+}
+function rangeLabel(ref){
+  const n = mIndex(monthKey()) - ref.x;
+  if(n === 1) return "vs " + mOnly(ref.m);
+  if(UI.range === 12 && n === 12) return "in the past year";
+  if(UI.range && n === UI.range) return `in ${n} months`;
+  return "since " + mShort(ref.m);
+}
+/* One plain-language line that says what the numbers mean: a new high or a run of up months, and what moved most over the
+   range shown (by the same groups as the bubbles). */
+function renderInsight(total, ref){
+  const node = $("#insight"); node.classList.remove("off");
+  const cm = monthKey(), all = series().filter(p => p.m !== cm), parts = [];
+  if(all.length >= 2 && total > Math.max(...all.map(p => p.v)) + .5) parts.push("<b>Your highest yet</b>");
+  else {
+    const vs = [...all.map(p => ({x:p.x, v:p.v})), {x:mIndex(cm), v:total}]; let run = 0;
+    for(let i = vs.length - 1; i > 0 && vs[i].x - vs[i-1].x === 1 && vs[i].v > vs[i-1].v + .5; i--) run++;
+    if(run >= 3) parts.push(`<b>Up ${run} months in a row</b>`);
+  }
+  if(ref && S.snaps[ref.m]){
+    // compared gross (mortgage as a plain debt) so a property crossing its mortgage doesn't read as a debt change
+    const a = splitGroups(snapRows(S.snaps[ref.m]), {gross:true}), b = splitGroups(liveRows(), {gross:true});
+    const moves = b.groups.map((g, i) => ({n:g.n, d:g.v - a.groups[i].v}));
+    moves.push({n:"Debts", d:a.debts - b.debts, debt:true}); // paying debt down counts as a gain
+    const top = moves.sort((x, y) => Math.abs(y.d) - Math.abs(x.d))[0];
+    if(top && Math.abs(top.d) >= 1){
+      const amt = `<span class="amt">${fmt(Math.abs(top.d), S.base, {dec:0})}</span>`;
+      parts.push(top.debt ? (top.d > 0 ? `Debts paid down by ${amt}` : `Debts up by ${amt}`)
+        : `${top.n} moved most, ${top.d > 0 ? "+" : "−"}${amt}`);
+    }
+  }
+  const txt = parts.join(" · ");
+  node.innerHTML = txt ? txt.charAt(0) === "<" ? txt : txt.charAt(0).toUpperCase() + txt.slice(1) : "";
 }
 function setDelta(value, pts, sinceLabel){
   const d = $("#delta");
@@ -856,8 +896,9 @@ function drawChart(animate){
     <circle class="enddot" cx="${last[0]}" cy="${last[1]}" r="14" fill="url(#dotglow)"/>
     <circle class="pulse" cx="${last[0]}" cy="${last[1]}" r="4.5" style="fill:${c2}"/>
     <circle class="enddot" cx="${last[0]}" cy="${last[1]}" r="4.5" style="fill:${c2}"/>
-    <text class="lbl" x="${padX}" y="${H-8}" text-anchor="start">${mShort(pts[0].m)}</text>
-    ${pts.length>1 ? `<text class="lbl" x="${W-padX}" y="${H-8}" text-anchor="end">${mShort(pts[pts.length-1].m)}</text>` : ""}
+    ${P.length>1 ? `<circle cx="${P[0][0]}" cy="${P[0][1]}" r="3" style="fill:${c1}"/>` : ""}
+    <text class="lbl" x="${padX}" y="${H-8}" text-anchor="start">${mShort(pts[0].m)}${UI.hide ? "" : `<tspan class="lv"> · ${fmt(pts[0].v, S.base, {dec:0})}</tspan>`}</text>
+    ${pts.length>1 ? `<text class="lbl" x="${W-padX}" y="${H-8}" text-anchor="end">${mShort(pts[pts.length-1].m)}${UI.hide ? "" : `<tspan class="lv"> · ${fmt(pts[pts.length-1].v, S.base, {dec:0})}</tspan>`}</text>` : ""}
     <g class="scrub"><line id="sLine" x1="0" x2="0" y1="${top-8}" y2="${H-bottom+6}"/><circle id="sDot" r="6" cx="${last[0]}" cy="${last[1]}" style="fill:${c2}"/></g>`;
   const lp = svg.querySelector(".line:not(.glowline)"), glow = svg.querySelector(".glowline");
   if(lp && animate && !matchMedia("(prefers-reduced-motion: reduce)").matches){
@@ -941,7 +982,7 @@ function drawChart(animate){
     // on touch: a short press starts scrubbing too, not only a sideways drag
     else { clearTimeout(hold); hold = setTimeout(() => { if(active && !decided){ decided = true; start(e); } }, 160); }
   }
-  function start(e){ clearTimeout(hold); scrubbing = true; $("#chart").classList.add("scrubbing"); wrap.classList.add("scrubbing"); try{ wrap.setPointerCapture(e.pointerId); }catch(_){} $("#sTip").innerHTML = '<span class="amt"></span><small></small>'; at(e.clientX, true); }
+  function start(e){ clearTimeout(hold); scrubbing = true; $("#insight").classList.add("off"); $("#chart").classList.add("scrubbing"); wrap.classList.add("scrubbing"); try{ wrap.setPointerCapture(e.pointerId); }catch(_){} $("#sTip").innerHTML = '<span class="amt"></span><small></small>'; at(e.clientX, true); }
   wrap.addEventListener("pointerdown", begin);
   wrap.addEventListener("pointermove", e => {
     if(!active) return;
@@ -975,6 +1016,28 @@ const GROUPS = [
   {k:"debt", n:"Debts", types:["mortgage","loan","card"], c:"#E5484D", liab:true}
 ];
 let bubLevel = null;
+const groupOf = type => (GROUPS.find(g => g.types.includes(type)) || GROUPS.find(g => g.k === "more")).k;
+/* One grouping for every view (bubbles, legend, allocation, insight). A mortgage is set against property, so Property
+   shows your equity, as long as the property is worth at least what is owed; otherwise the mortgage stays a plain debt.
+   rows: [{type, v}] with v in the base currency (debts as the positive amount owed). The groups always add up:
+   sum of groups − debts = net worth. */
+function splitGroups(rows, opts = {}){
+  const by = {}; let mort = 0, debts = 0;
+  rows.forEach(r => { const v = Math.max(0, +r.v || 0);
+    if(r.type === "mortgage") mort += v; else if(isLiab(r.type)) debts += v; else { const k = groupOf(r.type); by[k] = (by[k] || 0) + v; } });
+  const prop = by.property || 0, netted = !opts.gross && prop > 0 && mort > 0 && prop >= mort;
+  if(netted) by.property = prop - mort; else debts += mort;
+  const groups = GROUPS.filter(g => !g.liab).map(g => ({k:g.k, n:g.n, c:g.c, v:by[g.k] || 0}));
+  const owned = groups.reduce((t, g) => t + g.v, 0);
+  return {groups, debts, netted, mort, prop, owned, net: owned - debts};
+}
+const liveRows = () => S.accounts.map(a => ({type:a.type, v:conv(+a.bal||0, a.cur), id:a.id}));
+const snapRows = snap => Object.entries(snap.items).map(([id, it]) => ({type:it[2], v:conv(+it[0]||0, it[1], snap.rates || S.rates), id}));
+// which entries open inside a group: a netted mortgage sits with Property, every other debt under Debts
+function accountsIn(gk){
+  const netted = splitGroups(liveRows()).netted;
+  return S.accounts.filter(a => a.type === "mortgage" ? (gk === (netted ? "property" : "debt")) : groupOf(a.type) === gk);
+}
 // inside a group the entries sit on a honeycomb you can drag around (like the Apple Watch app grid):
 // bubbles near the middle are full size, those toward the edges shrink and fade
 const hex = {ox:0, oy:0, vx:0, vy:0, maxX:0, maxY:0, raf:0, drag:null, moved:false};
@@ -1152,15 +1215,15 @@ function packCircles(rs, W, H, opts = {}){
 }
 function bubbleItems(){
   if(!bubLevel){
-    return GROUPS.map(g => {
-      const v = S.accounts.filter(a => g.types.includes(a.type)).reduce((t,a) => t + Math.max(0, conv(+a.bal||0, a.cur)), 0);
-      return {key:"g:" + g.k, n:g.n, v, c:g.c, g:BGRAD[g.k], liab:g.liab, group:g.k};
-    }).filter(x => x.v > 0);
+    const sp = splitGroups(liveRows());
+    const items = sp.groups.map(g => ({key:"g:" + g.k, n:g.n, v:g.v, c:g.c, g:BGRAD[g.k], group:g.k, eq:g.k === "property" && sp.netted}));
+    const dg = GROUPS.find(g => g.liab);
+    items.push({key:"g:" + dg.k, n:dg.n, v:sp.debts, c:dg.c, g:BGRAD[dg.k], liab:true, group:dg.k});
+    return items.filter(x => x.v > 0);
   }
-  const g = GROUPS.find(x => x.k === bubLevel);
-  return S.accounts.filter(a => g.types.includes(a.type)).map(a => {
+  return accountsIn(bubLevel).map(a => {
     const t = TYPE[a.type] || TYPE.other;
-    return {key:"a:" + a.id, n:a.name, v:Math.max(0, conv(+a.bal||0, a.cur)), c:t.c, g:BGRAD[t.k], liab:g.liab, acc:a, icon:t.k};
+    return {key:"a:" + a.id, n:a.name, v:Math.max(0, conv(+a.bal||0, a.cur)), c:t.c, g:BGRAD[t.k], liab:isLiab(a.type), acc:a, icon:t.k};
   }).filter(x => x.v > 0);
 }
 function renderBubbles(fromKey){
@@ -1197,7 +1260,8 @@ function renderBubbles(fromKey){
   const hd = $("#bubH");
   if(bubLevel){
     const g = GROUPS.find(x => x.k === bubLevel);
-    hd.innerHTML = `<button class="bub-back">${ic("left")}<span>${esc(g.n)}</span></button><span class="num amt">${g.liab ? "−" : ""}${fmt(sum, S.base, {dec:0})}</span>`;
+    const net = items.reduce((t,x) => t + (x.liab ? -x.v : x.v), 0);
+    hd.innerHTML = `<button class="bub-back">${ic("left")}<span>${esc(g.n)}</span></button><span class="num amt">${net < 0 ? "−" : ""}${fmt(Math.abs(net), S.base, {dec:0})}</span>`;
     hd.querySelector("button").onclick = () => { const was = "g:" + bubLevel; bubLevel = null; renderBubbles(was); };
   } else hd.innerHTML = `<span class="t2">Tap a bubble to look inside</span>`;
   // where new bubbles grow from and old ones shrink into
@@ -1271,10 +1335,15 @@ function renderBubbles(fromKey){
   // legend: every bubble by name, share and value, so even the smallest bubble can be identified and opened
   const leg = $("#bubLeg");
   // top level: each asset group as a share of all assets; debts as a share of assets too, labelled so
+  // shares are of what you own (after the mortgage at the top level); debts get no share, they are subtracted below
   const assets = items.filter(x => !x.liab).reduce((t,x) => t + x.v, 0) || 1;
-  const pcOf = x => { const base = bubLevel ? sum : assets, p = x.v / base * 100; return (p < 1 ? "<1" : Math.round(p)) + "%"; };
+  const nAssets = items.filter(x => !x.liab).length;
+  const pcOf = x => { if(x.liab || (bubLevel && nAssets < 2)) return ""; const p = x.v / assets * 100; return (p < 1 ? "<1" : Math.round(p)) + "%"; };
+  const nmOf = x => x.eq ? "Property equity" : esc(x.n);
   const lvlKey = bubLevel || "top", swap = leg._lvl && leg._lvl !== lvlKey; leg._lvl = lvlKey;
-  leg.innerHTML = items.slice().sort((a,b) => b.v - a.v).map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.g ? `linear-gradient(140deg,${x.g[0]},${x.g[1]})` : x.c}"></span><span class="nm">${esc(x.n)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("");
+  leg.innerHTML = items.slice().sort((a,b) => (!!a.liab - !!b.liab) || b.v - a.v).map(x => `<button class="bl" data-key="${x.key}"><span class="sw" style="background:${x.g ? `linear-gradient(140deg,${x.g[0]},${x.g[1]})` : x.c}"></span><span class="nm">${nmOf(x)}</span><span class="pc num">${pcOf(x)}</span><span class="vl num amt">${x.liab ? "−" : ""}${fmt(x.v, S.base, {dec:0})}</span></button>`).join("")
+    + (items.some(x => x.liab) && items.some(x => !x.liab) ? (() => { const t = items.reduce((a,x) => a + (x.liab ? -x.v : x.v), 0);
+      return `<div class="tot"><span class="nm">${bubLevel ? "Your equity" : "Net worth"}</span><span class="vl num amt">${t < 0 ? "−" : ""}${fmt(Math.abs(t), S.base, {dec:0})}</span></div>`; })() : "");
   // a new level's list fades in (rows one after another) instead of switching instantly
   if(swap && leg.animate) [...leg.children].forEach((r, i) => r.animate([{opacity:0, transform:"translateY(6px)"}, {opacity:1, transform:"none"}],
     {duration:450, delay:200 + i * 45, easing:"cubic-bezier(.2,.7,.2,1)", fill:"backwards"}));
@@ -1444,22 +1513,20 @@ function renderBreakdown(){
 function renderAlloc(){
   const sec = $("#allocSection");
   const m = UI.month || monthKey(), snap = S.snaps[m];
-  let rows = null;
-  if(snap){ const rates = snap.rates || S.rates; rows = Object.values(snap.items).map(it => ({type:it[2], v:conv(+it[0] || 0, it[1], rates)})); }
-  else if(m === monthKey()) rows = S.accounts.map(a => ({type:a.type, v:conv(+a.bal||0, a.cur)}));
-  const by = {}; let total = 0, debts = 0;
-  (rows || []).forEach(r => { if(isLiab(r.type)){ debts += Math.max(0, r.v); return; } const v = Math.max(0, r.v); by[r.type] = (by[r.type]||0) + v; total += v; });
-  const types = TYPES.filter(t => by[t.k] > 0);
-  sec.style.display = types.length || debts > 0 ? "" : "none";
-  if(!types.length && !(debts > 0)) return;
-  const C = 2 * Math.PI * 46, dn = $("#donut"); let cum = 0;
-  $("#donutV").textContent = fmt(total, S.base, {dec:0});
-  TYPES.forEach(t => {
-    let c = dn.querySelector(`[data-k="${t.k}"]`);
-    if(!c){ c = document.createElementNS("http://www.w3.org/2000/svg", "circle"); c.setAttribute("data-k", t.k);
-      c.setAttribute("cx", 60); c.setAttribute("cy", 60); c.setAttribute("r", 46); c.setAttribute("class", "dseg"); c.style.stroke = t.c;
+  const rows = snap ? snapRows(snap) : m === monthKey() ? liveRows() : [];
+  const sp = splitGroups(rows), groups = sp.groups.filter(g => g.v > 0);
+  sec.style.display = groups.length || sp.debts > 0 ? "" : "none";
+  if(!groups.length && !(sp.debts > 0)) return;
+  const owned = sp.owned || 1, C = 2 * Math.PI * 46, dn = $("#donut"); let cum = 0;
+  const colOf = k => (GROUPS.find(g => g.k === k) || {}).c;
+  $("#donutV").textContent = fmt(sp.net, S.base, {dec:0});
+  dn.querySelectorAll(".dseg").forEach(c => { if(!GROUPS.some(g => g.k === c.dataset.k && !g.liab)) c.remove(); }); // segments from the old per-type view
+  GROUPS.filter(g => !g.liab).forEach(g => {
+    let c = dn.querySelector(`[data-k="${g.k}"]`);
+    if(!c){ c = document.createElementNS("http://www.w3.org/2000/svg", "circle"); c.setAttribute("data-k", g.k);
+      c.setAttribute("cx", 60); c.setAttribute("cy", 60); c.setAttribute("r", 46); c.setAttribute("class", "dseg"); c.style.stroke = colOf(g.k);
       c.style.strokeDasharray = `0 ${C}`; dn.appendChild(c); }
-    const frac = total ? (by[t.k]||0) / total : 0, len = Math.max(0, frac * C - (frac < 1 ? 2.5 : 0));
+    const v = (groups.find(x => x.k === g.k) || {}).v || 0, frac = v / owned, len = Math.max(0, frac * C - (frac > 0 && frac < 1 ? 2.5 : 0));
     c.style.strokeDashoffset = -cum; cum += frac * C;
     requestAnimationFrame(() => requestAnimationFrame(() => { c.style.strokeDasharray = `${len} ${C}`; }));
   });
@@ -1467,12 +1534,17 @@ function renderAlloc(){
   paintSeg($("#allocMode"), mode === "bar" ? 1 : 0);
   $("#allocPie").style.display = mode === "pie" ? "" : "none";
   const ab = $("#allocBar"); ab.style.display = mode === "bar" ? "" : "none";
-  const sorted = types.slice().sort((a,b) => by[b.k]-by[a.k]), top = sorted.length ? by[sorted[0].k] : 1;
-  ab.innerHTML = sorted.map(t => `<div class="ab"><div class="ab-h"><span class="nm">${t.n}</span><span class="pc num">${(by[t.k]/total*100).toFixed(0)}%</span><span class="vl num amt">${fmt(by[t.k], S.base, {dec:0})}</span></div><div class="ab-t"><i style="background:${t.c}" data-w="${by[t.k]/top*100}"></i></div></div>`).join("");
+  const sorted = groups.slice().sort((a,b) => b.v - a.v), top = sorted.length ? sorted[0].v : 1;
+  const pc = v => { const p = v / owned * 100; return (p > 0 && p < 1 ? "<1" : Math.round(p)) + "%"; };
+  const nm = g => g.k === "property" && sp.netted ? "Property equity" : g.n;
+  const debtRow = sp.debts > 0 ? `<div class="li"><span class="sw" style="background:${GROUPS.find(g => g.liab).c}"></span><span class="nm">Debts</span><span class="pc num"></span><span class="vl num amt">−${fmt(sp.debts, S.base, {dec:0})}</span></div>` : "";
+  const totRow = `<div class="tot"><span class="nm">Net worth</span><span class="vl num amt">${sp.net < 0 ? "−" : ""}${fmt(Math.abs(sp.net), S.base, {dec:0})}</span></div>`;
+  ab.innerHTML = sorted.map(g => `<div class="ab"><div class="ab-h"><span class="nm">${nm(g)}</span><span class="pc num">${pc(g.v)}</span><span class="vl num amt">${fmt(g.v, S.base, {dec:0})}</span></div><div class="ab-t"><i style="background:${colOf(g.k)}" data-w="${g.v/top*100}"></i></div></div>`).join("")
+    + (debtRow || sp.debts ? `<div class="legend">${debtRow}${totRow}</div>` : "");
   if(mode === "bar") requestAnimationFrame(() => requestAnimationFrame(() => ab.querySelectorAll("i").forEach(i => i.style.width = i.dataset.w + "%")));
-  $("#legend").innerHTML = types.sort((a,b) => by[b.k]-by[a.k]).map(t => `
-    <div class="li"><span class="sw" style="background:${t.c}"></span><span class="nm">${t.n}</span>
-    <span class="pc num">${(by[t.k]/total*100).toFixed(0)}%</span><span class="vl num amt">${fmt(by[t.k], S.base, {dec:0})}</span></div>`).join("");
+  $("#legend").innerHTML = sorted.map(g => `
+    <div class="li"><span class="sw" style="background:${colOf(g.k)}"></span><span class="nm">${nm(g)}</span>
+    <span class="pc num">${pc(g.v)}</span><span class="vl num amt">${fmt(g.v, S.base, {dec:0})}</span></div>`).join("") + debtRow + (sp.debts > 0 ? totRow : "");
 }
 
 let justAdded = null, entriesOpen = false;
