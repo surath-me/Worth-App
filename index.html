@@ -2462,11 +2462,13 @@ function exitArt(art, fades, done){
   const r = core.getBoundingClientRect(), far = Math.max(Math.hypot(r.left + r.width / 2, r.top + r.height / 2), Math.hypot(innerWidth - r.left - r.width / 2, innerHeight - r.top - r.height / 2));
   const k = far / (r.width / 2) * 1.08;
   core.style.zIndex = 5;
-  // the logo first draws in (shrinks to ~85%) as it swallows the last bubbles, then grows and zooms
+  // the logo first draws in (shrinks to ~85%) as it swallows the last bubbles, then grows and zooms. The growth is laid
+  // out in log space (equal steps look equally fast to the eye) with t^2.6, so it starts slow and keeps speeding up.
+  const lo = .85, zoom = [];
+  for(let i = 1; i <= 16; i++){ const u = i / 16; zoom.push({offset:.3 + .7 * u, transform:`scale(${(lo * Math.pow(k / lo, Math.pow(u, 2.6))).toFixed(4)})`}); }
   core.animate([
-    {transform:"scale(1)", easing:"cubic-bezier(.3,0,.3,1)"},
-    {transform:"scale(.85)", offset:.3, easing:"cubic-bezier(.5,0,.75,.2)"},
-    {transform:`scale(${k})`}],
+    {offset:0, transform:"scale(1)", easing:"cubic-bezier(.3,0,.3,1)"},
+    {offset:.3, transform:`scale(${lo})`}, ...zoom],
     {duration:1250, delay:t, easing:"linear", fill:"forwards"}).onfinish = done;
 }
 let onbOpen = false;
