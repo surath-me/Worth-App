@@ -532,7 +532,8 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{display:none}
 .onb-keys svg{width:28px;height:28px;fill:currentColor}
 .onb-pg.bal .onb-amtwrap{padding:4px 0}
 .onb-pg.bal .onb-foot{padding-top:12px}
-.onb-big input{pointer-events:none}
+.bn-val{font-size:var(--bn);color:var(--text);white-space:nowrap}
+.onb-big.empty .bn-val{color:var(--ter)}
 .onb-amtwrap .onb-hint{margin-top:12px}
 /* Keyboard: the layer never resizes. Its bottom padding grows by the keyboard's height with the same feel as the
    keyboard itself, so the auto spacing above and below the amount shrinks smoothly and everything rises with it.
@@ -2532,10 +2533,10 @@ function openOnboarding(){
       head.append(av, name, edit);
       pg.append(head, el("p", {class:"onb-sub onb-a"}, ASK(r.t) + " Rough is fine."));
       // the amount is the hero: big, centred, grouped as you type; the currency is a small pill under it
-      const box = el("label", {class:"onb-big onb-a"});
+      const box = el("div", {class:"onb-big onb-a", role:"status", "aria-label":"Amount"});
       const sym = el("span", {class:"bn-sym"}, esc(symOf(r.cur)));
-      // display only: the app's own keypad types into it, so the system keyboard never opens (no jumping layout)
-      const inp = el("input", {readonly:"", inputmode:"none", tabindex:"-1", placeholder:"0", "aria-label":"Amount", autocomplete:"off"});
+      // plain text, not a field: nothing to focus, so iOS never starts a keyboard; the app's keypad types into it
+      const inp = el("span", {class:"bn-val"}); Object.defineProperty(inp, "value", {get(){ return this.dataset.v || ""; }, set(v){ this.dataset.v = v; this.textContent = v || "0"; }});
       const sizer = el("span", {class:"bn-size", "aria-hidden":"true"});
       box.append(sym, inp, sizer);
       const pill = el("label", {class:"bn-cur onb-a"}, `<span>${r.cur}</span>${ic("expand")}`);
@@ -2553,7 +2554,7 @@ function openOnboarding(){
         const txt = inp.value || "0"; sizer.textContent = txt;
         const n = txt.length; let fs = n > 13 ? 34 : n > 10 ? 42 : n > 7 ? 50 : 58;
         box.style.setProperty("--bn", fs + "px");
-        inp.style.width = Math.ceil(sizer.getBoundingClientRect().width) + 10 + "px"; inp.scrollLeft = 0;
+
         box.classList.toggle("empty", !inp.value);
       };
       inp.value = tidy(r.bal);
