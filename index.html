@@ -463,6 +463,7 @@ body.empty .hero,body.empty #chartWrap,body.empty #range{display:none}
 
 /* onboarding */
 body.onb-open{overflow:hidden}
+.onb[hidden]{display:none}
 .onb{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 6px) 20px calc(env(safe-area-inset-bottom,0px) + 14px)}
 .onb::before{content:"";position:absolute;inset:0 0 auto;height:420px;pointer-events:none;background:radial-gradient(70% 60% at 25% 0%,var(--g1a),transparent 70%),radial-gradient(60% 50% at 90% 10%,var(--g2a),transparent 70%);opacity:.55}
 .onb-top{position:relative;display:flex;align-items:center;justify-content:space-between;height:52px;flex:none}
