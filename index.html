@@ -2486,7 +2486,7 @@ function openOnboarding(){
         catch(e){ toast("That file isn’t a Worth backup"); } };
       const gs = cta("Get started", () => { if(gs.dataset.busy || !art.dataset.ready) return; gs.dataset.busy = 1;
         exitArt(art, [...mid.querySelectorAll(".onb-a"), f], () => go(1, 1, "zoom")); });
-      const f = foot(gs, restore, file); f.dataset.delay = 1900; pg.append(f);
+      const f = foot(gs, restore, file); f.dataset.delay = 1150; f.dataset.dur = 1300; pg.append(f); // buttons start midway through the entry, slowly
     },
     currency(pg){
       head(pg, "Your main currency", "Totals show in this.");
@@ -2600,7 +2600,7 @@ function openOnboarding(){
       else prev.animate([{opacity:1, transform:"none"}, {opacity:0, transform:`translateX(${-36 * dir}px)`}], {duration:260, easing:"cubic-bezier(.4,0,1,1)", fill:"forwards"}).onfinish = () => prev.remove();
     }
     if(!still) page.querySelectorAll(".onb-a").forEach((x, k) => x.animate([{opacity:0, transform:`translateX(${44 * dir}px)`}, {opacity:1, transform:"none"}],
-      {duration:560, delay:x.dataset.delay ? +x.dataset.delay : (+page.dataset.delay || 140) + k * 70, easing:"cubic-bezier(.2,.8,.2,1)", fill:"backwards"}));
+      {duration:+x.dataset.dur || 560, delay:x.dataset.delay ? +x.dataset.delay : (+page.dataset.delay || 140) + k * 70, easing:"cubic-bezier(.2,.8,.2,1)", fill:"backwards"}));
   };
   back.onclick = () => {
     if(STEPS[step] === "bal" && st.i > 0){ st.i--; go(4, -1); }
