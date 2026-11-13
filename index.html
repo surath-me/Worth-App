@@ -95,7 +95,7 @@ body.sheet-open #app{transform:scale(.93);border-radius:14px;overflow:hidden}
 body.sheet-open .aura-drift,body.sheet-open .aura::before,body.sheet-open .aura::after{animation-play-state:paused}
 @keyframes drift{from{transform:translate3d(-.9%,0,0)}to{transform:translate3d(-8.2%,19.3%,0)}}
 main{position:relative;z-index:1}
-.gtext{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gtext{color:var(--text)}
 .icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--accent);transition:transform .25s var(--spring),background-color .2s}
 .icon-btn:active{transform:scale(.86);background:var(--fill)}
 .icon-btn svg{width:22px;height:22px}
@@ -118,7 +118,7 @@ h1.large{font-size:22px;font-weight:700;letter-spacing:.005em;margin:18px 4px 8p
   transition:filter .45s var(--spring),font-size .3s var(--spring)}
 .delta{font-size:15px;font-weight:600;height:22px;display:flex;align-items:center;gap:6px;color:var(--sec)}
 .delta .chg{display:inline-flex;align-items:center;gap:3px;transition:color .3s}
-.delta .chg.up{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.delta .chg.up svg{color:var(--g1)} .delta .chg.down{color:var(--down)}
+.delta .chg.up{color:var(--up)}.delta .chg.up svg{color:var(--up)} .delta .chg.down{color:var(--down)}
 .delta .when{font-weight:400;color:var(--sec)}
 .insight{font-size:13px;color:var(--sec);min-height:18px;margin-top:3px;transition:opacity .2s}
 .insight.off{opacity:0}
@@ -302,7 +302,7 @@ body.sheet-open .tabbar{transform:translateY(120%);opacity:0;pointer-events:none
 .ghost{height:52px;padding:0 18px 0 14px;border-radius:999px;background:var(--card);font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:8px;
   box-shadow:0 6px 18px -10px rgba(0,0,0,.25),inset 0 0 0 .5px var(--sep);transition:transform .3s var(--spring)}
 .ghost:active{transform:scale(.96)}
-.ghost svg{width:18px;height:18px;flex:none;color:var(--g1)}
+.ghost svg{width:18px;height:18px;flex:none;color:var(--text);fill:currentColor}
 /* entry form */
 .entry-top{padding:6px 0 4px}
 .name-in{display:block;width:100%;border:0;background:none;outline:none;text-align:center;font-size:16px;font-weight:600;padding:14px 16px 0;color:var(--text)}
@@ -326,7 +326,7 @@ input::-webkit-calendar-picker-indicator{display:none!important;opacity:0}
 @keyframes viewin{from{opacity:0;transform:translateY(12px)}}
 h1.large.swap{animation:viewin .45s var(--spring)}
 .ghost.wide{width:100%;justify-content:center;margin-top:16px}
-.ghost.wide span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ghost.wide span{color:var(--text)}
 .mdetail-empty{padding:34px 24px;text-align:center;color:var(--sec);font-size:14px;line-height:1.45}
 .mhead{margin:6px 4px 0}
 /* monthly: one month at a time */
@@ -334,7 +334,7 @@ h1.large.swap{animation:viewin .45s var(--spring)}
 .mnav .ttl{text-align:center;font-size:17px;font-weight:600}
 .quiet{display:block;margin:26px auto 0;color:var(--down);font-size:14px;font-weight:500;padding:9px 16px;border-radius:999px;transition:background-color .2s,color .2s}
 .quiet.armed{background:var(--down);color:#fff}
-.link{color:var(--accent);font-size:13px;font-weight:600;padding:4px 0;white-space:nowrap}
+.link{color:var(--text);font-size:13px;font-weight:600;padding:4px 0;white-space:nowrap}
 .carry{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 16px 0;font-size:13px;color:var(--sec);line-height:1.4}
 .add-row{color:var(--accent);font-weight:500}
 .add-row .avatar{background:var(--fill)!important;color:var(--accent)}
@@ -347,7 +347,7 @@ h1.large.swap{animation:viewin .45s var(--spring)}
 /* history */
 .row.noav + .row.noav::before{left:16px}
 .row .chev{color:var(--ter);font-size:22px;line-height:1;margin-left:-4px;flex:none}
-.pos,.row .pos{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:600}
+.pos,.row .pos{color:var(--up);font-weight:600}
 .neg,.row .neg{color:var(--down);font-weight:600}
 .fx-row .avatar{background:var(--fill)!important} .fx-row .avatar svg{fill:var(--g1)}
 .m-none{padding:18px 16px;color:var(--sec);font-size:14px;text-align:center}
@@ -378,7 +378,7 @@ body.sheet-open #scrim{opacity:1;pointer-events:auto}
 .handle{width:36px;height:5px;border-radius:3px;background:var(--fill2);margin:0 auto 6px}
 .sheet-bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:44px}
 .sheet-bar .ttl{font-weight:600;text-align:center}
-.sheet-bar .l{justify-self:start;color:var(--accent)} .sheet-bar .r{justify-self:end;color:var(--accent);font-weight:600;transition:opacity .2s}
+.sheet-bar .l{justify-self:start;color:var(--text)} .sheet-bar .r{justify-self:end;color:var(--text);font-weight:600;transition:opacity .2s}
 .sheet-bar .r:disabled{opacity:.35}
 .sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px calc(24px + env(safe-area-inset-bottom,0px));overscroll-behavior:contain}
 .lbl-s{font-size:13px;color:var(--sec);margin:22px 16px 7px}
@@ -413,7 +413,7 @@ body.sheet-open #scrim{opacity:1;pointer-events:auto}
 .danger{color:var(--down);width:100%;height:52px;border-radius:999px;background:var(--card);margin-top:22px;font-size:15px;transition:transform .3s var(--spring),background-color .2s}
 .danger:active{transform:scale(.97)}
 .danger.armed{background:var(--down);color:#fff}
-.plain-btn{width:100%;height:50px;color:var(--accent);font-size:15px;text-align:left;padding:0 16px;position:relative}
+.plain-btn{width:100%;height:50px;color:var(--text);font-size:15px;text-align:left;padding:0 16px;position:relative}
 .plain-btn + .plain-btn::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
 .plain-btn:active{background:var(--fill)}
 .sw-row{display:flex;align-items:center;justify-content:space-between;width:100%;height:50px;padding:0 16px;font-size:15px;color:var(--text)}
@@ -474,10 +474,10 @@ body.empty .hero,body.empty #chartWrap,body.empty #range{display:none}
 .su-note{margin-bottom:12px}
 .su-row .su-name{width:100%;border:0;background:none;color:var(--text);font-size:15px;padding:0;outline:none;text-overflow:ellipsis}
 .su-row .su-name:focus{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
-.su-cur{border:0;background:none;color:var(--accent);font-size:13px;padding:0;margin:0;-webkit-appearance:none;appearance:none;font-weight:600}
+.su-cur{border:0;background:none;color:var(--sec);font-size:13px;padding:0;margin:0;-webkit-appearance:none;appearance:none;font-weight:600}
 .rv-k{font-size:15px;color:var(--sec)}
 .rv-total{font-size:42px;font-weight:700;letter-spacing:-.025em;margin:4px 0 2px}
-.rv-chg{font-size:17px;font-weight:600;color:var(--sec)} .rv-chg.up .amt{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent} .rv-chg.down .amt{color:var(--down)}
+.rv-chg{font-size:17px;font-weight:600;color:var(--sec)} .rv-chg.up .amt{color:var(--up)} .rv-chg.down .amt{color:var(--down)}
 .rv-badge{display:inline-block;margin-top:14px;padding:6px 14px;border-radius:999px;background:var(--fill);font-size:13px;font-weight:600}
 .rv-line{font-size:16px;line-height:1.4;margin:22px 12px 12px}
 .rv-moves{text-align:left;padding:2px 16px}
@@ -487,7 +487,7 @@ body.empty .hero,body.empty #chartWrap,body.empty #range{display:none}
 .rv-moves .d{font-weight:600} .rv-moves .d.up{color:var(--up)} .rv-moves .d.down{color:var(--down)}
 .upd-total span:first-child{color:var(--sec)}
 .upd-total .v{font-size:19px;font-weight:700}
-.month-in{border:0;background:var(--fill);border-radius:9px;padding:7px 10px;font-size:16px;color:var(--accent);outline:none;text-align:right;max-width:190px}
+.month-in{border:0;background:var(--fill);border-radius:9px;padding:7px 10px;font-size:16px;color:var(--text);outline:none;text-align:right;max-width:190px}
 .hist-row .del{color:var(--down);font-size:14px;padding:6px 10px;border-radius:8px;transition:background-color .2s,color .2s}
 .hist-row .del.armed{background:var(--down);color:#fff}
 
@@ -854,11 +854,11 @@ function rangeLabel(ref){
 function renderInsight(total, ref){
   const node = $("#insight"); node.classList.remove("off");
   const cm = monthKey(), all = series().filter(p => p.m !== cm), parts = [];
-  if(all.length >= 2 && total > Math.max(...all.map(p => p.v)) + .5) parts.push("<b>Your highest yet</b>");
+  if(all.length >= 2 && total > Math.max(...all.map(p => p.v)) + .5) parts.push("<b>New high</b>");
   else {
     const vs = [...all.map(p => ({x:p.x, v:p.v})), {x:mIndex(cm), v:total}]; let run = 0;
     for(let i = vs.length - 1; i > 0 && vs[i].x - vs[i-1].x === 1 && vs[i].v > vs[i-1].v + .5; i--) run++;
-    if(run >= 3) parts.push(`<b>Up ${run} months in a row</b>`);
+    if(run >= 3) parts.push(`<b>${run} months up</b>`);
   }
   if(ref && S.snaps[ref.m]){
     // compared gross (mortgage as a plain debt) so a property crossing its mortgage doesn't read as a debt change
@@ -868,8 +868,8 @@ function renderInsight(total, ref){
     const top = moves.sort((x, y) => Math.abs(y.d) - Math.abs(x.d))[0];
     if(top && Math.abs(top.d) >= 1){
       const amt = `<span class="amt">${fmt(Math.abs(top.d), S.base, {dec:0})}</span>`;
-      parts.push(top.debt ? (top.d > 0 ? `Debts paid down by ${amt}` : `Debts up by ${amt}`)
-        : `${top.n} moved most, ${top.d > 0 ? "+" : "−"}${amt}`);
+      parts.push(top.debt ? (top.d > 0 ? `Debts −${amt}` : `Debts +${amt}`)
+        : `${top.n} ${top.d > 0 ? "+" : "−"}${amt}`);
     }
   }
   const txt = parts.join(" · ");
@@ -880,7 +880,7 @@ function setDelta(value, pts, sinceLabel){
   const cur = monthKey();
   const ref = pts.find(p => p.m !== cur) ? pts[0] : null;
   if(!ref || (pts.length < 2 && pts[0] && pts[0].m === cur)){
-    d.innerHTML = S.accounts.length ? '<span class="when">Your curve starts this month</span>' : '<span class="when">Add an entry to begin</span>';
+    d.innerHTML = S.accounts.length ? '<span class="when">First month</span>' : '';
     return;
   }
   const diff = value - ref.v;
@@ -929,11 +929,11 @@ function drawChart(animate){
   chartPts = [];
   if(!pts.length){
     svg.innerHTML = `<line class="base" x1="${padX}" x2="${W-padX}" y1="${H/2}" y2="${H/2}"/>`;
-    empty.textContent = S.accounts.length ? "No months in this range yet." : "Your curve starts here. Each monthly update adds a point.";
+    empty.textContent = S.accounts.length ? "No data in this range" : "Your curve starts here";
     empty.classList.add("show"); return;
   }
   empty.classList.toggle("show", pts.length === 1);
-  empty.textContent = pts.length === 1 ? "Next month’s update draws your first line." : "";
+  empty.textContent = pts.length === 1 ? "One month so far" : "";
   const xs = pts.map(p=>p.x), vs = pts.map(p=>p.v);
   let x0 = Math.min(...xs), x1 = Math.max(...xs);
   if(x0 === x1){ x0 -= 1; x1 += 1; }
@@ -1335,7 +1335,7 @@ function renderBubbles(fromKey){
     const net = items.reduce((t,x) => t + (x.liab ? -x.v : x.v), 0);
     hd.innerHTML = `<button class="bub-back">${ic("left")}<span>${esc(g.n)}</span></button><span class="num amt">${net < 0 ? "−" : ""}${fmt(Math.abs(net), S.base, {dec:0})}</span>`;
     hd.querySelector("button").onclick = () => { const was = "g:" + bubLevel; bubLevel = null; renderBubbles(was); };
-  } else hd.innerHTML = `<span class="t2">Tap a bubble to look inside</span>`;
+  } else hd.innerHTML = `<span class="t2">Tap to open</span>`;
   // where new bubbles grow from and old ones shrink into
   const origin = fromKey && box.querySelector(`[data-key="${fromKey}"]`);
   const ox = origin ? +origin.dataset.x : W/2, oy = origin ? +origin.dataset.y : H/2;
@@ -1727,13 +1727,13 @@ function renderMonthly(dir){
 
   if(!S.accounts.length && !Object.keys(S.snaps).length){
     const start = el("button", {class:"primary"}, "Get started"); start.onclick = () => setupSheet();
-    view.append(el("div", {class:"card mdetail-empty"}, "Each month you record your balances here, one month at a time. Start by adding what you own and owe."), start);
+    view.append(el("div", {class:"card mdetail-empty"}, "Nothing recorded yet."), start);
     return;
   }
   const pm = prevMonth(m), prevSnap = pm ? S.snaps[pm] : null;
   if(!snap){
     const btn = el("button", {class:"primary"}, "Start " + mOnly(m)); btn.onclick = () => updateSheet(m);
-    view.append(el("div", {class:"card mdetail-empty"}, `${esc(mLong(m))} isn’t recorded yet.` + (pm ? `<br>Start it from ${esc(mOnly(pm))}’s balances and change only what’s different.` : "")), btn);
+    view.append(el("div", {class:"card mdetail-empty"}, "Not recorded yet."), btn);
     return;
   }
 
@@ -1804,16 +1804,16 @@ function renderMonthly(dir){
     });
     if(Math.abs(fx) >= 1){
       const r = el("div", {class:"row fx-row"}, `<span class="avatar">${ic("sync")}</span>
-        <span class="mid"><div class="t1">Exchange rates</div><div class="t2">On your ${[...fxCurs].join(" and ")} balances</div></span>
+        <span class="mid"><div class="t1">Exchange rates</div><div class="t2">${[...fxCurs].join(", ")}</div></span>
         <span class="end"><div class="t1 num amt ${fx > 0 ? "pos" : "neg"}">${signed(fx, S.base, 0)}</div></span>`);
       card.appendChild(r);
     }
-    if(!card.childElementCount) card.appendChild(el("div", {class:"m-none"}, `Nothing changed since ${esc(vsLabel(m, pm))}.`));
-    view.append(el("div", {class:"lbl-s"}, `What moved since ${esc(vsLabel(m, pm))}`), card);
+    if(!card.childElementCount) card.appendChild(el("div", {class:"m-none"}, "No changes"));
+    view.append(el("div", {class:"lbl-s"}, `Since ${esc(vsLabel(m, pm))}`), card);
     if(still.length){
       const more = el("div", {class:"more" + (UI.mUnch ? " open" : "")}), inner = el("div", {class:"more-in"}), sc = el("div", {class:"card m-unch"});
       still.forEach(a => sc.appendChild(rowFor(a))); inner.appendChild(sc); more.appendChild(inner);
-      const btn = el("button", {class:"seeall" + (UI.mUnch ? " open" : ""), "aria-expanded":String(!!UI.mUnch)}, `<span>${still.length} ${due ? "not updated yet" : "unchanged"}</span>${ic("expand")}`);
+      const btn = el("button", {class:"seeall" + (UI.mUnch ? " open" : ""), "aria-expanded":String(!!UI.mUnch)}, `<span>${still.length} ${due ? "to update" : "unchanged"}</span>${ic("expand")}`);
       btn.onclick = () => { UI.mUnch = !UI.mUnch; saveUI(); more.classList.toggle("open", UI.mUnch); btn.classList.toggle("open", UI.mUnch); btn.setAttribute("aria-expanded", String(UI.mUnch)); };
       view.append(btn, more);
     }
@@ -1936,7 +1936,7 @@ function accountSheet(acc, sheetOpts = {}){
     balIn.addEventListener("blur", () => amt.classList.remove("focus"));
     paintBal();
     amt.append(disp, balIn);
-    const oweNote = el("p", {class:"note", style:"text-align:center;margin:-6px 16px 12px"}, "Enter what you still owe. It counts against your net worth.");
+    const oweNote = el("p", {class:"note", style:"text-align:center;margin:-6px 16px 12px"}, "What you still owe");
     top.append(nameIn, amt, oweNote);
 
     // compact picker rows
@@ -1989,7 +1989,7 @@ function accountSheet(acc, sheetOpts = {}){
     rows.append(typeRow, depF, curRow, platF);
     paintKind();
 
-    const depNote = el("p", {class:"note"}, "Applied when a new month carries this value over, e.g. −15% a year for a car. You can still type the real value at each update.");
+    const depNote = el("p", {class:"note"}, "Applied at each new month.");
     const syncDepNote = () => depNote.style.display = depF.style.display;
     typeRow.querySelector("select").addEventListener("change", syncDepNote); syncDepNote();
     body.append(top, rows, depNote);
@@ -2001,7 +2001,7 @@ function accountSheet(acc, sheetOpts = {}){
         popBubble("a:" + draft.id, () => { S.accounts = S.accounts.filter(a => a.id !== draft.id); commit(); });
       });
       body.appendChild(del);
-      body.appendChild(el("p", {class:"note"}, "Past months keep this entry’s balance in your history."));
+      body.appendChild(el("p", {class:"note"}, "Past months keep it."));
     }
     validate();
     if(!editing) setTimeout(() => nameIn.focus({preventScroll:true}), 550);
@@ -2071,9 +2071,9 @@ function updateSheet(start, keep){
       prog.style.display = isNew ? "" : "none";
       const n = accs.filter(a => done.has(a.id)).length, left = accs.length - n;
       prog.firstChild.style.width = (accs.length ? n / accs.length * 100 : 0) + "%";
-      const st = status.querySelector(".cnt"); if(st) st.textContent = left ? `${n} of ${accs.length} checked` : "All checked";
+      const st = status.querySelector(".cnt"); if(st) st.textContent = left ? `${n}/${accs.length} checked` : "All checked";
       rest.style.display = isNew && left > 1 && n > 0 ? "" : "none";
-      rest.textContent = `The other ${left} haven’t changed`;
+      rest.textContent = `Mark rest unchanged`;
     };
     const paintRow = id => {
       const {a, inp, row, hint} = R[id], t = TYPE[a.type] || TYPE.other;
@@ -2104,14 +2104,14 @@ function updateSheet(start, keep){
         setVal(a.id, v);
       });
       status.innerHTML = "";
-      if(!isNew) status.append(el("span", {}, `Editing the balances saved for ${esc(mLong(month))}.`));
+      if(!isNew) status.append(el("span", {}, "Saved values"));
       else if(from){
         const clear = el("button", {class:"link"}, "Clear all");
-        clear.onclick = () => { accs.forEach(a => setVal(a.id, "")); done = new Set(); status.firstChild.innerHTML = "Starting from blank. Type each balance."; clear.remove(); accs.forEach(a => paintRow(a.id)); paintProgress(); recompute(); };
+        clear.onclick = () => { accs.forEach(a => setVal(a.id, "")); done = new Set(); status.firstChild.innerHTML = "Blank"; clear.remove(); accs.forEach(a => paintRow(a.id)); paintProgress(); recompute(); };
         status.append(el("span", {}, from > month
-          ? `Filled in from ${esc(mLabel(from))}. Change what was different back then, tick the rest. <b class="cnt"></b>`
-          : `Starting from ${esc(mLabel(from))}’s balances. Tick what hasn’t changed, type what has. <b class="cnt"></b>`), clear);
-      } else status.append(el("span", {}, `Type each balance for ${esc(mLong(month))}. <b class="cnt"></b>`));
+          ? `From ${esc(mLabel(from))} · <b class="cnt"></b>`
+          : `From ${esc(mLabel(from))} · <b class="cnt"></b>`), clear);
+      } else status.append(el("span", {}, `<b class="cnt"></b>`));
       saveBtn.textContent = "Save " + mLong(month);
       accs.forEach(a => paintRow(a.id)); paintProgress(); recompute();
     };
@@ -2129,8 +2129,8 @@ function updateSheet(start, keep){
         // a new high, or a run of up months ending here
         const sr = series(), i = sr.findIndex(p => p.m === m), others = sr.filter(p => p.m !== m);
         let badge = "";
-        if(others.length >= 2 && total > Math.max(...others.map(p => p.v)) + .5) badge = "Your highest yet";
-        else { let run = 0; for(let k = i; k > 0 && sr[k].x - sr[k-1].x === 1 && sr[k].v > sr[k-1].v + .5; k--) run++; if(run >= 3) badge = `Up ${run} months in a row`; }
+        if(others.length >= 2 && total > Math.max(...others.map(p => p.v)) + .5) badge = "New high";
+        else { let run = 0; for(let k = i; k > 0 && sr[k].x - sr[k-1].x === 1 && sr[k].v > sr[k-1].v + .5; k--) run++; if(run >= 3) badge = `${run} months up`; }
         if(badge) wrap.append(el("div", {class:"rv-badge"}, badge));
         // what moved, by the Breakdown groups (gross, so paying down the mortgage shows as debts)
         const a = splitGroups(snapRows(S.snaps[pk]), {gross:true}), b = splitGroups(snapRows(snap), {gross:true});
@@ -2139,19 +2139,16 @@ function updateSheet(start, keep){
         const mv = moves.filter(x => Math.abs(x.d) >= 1).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 5);
         if(mv.length){
           const t = mv[0], amt = `<span class="amt">${fmt(Math.abs(t.d), S.base, {dec:0})}</span>`;
-          wrap.append(el("div", {class:"rv-line"}, t.debt ? (t.d > 0 ? `Paying down debt did the most: ${amt}.` : `Debts grew by ${amt}.`)
-            : t.d > 0 ? `${esc(t.n)} did the most work: +${amt}.` : `${esc(t.n)} pulled it down: −${amt}.`));
           const card = el("div", {class:"card rv-moves"});
-          card.innerHTML = mv.map(x => `<div class="mv"><span class="sw" style="background:${x.c}"></span><span class="nm">${x.debt ? (x.d > 0 ? "Debts paid down" : "Debts added") : esc(x.n)}</span>
+          card.innerHTML = mv.map(x => `<div class="mv"><span class="sw" style="background:${x.c}"></span><span class="nm">${x.debt ? (x.d > 0 ? "Debts paid" : "Debts added") : esc(x.n)}</span>
             <span class="d num amt ${x.d > 0 ? "up" : "down"}">${x.d > 0 ? "+" : "−"}${fmt(Math.abs(x.d), S.base, {dec:0})}</span></div>`).join("");
           wrap.append(card);
-        } else wrap.append(el("div", {class:"rv-line"}, "Nothing moved this month."));
+        } else wrap.append(el("div", {class:"rv-line"}, "No change"));
       } else {
         const nk = Object.keys(S.snaps).filter(k => k > m).sort()[0];
         if(nk && snap){ const d = snapTotal(S.snaps[nk]) - total;
-          wrap.append(el("div", {class:"rv-chg num " + (d >= 0 ? "up" : "down")}, `<span class="amt">${d >= 0 ? "▲" : "▼"} ${fmt(Math.abs(d), S.base, {dec:0})}</span> from here to ${esc(mLabel(nk))}`),
-            el("div", {class:"rv-line"}, `Your curve now starts in ${esc(mLong(m))}.`));
-        } else wrap.append(el("div", {class:"rv-line"}, "Your first month on record. Next month’s check-in shows what moved."));
+          wrap.append(el("div", {class:"rv-chg num " + (d >= 0 ? "up" : "down")}, `<span class="amt">${d >= 0 ? "▲" : "▼"} ${fmt(Math.abs(d), S.base, {dec:0})}</span> to ${esc(mLabel(nk))}`));
+        } else wrap.append(el("div", {class:"rv-line"}, "First month recorded"));
       }
       const ok = el("button", {class:"primary"}, "Done"); ok.onclick = closeSheet;
       wrap.append(ok); body.append(wrap);
@@ -2176,7 +2173,7 @@ function updateSheet(start, keep){
       UI.month = month; renderMonthly();
       if(S.snaps[month]) reveal(month); else { closeSheet(); toast("Saved " + mLong(month)); }
     };
-    sheetBar(bar, "Monthly check-in", "Cancel", {label:"Save", onClick: () => doSave()});
+    sheetBar(bar, "Check-in", "Cancel", {label:"Save", onClick: () => doSave()});
 
     const mCard = el("div", {class:"card"});
     const mf = el("div", {class:"field"}, "<label>Month</label>");
@@ -2220,7 +2217,7 @@ function updateSheet(start, keep){
     const tot = el("div", {class:"upd-total"}, "<span>Net worth</span>");
     const tr = el("div", {class:"upd-tr"}); tr.append(totalV, totalD); tot.appendChild(tr);
     const saveBtn = el("button", {class:"primary"}); saveBtn.onclick = () => doSave();
-    body.append(mCard, el("p", {class:"note"}, "Pick an earlier month to fill in your history."),
+    body.append(mCard,
       el("div", {class:"lbl-s"}, "Balances"), status, prog, card, rest, tot, saveBtn);
     fill(keep && keep.vals, !!keep);
   });
@@ -2244,15 +2241,15 @@ function renderWelcome(){
   if(w.childElementCount) return;
   w.innerHTML = `<div class="wl">
     <div class="wl-art" aria-hidden="true"><i style="--a:#2DD4BF;--b:#0A84FF"></i><i style="--a:#F2C14E;--b:#C2763A"></i><i style="--a:#5BE37D;--b:#11A08A"></i></div>
-    <h2>Everything you own and owe, in one place</h2>
-    <p class="wl-sub">Bank accounts, brokers, property and loans, in any country and currency. One quick check-in a month.</p>
+    <h2>All your wealth, in one place</h2>
+    <p class="wl-sub">Any bank, broker or country.</p>
     <div class="card wl-list">
-      <div class="wl-i">${ic("bank")}<span><b>Add what you have</b>Rough numbers are fine to start.</span></div>
-      <div class="wl-i">${ic("calendar")}<span><b>Check in once a month</b>Tick what didn’t change, type what did.</span></div>
-      <div class="wl-i">${ic("chart")}<span><b>See your story</b>Your curve, and what moved it.</span></div>
+      <div class="wl-i">${ic("bank")}<span><b>Add what you have</b></span></div>
+      <div class="wl-i">${ic("calendar")}<span><b>Check in monthly</b></span></div>
+      <div class="wl-i">${ic("chart")}<span><b>See what moved</b></span></div>
     </div>
     <button class="primary" id="wlGo">Get started</button>
-    <p class="wl-priv">No bank logins. Everything stays on this phone.</p></div>`;
+    <p class="wl-priv">No bank logins. Stays on this phone.</p></div>`;
   $("#wlGo").onclick = () => setupSheet();
 }
 // "Draw your curve": the months 1, 3, 6 and 12 back that aren't recorded yet, each opening a check-in for that month
@@ -2260,8 +2257,7 @@ function renderBackfill(){
   const box = $("#backfill"), n = Object.keys(S.snaps).length;
   const months = [1, 3, 6, 12].map(mShift).filter(m => !S.snaps[m]);
   if(isEmpty() || UI.bfDone || n >= 4 || !months.length){ box.innerHTML = ""; return; }
-  box.innerHTML = `<div class="card bfc"><div class="bf-h"><b>Draw your curve</b><button class="bf-x" aria-label="Dismiss">${ic("add")}</button></div>
-    <p>Add where you stood in earlier months, so your chart has a shape today. Rough numbers are fine.</p>
+  box.innerHTML = `<div class="card bfc"><div class="bf-h"><b>Add past months</b><button class="bf-x" aria-label="Dismiss">${ic("add")}</button></div>
     <div class="chips">${months.map(m => `<button class="chip" data-m="${m}">${ic("add")}<span>${esc(mLabel(m))}</span></button>`).join("")}</div></div>`;
   box.querySelectorAll(".chip").forEach(c => c.onclick = () => updateSheet(c.dataset.m));
   box.querySelector(".bf-x").onclick = () => { UI.bfDone = true; saveUI(); renderBackfill(); };
@@ -2282,10 +2278,9 @@ function setupSheet(){
           w.appendChild(c); });
         return w; };
       const go = el("button", {class:"primary"}, "Next"); go.onclick = () => step2();
-      body.append(el("div", {class:"lbl-s"}, "Your main currency"), seg,
-        el("div", {class:"lbl-s"}, "What do you own?"), chips(false),
-        el("div", {class:"lbl-s"}, "And owe?"), chips(true),
-        el("p", {class:"note"}, "Pick everything that applies. You can add more any time with +."), go);
+      body.append(el("div", {class:"lbl-s"}, "Currency"), seg,
+        el("div", {class:"lbl-s"}, "You own"), chips(false),
+        el("div", {class:"lbl-s"}, "You owe"), chips(true), go);
       paintSeg(seg, CUR_KEYS.indexOf(S.base)); next.disabled = go.disabled = !picked.length;
     };
     const step2 = () => {
@@ -2313,7 +2308,7 @@ function setupSheet(){
           nm.oninput = () => { r.name = nm.value; };
           const sel = el("select", {class:"su-cur", "aria-label":"Currency"}, CUR_KEYS.map(c => `<option value="${c}"${c === r.cur ? " selected" : ""}>${c}</option>`).join(""));
           sel.onchange = () => { r.cur = sel.value; sym.textContent = symOf(r.cur); recompute(); };
-          mid.append(nm, el("div", {class:"t2"}, t.liab ? "Amount owed · " : ""), ); mid.lastChild.appendChild(sel);
+          mid.append(nm, el("div", {class:"t2"}, t.liab ? "Owed · " : ""), ); mid.lastChild.appendChild(sel);
           const box = el("label", {class:"amt-in"}), sym = el("span", {class:"sym"}, esc(symOf(r.cur)));
           const inp = el("input", {inputmode:"decimal", placeholder:"0", "aria-label":r.name + (t.liab ? " amount owed" : " balance"), autocomplete:"off"});
           inp.value = r.bal; box.append(sym, inp);
@@ -2335,8 +2330,8 @@ function setupSheet(){
           rows.sort((a, b) => isLiab(a.t) - isLiab(b.t)); paint(); };
         more.appendChild(c); });
       const tot = el("div", {class:"upd-total"}, "<span>Net worth</span>"); tot.appendChild(totalV);
-      const ok = el("button", {class:"primary"}, "Save my starting point"); ok.onclick = () => finish();
-      body.append(el("p", {class:"note su-note"}, "Rough numbers are fine. Rename anything, and add what you owe as a positive amount."),
+      const ok = el("button", {class:"primary"}, "Save"); ok.onclick = () => finish();
+      body.append(el("p", {class:"note su-note"}, "Rough numbers are fine."),
         card, el("div", {class:"lbl-s"}, "Add another"), more, tot, ok);
       paint();
     };
@@ -2350,13 +2345,12 @@ function setupSheet(){
     };
     const step3 = () => {
       body.innerHTML = "";
-      sheetBar(bar, "You’re set up", "Close"); bar.querySelector(".r").style.visibility = "hidden";
+      sheetBar(bar, "Done", "Close"); bar.querySelector(".r").style.visibility = "hidden";
       const sp = splitGroups(liveRows()), wrap = el("div", {class:"reveal"});
       wrap.append(el("div", {class:"rv-k"}, "Your starting point"), el("div", {class:"rv-total num amt"}, fmt(liveTotal(), S.base, {dec:0})));
       if(sp.debts > 0 || sp.mort > 0) wrap.append(el("div", {class:"rv-chg"}, `<span class="amt">${fmt(sp.owned + (sp.netted ? sp.mort : 0), S.base, {dec:0})}</span> owned · <span class="amt">${fmt(sp.debts + (sp.netted ? sp.mort : 0), S.base, {dec:0})}</span> owed`));
       const months = [1, 3, 6, 12].map(mShift);
-      const card = el("div", {class:"card bfc su-bf"}, `<div class="bf-h"><b>Draw your curve now?</b></div>
-        <p>Add where you stood a few months back and your chart has a shape today. Your balances are filled in from now, so change only what was different.</p>
+      const card = el("div", {class:"card bfc su-bf"}, `<div class="bf-h"><b>Add past months</b></div>
         <div class="chips">${months.map(m => `<button class="chip" data-m="${m}">${ic("add")}<span>${esc(mLabel(m))}</span></button>`).join("")}</div>`);
       card.querySelectorAll(".chip").forEach(c => c.onclick = () => updateSheet(c.dataset.m));
       const done = el("button", {class:"ghost wide"}, "<span>Later</span>"); done.onclick = closeSheet;
@@ -2383,8 +2377,8 @@ function paintRatesInfo(){
   card.innerHTML = CUR_KEYS.filter(c => c !== S.base).map(c =>
     `<div class="rate-row"><span>1 ${S.base}</span><span class="num">${(+(S.rates[c] / S.rates[S.base]).toPrecision(6)).toLocaleString("en-GB", {maximumFractionDigits:4})} ${c}</span></div>`).join("");
   note.innerHTML = S.ratesSrc
-    ? `Live market rates from ${S.ratesSrc === "er-api" ? '<a href="https://www.exchangerate-api.com" style="color:inherit">ExchangeRate-API</a>' : "Coinbase"}, updated ${agoText(S.ratesAt)}. They refresh every 30 minutes while the app is open. Each month keeps the rates it was saved with.`
-    : "Approximate rates until the first live update. Each month keeps the rates it was saved with.";
+    ? `Live from ${S.ratesSrc === "er-api" ? "ExchangeRate-API" : "Coinbase"} · ${agoText(S.ratesAt)}`
+    : "Approximate until the first live update";
 }
 function renderSettings(){
   const v = $("#vSettings"); v.innerHTML = "";
@@ -2402,17 +2396,16 @@ function renderSettings(){
 
   // backup: a file you keep in Files or iCloud Drive (data otherwise lives only on this phone); text copy as a fallback
   const bk = el("div", {class:"card"});
-  const saveF = el("button", {class:"plain-btn"}, '<span class="gtext">Save backup file</span>');
+  const saveF = el("button", {class:"plain-btn"}, '<span class="gtext">Save to Files</span>');
   const loadF = el("button", {class:"plain-btn"}, '<span class="gtext">Restore from file</span>');
-  const copyB = el("button", {class:"plain-btn"}, '<span class="gtext">Copy backup as text</span>');
-  const restB = el("button", {class:"plain-btn"}, '<span class="gtext">Restore from text</span>');
+  const copyB = el("button", {class:"plain-btn"}, '<span class="gtext">Copy as text</span>');
+  const restB = el("button", {class:"plain-btn"}, '<span class="gtext">Paste backup</span>');
   bk.append(saveF, loadF, copyB, restB);
   const file = el("input", {type:"file", accept:".json,application/json", style:"display:none"});
   const area = el("textarea", {class:"backup", placeholder:"Paste a backup here", style:"display:none"});
   const restoreGo = el("button", {class:"primary", style:"display:none"}, "Restore");
   const bkNote = el("p", {class:"note"});
-  const paintBk = () => { bkNote.textContent = "Your data lives only on this phone. Save a backup file to Files or iCloud Drive now and then. " +
-    (S.backupAt ? "Last backup: " + agoText(S.backupAt) + "." : "No backup yet."); };
+  const paintBk = () => { bkNote.textContent = "Only on this phone · " + (S.backupAt ? "last backup " + agoText(S.backupAt) : "no backup yet"); };
   const restore = txt => {
     const raw = JSON.parse(txt); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0;
     S = normalize(raw); commit({keepMonth:true}); fetchRates(true); setTab("worth"); toast("Backup restored");
@@ -2452,7 +2445,7 @@ function renderSettings(){
   v.append(
     el("div", {class:"lbl-s"}, "Show totals in"), seg,
     el("div", {class:"lbl-s"}, "Exchange rates"), el("div", {class:"card", id:"ratesCard"}), el("p", {class:"note", id:"ratesNote"}),
-    el("div", {class:"lbl-s"}, "Privacy"), pv, el("p", {class:"note"}, "Blurs every amount. Tapping your net worth does the same."),
+    el("div", {class:"lbl-s"}, "Privacy"), pv, el("p", {class:"note"}, "Or tap your net worth."),
     el("div", {class:"lbl-s"}, "Backup"), bk, bkNote, file, area, restoreGo,
     erase
   );
