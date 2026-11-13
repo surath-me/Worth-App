@@ -546,8 +546,10 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{display:none}
 .onb-amt input{flex:1;min-width:0;border:0;background:none;color:var(--text);font-size:36px;font-weight:700;text-align:right;outline:none;font-variant-numeric:tabular-nums}
 .onb-total{font-size:44px;font-weight:700;letter-spacing:-.025em;margin:6px 0 2px}
 /* the intro art: the app's curve in a big bubble, the kinds of things you own floating around it */
-.onb-pg.intro .onb-mid{margin:auto 0;padding:8px 0 4px}
-.onb-pg.intro .onb-foot{margin-top:0}
+.onb-pg.intro .onb-mid{margin:auto 0;padding:0}
+.onb-pg.intro .onb-mid .onb-sub{margin-bottom:0}
+.onb-pg.intro .onb-art{margin-top:clamp(0px, 3vh, 28px);margin-bottom:0}
+.onb-pg.intro .onb-foot{margin-top:0;padding-top:0;background:none}
 .onb-art{position:relative;height:330px;margin:0 -20px 22px;flex:none}
 .oa-core,.oa-ring{position:absolute;left:50%;top:50%;width:156px;height:156px;margin:-78px 0 0 -78px;border-radius:50%}
 .oa-core{display:grid;place-items:center;z-index:2;
@@ -2473,9 +2475,9 @@ function openOnboarding(){
     intro(pg){
       pg.classList.add("center", "intro");
       // art and words sit centred in the space above the buttons
-      const mid = el("div", {class:"onb-mid"}), art = onbArt(); mid.append(art);
-      mid.append(el("h1", {class:"onb-h onb-a"}, "Know your worth."), el("p", {class:"onb-sub onb-a"}, "Every account, home and loan.<br>Any currency. One number."));
-      pg.append(mid); pg.dataset.delay = 650;
+      const art = onbArt(), mid = el("div", {class:"onb-mid"});
+      mid.append(el("h1", {class:"onb-h onb-a"}, "Watch your worth grow."), el("p", {class:"onb-sub onb-a"}, "Every account, home and loan.<br>In any currency."));
+      pg.append(art, mid); pg.dataset.delay = 650;
       requestAnimationFrame(() => playArt(art));
       const file = el("input", {type:"file", accept:".json,application/json", style:"display:none"});
       const restore = el("button", {class:"onb-text"}, "Restore a backup");
@@ -2567,7 +2569,8 @@ function openOnboarding(){
     },
     done(pg){
       pg.classList.add("center", "intro");
-      const mid = el("div", {class:"onb-mid"}), art = onbArt(); mid.append(art);
+      const art = onbArt(), mid = el("div", {class:"onb-mid"});
+      pg.append(art);
       mid.append(el("h1", {class:"onb-h onb-a"}, "You’re good to go!"), el("div", {class:"onb-total num amt onb-a"}, fmt(liveTotal(), S.base, {dec:0})), el("p", {class:"onb-sub onb-a"}, "Your net worth today"));
       pg.append(mid); pg.dataset.delay = 1000;
       requestAnimationFrame(() => playArt(art, 100));
