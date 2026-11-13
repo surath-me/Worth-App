@@ -534,7 +534,14 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{display:none}
 .onb-keys svg{width:28px;height:28px;fill:currentColor}
 .onb-pg.bal .onb-amtwrap{padding:4px 0}
 .onb-pg.bal .onb-foot{padding-top:12px}
-.bn-val{font-size:var(--bn);color:var(--text);white-space:nowrap}
+.bn-val{font-size:var(--bn);color:var(--text);white-space:nowrap;order:1}
+.bn-sym{order:0}
+.bn-caret{order:2;align-self:center;width:3px;height:calc(var(--bn) * .78);margin-left:3px;border-radius:2px;background:var(--accent)}
+.bn-caret.blink{animation:bnBlink 1.05s steps(1) .5s infinite}
+.onb-big.empty .bn-caret{order:1;margin:0 3px 0 0}
+.onb-big.empty .bn-val{order:2}
+@keyframes bnBlink{0%{opacity:1}50%{opacity:0}}
+@media (prefers-reduced-motion: reduce){.bn-caret.blink{animation:none}}
 .onb-big.empty .bn-val{color:var(--ter)}
 .onb-scrim{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.55)}
 .onb-tray{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--card2);border-radius:28px 28px 0 0;padding:8px 16px max(env(safe-area-inset-bottom,0px), 16px);touch-action:none;box-shadow:0 -10px 40px rgba(0,0,0,.35)}
@@ -2574,7 +2581,8 @@ function openOnboarding(){
       // plain text, not a field: nothing to focus, so iOS never starts a keyboard; the app's keypad types into it
       const inp = el("span", {class:"bn-val"}); Object.defineProperty(inp, "value", {get(){ return this.dataset.v || ""; }, set(v){ this.dataset.v = v; this.textContent = v || "0"; }});
       const sizer = el("span", {class:"bn-size", "aria-hidden":"true"});
-      box.append(sym, inp, sizer);
+      const caret = el("i", {class:"bn-caret", "aria-hidden":"true"}); // a blinking caret, so the amount reads as the active field
+      box.append(sym, inp, caret, sizer);
       const pill = el("button", {class:"bn-cur onb-a", "aria-label":"Currency", "aria-haspopup":"dialog"}, `<span>${r.cur}</span>${ic("expand")}`);
       // digits and one decimal point; the whole part grouped the way that currency writes it
       const tidy = v => {
@@ -2599,7 +2607,7 @@ function openOnboarding(){
       pill.onclick = () => currencyTray(r.cur, c => { r.cur = c; sym.textContent = symOf(c); pill.firstChild.textContent = c; show(); });
       // keypad: digits, one decimal point (two decimals max), backspace (hold to clear)
       let raw = (() => { const v = parseNum(r.bal); return isNaN(v) ? "" : String(v); })();
-      const show = () => { inp.value = tidy(raw); r.bal = inp.value; ok(); fit(); };
+      const show = () => { inp.value = tidy(raw); r.bal = inp.value; ok(); fit(); caret.classList.remove("blink"); void caret.offsetWidth; caret.classList.add("blink"); };
       const press = k => {
         if(k === "del") raw = raw.slice(0, -1);
         else if(k === "."){ if(!raw.includes(".")) raw = (raw || "0") + "."; }
