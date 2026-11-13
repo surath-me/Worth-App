@@ -415,7 +415,37 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .upd-row .end input{width:120px;border:0;background:var(--fill);border-radius:9px;padding:8px 10px;text-align:right;font-size:16px;outline:none;font-variant-numeric:tabular-nums;transition:box-shadow .2s}
 .upd-row .end input:focus{box-shadow:0 0 0 2px var(--accent)}
 .upd-row .end .c{font-size:12px;color:var(--sec);margin-top:3px}
-.upd-total{display:flex;justify-content:space-between;align-items:baseline;padding:16px 4px 0}
+.upd-total{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 4px 0}
+.upd-tr{text-align:right}
+.upd-chg{font-size:13px;color:var(--sec);margin-top:2px} .upd-chg .up{color:var(--up);font-weight:600} .upd-chg .down{color:var(--down);font-weight:600}
+.upd-prog{height:4px;border-radius:2px;background:var(--fill);margin:10px 16px 10px;overflow:hidden}
+.upd-prog i{display:block;height:100%;width:0;background:var(--grad);border-radius:2px;transition:width .45s var(--spring)}
+.carry b{font-weight:600;color:var(--text);white-space:nowrap}
+.upd-row .t1{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25}
+.upd-row .t2.hint{white-space:normal;line-height:1.3}
+.upd-row .hint .up{color:var(--up)} .upd-row .hint .down{color:var(--down)} .upd-row .hint .dep{color:var(--ter)}
+.upd-row .end .amt-in{display:flex;align-items:center;gap:3px;width:132px;height:38px;padding:0 10px;border-radius:9px;background:var(--fill);transition:box-shadow .2s}
+.upd-row .end .amt-in:focus-within{box-shadow:0 0 0 2px var(--accent)}
+.upd-row .end .amt-in .sym{color:var(--sec);font-size:15px;flex:none}
+.upd-row .end .amt-in input{flex:1;min-width:0;width:auto;height:100%;padding:0;border:0;background:none;box-shadow:none;color:var(--text);text-align:right;font-size:16px;outline:none;font-variant-numeric:tabular-nums}
+.chk{flex:none;width:44px;height:44px;margin:-6px -12px -6px -6px;display:grid;place-items:center}
+.chk i{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--ter);display:grid;place-items:center;transition:transform .35s var(--bounce),background .2s,border-color .2s}
+.chk svg{width:17px;height:17px;fill:#fff;opacity:0;transform:scale(.5);transition:opacity .2s,transform .35s var(--bounce)}
+.chk:active i{transform:scale(.85)}
+.upd-row.ok .chk i{background:var(--grad);border-color:transparent}
+.upd-row.ok .chk svg{opacity:1;transform:none}
+.upd-rest{display:block;width:100%;margin:10px 0 0;padding:12px;border-radius:14px;background:var(--fill);color:var(--text);font-size:15px;font-weight:600}
+.reveal{text-align:center;padding:14px 0 4px}
+.rv-k{font-size:15px;color:var(--sec)}
+.rv-total{font-size:42px;font-weight:700;letter-spacing:-.025em;margin:4px 0 2px}
+.rv-chg{font-size:17px;font-weight:600;color:var(--sec)} .rv-chg.up .amt{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent} .rv-chg.down .amt{color:var(--down)}
+.rv-badge{display:inline-block;margin-top:14px;padding:6px 14px;border-radius:999px;background:var(--fill);font-size:13px;font-weight:600}
+.rv-line{font-size:16px;line-height:1.4;margin:22px 12px 12px}
+.rv-moves{text-align:left;padding:2px 16px}
+.rv-moves .mv{display:flex;align-items:center;gap:10px;padding:12px 0;font-size:15px}
+.rv-moves .mv + .mv{border-top:.5px solid var(--sep)}
+.rv-moves .sw{width:10px;height:10px;border-radius:50%;flex:none} .rv-moves .nm{flex:1}
+.rv-moves .d{font-weight:600} .rv-moves .d.up{color:var(--up)} .rv-moves .d.down{color:var(--down)}
 .upd-total span:first-child{color:var(--sec)}
 .upd-total .v{font-size:19px;font-weight:700}
 .month-in{border:0;background:var(--fill);border-radius:9px;padding:7px 10px;font-size:16px;color:var(--accent);outline:none;text-align:right;max-width:190px}
@@ -1673,7 +1703,7 @@ function renderMonthly(dir){
   head.append(tv, dl);
   // one action, right under the total: update this month (highlighted while the current month still waits for its check-in)
   const due = m === cm && S.lastCheckin !== cm;
-  const upd = el("button", {class: due ? "primary" : "ghost wide"}, due ? "Update " + mOnly(m) : `${ic("sync")}<span>Update ${mOnly(m)}</span>`);
+  const upd = el("button", {class: due ? "primary" : "ghost wide"}, due ? "Check in for " + mOnly(m) : `${ic("sync")}<span>Edit ${mOnly(m)}</span>`);
   upd.onclick = () => updateSheet(m);
   view.append(head, upd);
 
@@ -1920,60 +1950,140 @@ function carried(a, m){
   if(dep && gap > 0) v = Math.round(v * Math.pow(1 + dep / 100, gap / 12) * 100) / 100;
   return {v, from};
 }
-// keep: {month, vals} to come back with typed values after adding an entry
+// The monthly check-in. A new month starts from the last one: tick what hasn't changed, type what has; a progress bar
+// counts the rows you've been through (saving is never blocked). Each row shows its last recorded value and the change.
+// Amounts show formatted with the currency symbol and turn plain while you type. After saving, a reveal shows the
+// month's total, its change and what moved it. keep: {month, vals, done} to come back after adding an entry.
+const symOf = c => CURS[c] ? CURS[c].sym : c;
+const nfCache = {};
+const fmtIn = (v, c) => (nfCache[c] = nfCache[c] || new Intl.NumberFormat(CURS[c] ? CURS[c].loc : "en-IE", {maximumFractionDigits:2})).format(v);
+function lastRecorded(a, m){
+  for(const k of Object.keys(S.snaps).sort().reverse()) if(k < m && S.snaps[k].items[a.id]) return {m:k, v:+S.snaps[k].items[a.id][0] || 0};
+  return null;
+}
+const prevKey = m => Object.keys(S.snaps).filter(k => k < m).sort().pop() || null;
 function updateSheet(start, keep){
   const cur = monthKey();
-  let month = start && start <= cur ? start : cur;
-  if(keep) month = keep.month;
+  let month = keep ? keep.month : start && start <= cur ? start : cur;
   openSheet(({bar, body}) => {
-    let saveBtn;
-    const inputs = {};
-    const card = el("div", {class:"card"});
-    const totalV = el("span", {class:"v num amt"});
-    const carryNote = el("div", {class:"carry"});
-    const saveLabel = () => "Save " + mLong(month);
+    const R = {}; // id -> {a, inp, row, hint}
+    let done = new Set(keep && keep.done || []), isNew = false, sugg = {};
+    const accs = [...S.accounts].sort((a,b) => isLiab(a.type) - isLiab(b.type));
+    const totalV = el("span", {class:"v num amt"}), totalD = el("div", {class:"upd-chg num"});
+    const status = el("div", {class:"carry"}), prog = el("div", {class:"upd-prog"}, "<i></i>");
+    const rest = el("button", {class:"upd-rest"});
+    const val = id => parseNum(R[id].inp.value);
     const recompute = () => {
       let t = 0;
-      S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); if(!isNaN(v)) t += sgn(a.type) * conv(v, a.cur); });
-      animateNum(totalV, t, S.base, 400);
+      accs.forEach(a => { const v = val(a.id); if(!isNaN(v)) t += sgn(a.type) * conv(v, a.cur); });
+      totalV.textContent = fmt(t, S.base, {dec:0});
+      const pk = prevKey(month);
+      if(pk){ const d = t - snapTotal(S.snaps[pk]);
+        totalD.innerHTML = Math.abs(d) < .5 ? `Same as ${vsLabel(month, pk)}` : `<span class="${d > 0 ? "up" : "down"} amt">${d > 0 ? "▲" : "▼"} ${fmt(Math.abs(d), S.base, {dec:0})}</span> vs ${vsLabel(month, pk)}`; }
+      else totalD.textContent = "";
     };
-    // a month that is already recorded shows its own values; a new month (or the current month before its check-in) carries the last one over
-    const fill = vals => {
-      const snap = S.snaps[month];
-      const isNew = month === cur ? S.lastCheckin !== cur : !snap;
-      let from = null;
-      S.accounts.forEach(a => {
-        let v;
-        if(vals && a.id in vals) v = vals[a.id];
-        else if(!isNew && snap) v = snap.items[a.id] ? snap.items[a.id][0] : (month === cur ? a.bal : "");
-        else { const c = carried(a, month); v = c.v; if(c.from && (!from || c.from > from)) from = c.from; }
-        inputs[a.id].value = v === "" || v == null ? "" : plain(+v);
-      });
-      carryNote.innerHTML = "";
-      if(isNew && from){
-        const clear = el("button", {class:"link"}, "Clear all");
-        clear.onclick = () => { S.accounts.forEach(a => inputs[a.id].value = ""); carryNote.firstChild.textContent = "Starting from blank."; clear.remove(); recompute(); };
-        carryNote.append(el("span", {}, `Carried over from ${mLong(from)}. Change only what’s different.`), clear);
+    const paintProgress = () => {
+      prog.style.display = isNew ? "" : "none";
+      const n = accs.filter(a => done.has(a.id)).length, left = accs.length - n;
+      prog.firstChild.style.width = (accs.length ? n / accs.length * 100 : 0) + "%";
+      const st = status.querySelector(".cnt"); if(st) st.textContent = left ? `${n} of ${accs.length} checked` : "All checked";
+      rest.style.display = isNew && left > 1 && n > 0 ? "" : "none";
+      rest.textContent = `The other ${left} haven’t changed`;
+    };
+    const paintRow = id => {
+      const {a, inp, row, hint} = R[id], t = TYPE[a.type] || TYPE.other;
+      row.classList.toggle("ok", isNew && done.has(id));
+      const last = lastRecorded(a, month), v = val(id);
+      const base = esc(a.platform || t.n) + (t.liab ? " · owed" : "");
+      if(!last){ hint.innerHTML = base; return; }
+      let h = `${mDate(last.m).toLocaleDateString("en-GB", {month:"short"})}: <span class="amt">${fmt(last.v, a.cur)}</span>`;
+      if(!isNaN(v) && Math.abs(v - last.v) >= .005){
+        const d = v - last.v, good = t.liab ? d < 0 : d > 0;
+        h += ` · <span class="${good ? "up" : "down"} amt">${d > 0 ? "+" : "−"}${fmt(Math.abs(d), a.cur)}</span>`;
+        if(sugg[id] != null && Math.abs(v - sugg[id]) < .005 && a.dep !== 0) { const dp = a.dep != null ? +a.dep : t.dep; h += ` <span class="dep">(${dp > 0 ? "+" : "−"}${Math.abs(dp)}%/yr)</span>`; }
       }
-      saveBtn.textContent = saveLabel(); recompute();
+      hint.innerHTML = h;
     };
+    const setVal = (id, v) => { R[id].inp.value = v === "" || v == null || isNaN(v) ? "" : fmtIn(+v, R[id].a.cur); };
+    // a recorded month shows its own values; a new month (or the current month before its check-in) starts from the last one
+    const fill = (vals, keepDone) => {
+      const snap = S.snaps[month];
+      isNew = month === cur ? S.lastCheckin !== cur : !snap;
+      if(!keepDone) done = new Set();
+      sugg = {}; let from = null;
+      accs.forEach(a => {
+        let v;
+        if(!isNew && snap) v = snap.items[a.id] ? snap.items[a.id][0] : (month === cur ? a.bal : "");
+        else { const c = carried(a, month); v = c.v; if(c.v !== "") sugg[a.id] = +c.v; if(c.from && (!from || c.from > from)) from = c.from; }
+        if(vals && a.id in vals) v = vals[a.id];
+        setVal(a.id, v);
+      });
+      status.innerHTML = "";
+      if(!isNew) status.append(el("span", {}, `Editing the balances saved for ${esc(mLong(month))}.`));
+      else if(from){
+        const clear = el("button", {class:"link"}, "Clear all");
+        clear.onclick = () => { accs.forEach(a => setVal(a.id, "")); done = new Set(); status.firstChild.innerHTML = "Starting from blank. Type each balance."; clear.remove(); accs.forEach(a => paintRow(a.id)); paintProgress(); recompute(); };
+        status.append(el("span", {}, `Starting from ${esc(mOnly(from))}’s balances. Tick what hasn’t changed, type what has. <b class="cnt"></b>`), clear);
+      } else status.append(el("span", {}, `Type each balance for ${esc(mLong(month))}. <b class="cnt"></b>`));
+      saveBtn.textContent = "Save " + mLong(month);
+      accs.forEach(a => paintRow(a.id)); paintProgress(); recompute();
+    };
+
+    const reveal = m => {
+      sheetBar(bar, mLong(m), "Close"); bar.querySelector(".r").style.visibility = "hidden";
+      body.innerHTML = "";
+      const snap = S.snaps[m], total = snap ? snapTotal(snap) : 0, pk = prevKey(m);
+      const wrap = el("div", {class:"reveal"});
+      wrap.append(el("div", {class:"rv-k"}, `Your ${esc(mOnly(m))}`), el("div", {class:"rv-total num amt"}, fmt(total, S.base, {dec:0})));
+      if(pk && snap){
+        const pv = snapTotal(S.snaps[pk]), d = total - pv, pct = pv ? d / Math.abs(pv) * 100 : 0;
+        wrap.append(el("div", {class:"rv-chg num " + (d >= 0 ? "up" : "down")}, Math.abs(d) < .5 ? `Same as ${esc(vsLabel(m, pk))}` :
+          `<span class="amt">${d > 0 ? "▲" : "▼"} ${fmt(Math.abs(d), S.base, {dec:0})}</span> (${Math.abs(pct).toFixed(1)}%) vs ${esc(vsLabel(m, pk))}`));
+        // a new high, or a run of up months ending here
+        const sr = series(), i = sr.findIndex(p => p.m === m), others = sr.filter(p => p.m !== m);
+        let badge = "";
+        if(others.length >= 2 && total > Math.max(...others.map(p => p.v)) + .5) badge = "Your highest yet";
+        else { let run = 0; for(let k = i; k > 0 && sr[k].x - sr[k-1].x === 1 && sr[k].v > sr[k-1].v + .5; k--) run++; if(run >= 3) badge = `Up ${run} months in a row`; }
+        if(badge) wrap.append(el("div", {class:"rv-badge"}, badge));
+        // what moved, by the Breakdown groups (gross, so paying down the mortgage shows as debts)
+        const a = splitGroups(snapRows(S.snaps[pk]), {gross:true}), b = splitGroups(snapRows(snap), {gross:true});
+        const moves = b.groups.map((g, j) => ({n:g.n, c:g.c, d:g.v - a.groups[j].v}));
+        moves.push({n:"Debts", c:GROUPS.find(g => g.liab).c, d:a.debts - b.debts, debt:true});
+        const mv = moves.filter(x => Math.abs(x.d) >= 1).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 5);
+        if(mv.length){
+          const t = mv[0], amt = `<span class="amt">${fmt(Math.abs(t.d), S.base, {dec:0})}</span>`;
+          wrap.append(el("div", {class:"rv-line"}, t.debt ? (t.d > 0 ? `Paying down debt did the most: ${amt}.` : `Debts grew by ${amt}.`)
+            : t.d > 0 ? `${esc(t.n)} did the most work: +${amt}.` : `${esc(t.n)} pulled it down: −${amt}.`));
+          const card = el("div", {class:"card rv-moves"});
+          card.innerHTML = mv.map(x => `<div class="mv"><span class="sw" style="background:${x.c}"></span><span class="nm">${x.debt ? (x.d > 0 ? "Debts paid down" : "Debts added") : esc(x.n)}</span>
+            <span class="d num amt ${x.d > 0 ? "up" : "down"}">${x.d > 0 ? "+" : "−"}${fmt(Math.abs(x.d), S.base, {dec:0})}</span></div>`).join("");
+          wrap.append(card);
+        } else wrap.append(el("div", {class:"rv-line"}, "Nothing moved this month."));
+      } else wrap.append(el("div", {class:"rv-line"}, "Your first month on record. Next month’s check-in shows what moved."));
+      const ok = el("button", {class:"primary"}, "Done"); ok.onclick = closeSheet;
+      wrap.append(ok); body.append(wrap);
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if(!still && wrap.animate) [...wrap.children].forEach((n, k) => n.animate([{opacity:0, transform:"translateY(10px)"}, {opacity:1, transform:"none"}],
+        {duration:500, delay:80 + k * 90, easing:"cubic-bezier(.2,.7,.2,1)", fill:"backwards"}));
+    };
+
     const doSave = () => {
       if(month === cur){
-        S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); a.bal = isNaN(v) ? 0 : Math.abs(v); });
+        accs.forEach(a => { const v = val(a.id); a.bal = isNaN(v) ? 0 : Math.abs(v); });
         S.lastCheckin = cur;
-        closeSheet(); commit();
+        commit();
       } else {
         const items = {}, old = S.snaps[month];
         if(old) for(const id in old.items) if(!S.accounts.some(a => a.id === id)) items[id] = old.items[id];
-        S.accounts.forEach(a => { const v = parseNum(inputs[a.id].value); if(!isNaN(v)) items[a.id] = [Math.abs(v), a.cur, a.type, a.name]; });
+        accs.forEach(a => { const v = val(a.id); if(!isNaN(v)) items[a.id] = [Math.abs(v), a.cur, a.type, a.name]; });
         // a past month keeps the exchange rates it was saved with
         if(Object.keys(items).length) S.snaps[month] = makeSnap(items, old && old.rates); else delete S.snaps[month];
-        closeSheet(); commit({keepMonth:true});
+        commit({keepMonth:true});
       }
-      UI.month = month;
-      toast("Saved " + mLong(month));
+      UI.month = month; renderMonthly();
+      if(S.snaps[month]) reveal(month); else { closeSheet(); toast("Saved " + mLong(month)); }
     };
-    sheetBar(bar, "Update balances", "Cancel", {label:"Save", onClick: doSave});
+    sheetBar(bar, "Monthly check-in", "Cancel", {label:"Save", onClick: () => doSave()});
 
     const mCard = el("div", {class:"card"});
     const mf = el("div", {class:"field"}, "<label>Month</label>");
@@ -1981,32 +2091,45 @@ function updateSheet(start, keep){
     mIn.onchange = () => { if(!mIn.value || mIn.value > cur){ mIn.value = cur; } month = mIn.value; fill(); };
     mf.appendChild(mIn); mCard.appendChild(mf);
 
-    [...S.accounts].sort((a,b) => isLiab(a.type) - isLiab(b.type)).forEach(a => {
+    const card = el("div", {class:"card"});
+    accs.forEach(a => {
       const t = TYPE[a.type] || TYPE.other;
-      const r = el("div", {class:"row upd-row"});
-      r.innerHTML = `${avatar(t)}
-        <span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2">${esc(a.platform || t.n)}${t.liab ? " · owed" : ""}</div></span>`;
-      const end = el("span", {class:"end"});
+      const row = el("div", {class:"row upd-row"});
+      row.innerHTML = `${avatar(t)}<span class="mid"><div class="t1">${esc(a.name)}</div><div class="t2 hint"></div></span>`;
+      const box = el("label", {class:"amt-in"}, `<span class="sym">${esc(symOf(a.cur))}</span>`);
       const inp = el("input", {inputmode:"decimal", placeholder:"0", "aria-label":a.name + (t.liab ? " amount owed" : " balance"), autocomplete:"off"});
-      inp.oninput = recompute;
-      inp.onfocus = () => setTimeout(() => inp.select(), 0);
-      inputs[a.id] = inp;
-      end.append(inp, el("div", {class:"c"}, a.cur));
-      r.appendChild(end); card.appendChild(r);
+      box.appendChild(inp);
+      const chk = el("button", {class:"chk", "aria-label":"Unchanged: " + a.name}, `<i>${ic("check")}</i>`);
+      row.append(el("span", {class:"end"}), chk); row.querySelector(".end").appendChild(box);
+      R[a.id] = {a, inp, row, hint: row.querySelector(".hint")};
+      inp.onfocus = () => { const v = parseNum(inp.value); inp.value = isNaN(v) ? "" : plain(v); setTimeout(() => inp.select(), 0); };
+      inp.onblur = () => { setVal(a.id, parseNum(inp.value)); paintRow(a.id); };
+      inp.oninput = () => { if(isNew){ done.add(a.id); paintProgress(); } row.classList.toggle("ok", isNew); paintRow(a.id); recompute(); };
+      inp.onkeydown = e => { if(e.key === "Enter"){ const i = accs.indexOf(a), nx = accs[i + 1]; nx ? R[nx.id].inp.focus() : inp.blur(); } };
+      // tick: unchanged (or the suggested value for things that lose or gain value over time); tap again to untick
+      chk.onclick = () => {
+        if(done.has(a.id)) done.delete(a.id);
+        else { done.add(a.id); if(isNaN(val(a.id)) && sugg[a.id] != null) setVal(a.id, sugg[a.id]); }
+        if(navigator.vibrate) navigator.vibrate(8);
+        paintRow(a.id); paintProgress(); recompute();
+      };
+      card.appendChild(row);
     });
+    rest.onclick = () => { accs.forEach(a => { if(!done.has(a.id)){ done.add(a.id); if(isNaN(val(a.id)) && sugg[a.id] != null) setVal(a.id, sugg[a.id]); } paintRow(a.id); }); paintProgress(); recompute(); };
     // add a new entry without losing what was typed
     const add = el("button", {class:"row add-row"}, `<span class="avatar">${ic("add")}</span><span class="mid">New entry</span>`);
     add.onclick = () => {
-      const vals = {}; S.accounts.forEach(a => vals[a.id] = inputs[a.id].value === "" ? "" : parseNum(inputs[a.id].value));
-      const m = month;
-      accountSheet(null, {after: d => { if(d) vals[d.id] = d.bal; updateSheet(m, {month:m, vals}); }});
+      const vals = {}; accs.forEach(a => vals[a.id] = R[a.id].inp.value === "" ? "" : val(a.id));
+      const m = month, d0 = [...done];
+      accountSheet(null, {after: d => { if(d){ vals[d.id] = d.bal; d0.push(d.id); } updateSheet(m, {month:m, vals, done:d0}); }});
     };
     card.appendChild(add);
-    const tot = el("div", {class:"upd-total"}, "<span>Net worth</span>"); tot.appendChild(totalV);
-    saveBtn = el("button", {class:"primary"}, saveLabel()); saveBtn.onclick = doSave;
-    body.append(mCard, el("p", {class:"note"}, "Pick an earlier month to fill in your history. Leave a field empty to skip that entry."),
-      el("div", {class:"lbl-s"}, "Balances"), carryNote, card, tot, saveBtn);
-    fill(keep && keep.vals);
+    const tot = el("div", {class:"upd-total"}, "<span>Net worth</span>");
+    const tr = el("div", {class:"upd-tr"}); tr.append(totalV, totalD); tot.appendChild(tr);
+    const saveBtn = el("button", {class:"primary"}); saveBtn.onclick = () => doSave();
+    body.append(mCard, el("p", {class:"note"}, "Pick an earlier month to fill in your history."),
+      el("div", {class:"lbl-s"}, "Balances"), status, prog, card, rest, tot, saveBtn);
+    fill(keep && keep.vals, !!keep);
   });
 }
 
