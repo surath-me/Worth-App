@@ -2424,8 +2424,8 @@ function playArt(art, delay = 0){
     {duration:1100, delay, easing:ease, fill:"backwards"});
   // two soft green ripples keep breathing out of the logo, half a beat apart, for as long as the screen is up
   art.querySelectorAll(".oa-ring").forEach((ring, k) => ring.animate(
-    [{transform:"scale(.95)", opacity:0}, {transform:"scale(1.12)", opacity:.4, offset:.2}, {transform:"scale(2.1)", opacity:0}],
-    {duration:3200, delay:delay + 420 + k * 1600, iterations:Infinity, easing:"cubic-bezier(.2,.6,.3,1)", fill:"backwards"}));
+    [{transform:"scale(.97)", opacity:0}, {transform:"scale(1.15)", opacity:.28, offset:.25}, {transform:"scale(1.95)", opacity:0}],
+    {duration:5200, delay:delay + 600 + k * 2600, iterations:Infinity, easing:"cubic-bezier(.37,0,.63,1)", fill:"backwards"})); // slow, even breathing
   const bs = [...art.querySelectorAll(".oa-b")].sort((x, y) => y.offsetWidth - x.offsetWidth);
   bs.forEach((b, k) => {
     const p = bubCentre(b), dx = cx - p.x, dy = cy - p.y;
