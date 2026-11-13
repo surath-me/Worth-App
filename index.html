@@ -1237,7 +1237,7 @@ function splitGroups(rows, opts = {}){
   const by = {}; let mort = 0, debts = 0;
   rows.forEach(r => { const v = Math.max(0, +r.v || 0);
     if(r.type === "mortgage") mort += v; else if(isLiab(r.type)) debts += v; else { const k = groupOf(r.type); by[k] = (by[k] || 0) + v; } });
-  const prop = by.property || 0, netted = !opts.gross && prop > 0 && mort > 0 && prop >= mort;
+  const prop = by.property || 0, netted = !opts.gross && mort > 0 && prop > mort;
   if(netted) by.property = prop - mort; else debts += mort;
   const groups = GROUPS.filter(g => !g.liab).map(g => ({k:g.k, n:g.n, c:g.c, v:by[g.k] || 0}));
   const owned = groups.reduce((t, g) => t + g.v, 0);
@@ -2198,9 +2198,10 @@ function updateSheet(start, keep){
     const status = el("div", {class:"carry"}), prog = el("div", {class:"upd-prog"}, "<i></i>");
     const rest = el("button", {class:"upd-rest"});
     const val = id => parseNum(R[id].inp.value);
+    const monthRates = () => month !== cur && S.snaps[month] && S.snaps[month].rates || S.rates;
     const recompute = () => {
-      let t = 0;
-      accs.forEach(a => { const v = val(a.id); if(!isNaN(v)) t += sgn(a.type) * conv(v, a.cur); });
+      let t = 0; const rates = monthRates();
+      accs.forEach(a => { const v = val(a.id); if(!isNaN(v)) t += sgn(a.type) * conv(v, a.cur, rates); });
       totalV.textContent = fmt(t, S.base, {dec:0});
       const pk = prevKey(month);
       if(pk){ const d = t - snapTotal(S.snaps[pk]);
@@ -2247,10 +2248,8 @@ function updateSheet(start, keep){
       if(!isNew) status.append(el("span", {}, "Saved values"));
       else if(from){
         const clear = el("button", {class:"link"}, "Clear all");
-        clear.onclick = () => { accs.forEach(a => setVal(a.id, "")); done = new Set(); status.firstChild.innerHTML = "Blank"; clear.remove(); accs.forEach(a => paintRow(a.id)); paintProgress(); recompute(); };
-        status.append(el("span", {}, from > month
-          ? `From ${esc(mLabel(from))} · <b class="cnt"></b>`
-          : `From ${esc(mLabel(from))} · <b class="cnt"></b>`), clear);
+        clear.onclick = () => { accs.forEach(a => setVal(a.id, "")); done = new Set(); status.firstChild.innerHTML = `Blank · <b class="cnt"></b>`; clear.remove(); accs.forEach(a => paintRow(a.id)); paintProgress(); recompute(); };
+        status.append(el("span", {}, `From ${esc(mLabel(from))} · <b class="cnt"></b>`), clear);
       } else status.append(el("span", {}, `<b class="cnt"></b>`));
       saveBtn.textContent = "Save " + mLong(month);
       accs.forEach(a => paintRow(a.id)); paintProgress(); recompute();
@@ -2278,7 +2277,6 @@ function updateSheet(start, keep){
         moves.push({n:"Debts", c:GROUPS.find(g => g.liab).c, d:a.debts - b.debts, debt:true});
         const mv = moves.filter(x => Math.abs(x.d) >= 1).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 5);
         if(mv.length){
-          const t = mv[0], amt = `<span class="amt">${fmt(Math.abs(t.d), S.base, {dec:0})}</span>`;
           const card = el("div", {class:"card rv-moves"});
           card.innerHTML = mv.map(x => `<div class="mv"><span class="sw" style="background:${x.c}"></span><span class="nm">${x.debt ? (x.d > 0 ? "Debts paid" : "Debts added") : esc(x.n)}</span>
             <span class="d num amt ${x.d > 0 ? "up" : "down"}">${x.d > 0 ? "+" : "−"}${fmt(Math.abs(x.d), S.base, {dec:0})}</span></div>`).join("");
@@ -2504,6 +2502,10 @@ function openOnboarding(){
   root.append(top, stage);
   const STEPS = ["intro", "currency", "own", "owe", "bal", "done"];
   let step = 0, page = null;
+  // every listener this opening adds goes through one controller, aborted when the onboarding closes
+  const ac = new AbortController(), sig = {signal:ac.signal}; root._ac = ac;
+  // hardware keys go to the current page (the balance screen types digits)
+  addEventListener("keydown", e => { if(page && page._key) page._key(e); }, sig);
 
   const foot = (...kids) => { const f = el("div", {class:"onb-foot onb-a"}); f.append(...kids); return f; };
   const head = (pg, h, sub) => { pg.append(el("h1", {class:"onb-h onb-a"}, h)); if(sub) pg.append(el("p", {class:"onb-sub onb-a"}, sub)); };
@@ -2623,12 +2625,12 @@ function openOnboarding(){
         let hold = 0;
         b.addEventListener("pointerdown", e => { e.preventDefault(); press(k); if(k === "del") hold = setTimeout(() => { raw = ""; show(); }, 550); });
         ["pointerup","pointerleave","pointercancel"].forEach(ev => b.addEventListener(ev, () => clearTimeout(hold)));
+        b.addEventListener("click", e => { if(e.detail === 0) press(k); }); // VoiceOver / keyboard activation has no pointer
         pad.appendChild(b);
       });
       // a hardware keyboard works too (while the name isn't being edited)
-      const onKey = e => { if(!pg.isConnected){ removeEventListener("keydown", onKey); return; } if(e.target === name) return;
+      pg._key = e => { if(e.target === name) return;
         if(/^[0-9]$/.test(e.key)) press(e.key); else if(e.key === "." || e.key === ",") press("."); else if(e.key === "Backspace") press("del"); else if(e.key === "Enter") next.click(); else return; e.preventDefault(); };
-      addEventListener("keydown", onKey);
       name.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); name.blur(); } };
       // only one field looks active at a time: while the name is being edited the amount hides its caret
       name.addEventListener("focus", () => box.classList.add("idle")); name.addEventListener("blur", () => box.classList.remove("idle"));
@@ -2696,7 +2698,7 @@ function openOnboarding(){
   let baseH = fullH() || window.innerHeight;
   root.style.bottom = "auto"; root.style.height = baseH + "px";
   const onResize = () => { if(!root.classList.contains("kb") && !(vv && vv.height < baseH - 120)){ baseH = fullH() || window.innerHeight; root.style.height = baseH + "px"; } };
-  window.addEventListener("resize", onResize); root._rs = onResize;
+  window.addEventListener("resize", onResize, sig);
   // Keyboard: go into keyboard mode the moment a field is focused (before iOS reports anything), using the last known
   // keyboard height, so the layout rises together with the keyboard; the real height then fine-tunes it. On blur it
   // drops right away, again in step with the keyboard going down.
@@ -2709,16 +2711,17 @@ function openOnboarding(){
     else if(!root.contains(document.activeElement) || document.activeElement.tagName !== "INPUT") setKb(false);
   };
   // only a focus that comes from your tap opens a keyboard (iOS ignores programmatic focus), so only that enters keyboard mode
-  let lastTap = 0; root.addEventListener("pointerdown", () => { lastTap = Date.now(); }, true);
-  root.addEventListener("focusin", e => { if(e.target.tagName === "INPUT" && e.target.type !== "file" && Date.now() - lastTap < 900 && matchMedia("(pointer: coarse)").matches) setKb(true); });
-  root.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if(!(a && root.contains(a) && a.tagName === "INPUT")) setKb(false); }, 60));
-  if(vv){ vv.addEventListener("resize", fitVV); vv.addEventListener("scroll", fitVV); root._vv = fitVV; }
+  let lastTap = 0; root.addEventListener("pointerdown", () => { lastTap = Date.now(); }, {capture:true, signal:ac.signal});
+  root.addEventListener("focusin", e => { if(e.target.tagName === "INPUT" && e.target.type !== "file" && Date.now() - lastTap < 900 && matchMedia("(pointer: coarse)").matches) setKb(true); }, sig);
+  root.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if(!(a && root.contains(a) && a.tagName === "INPUT")) setKb(false); }, 60), sig);
+  if(vv){ vv.addEventListener("resize", fitVV, sig); vv.addEventListener("scroll", fitVV, sig); }
   go(0);
   if(!still) root.animate([{opacity:0}, {opacity:1}], {duration:400, easing:"ease"});
 }
 function closeOnboarding(){
   const root = $("#onb");
-  const end = () => { if(root._rs) window.removeEventListener("resize", root._rs); if(root._vv && window.visualViewport){ visualViewport.removeEventListener("resize", root._vv); visualViewport.removeEventListener("scroll", root._vv); } root.style.height = root.style.transform = root.style.bottom = ""; root.style.removeProperty("--kb"); document.body.style.minHeight = ""; root.classList.remove("kb"); root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
+  const end = () => { if(root._ac){ root._ac.abort(); root._ac = null; } root.getAnimations().forEach(a => a.cancel()); // the held fade-out would hide the next opening
+    root.style.height = root.style.transform = root.style.bottom = ""; root.style.removeProperty("--kb"); document.body.style.minHeight = ""; root.classList.remove("kb"); root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
   if(matchMedia("(prefers-reduced-motion: reduce)").matches || !root.animate) return end();
   root.animate([{opacity:1, transform:"none"}, {opacity:0, transform:"scale(1.04)"}], {duration:380, easing:"cubic-bezier(.4,0,.2,1)", fill:"forwards"}).onfinish = end;
 }
