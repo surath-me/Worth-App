@@ -2456,14 +2456,14 @@ function exitArt(art, fades, done){
     }
     b.animate(frames, {duration:440, delay:k * 18, easing:"linear", fill:"forwards"});
   });
-  const t = 260 + bs.length * 18;
+  const t = 90 + bs.length * 10; // the logo starts growing while the last bubbles are still arriving
   core.querySelector("svg").animate([{opacity:1}, {opacity:0}], {duration:300, delay:60, easing:"ease-in", fill:"forwards"}); // the curve fades as the bubbles come in
   // big enough that the circle covers the whole screen from wherever the logo sits
   const r = core.getBoundingClientRect(), far = Math.max(Math.hypot(r.left + r.width / 2, r.top + r.height / 2), Math.hypot(innerWidth - r.left - r.width / 2, innerHeight - r.top - r.height / 2));
   const k = far / (r.width / 2) * 1.08;
   core.style.zIndex = 5;
-  core.animate([{transform:"scale(1)"}, {transform:"scale(.94)", offset:.18}, {transform:`scale(${k})`}],
-    {duration:820, delay:t, easing:"cubic-bezier(.6,0,.8,.3)", fill:"forwards"}).onfinish = done;
+  core.animate([{transform:"scale(1)"}, {transform:"scale(.97)", offset:.08}, {transform:`scale(${k})`}],
+    {duration:900, delay:t, easing:"cubic-bezier(.4,0,.7,.3)", fill:"forwards"}).onfinish = done;
 }
 let onbOpen = false;
 // Restore a backup's text (Settings and the onboarding both use this); throws if it isn't a Worth backup.
