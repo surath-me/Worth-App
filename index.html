@@ -539,6 +539,8 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{display:none}
 .bn-caret{order:2;align-self:center;width:3px;height:calc(var(--bn) * .78);margin-left:3px;border-radius:2px;background:var(--accent)}
 .bn-caret.blink{animation:bnBlink 1.05s steps(1) .5s infinite}
 .onb-big.empty .bn-caret{order:1;margin:0 3px 0 0}
+.onb-big.idle .bn-caret{opacity:0;animation:none}
+.onb-name{caret-color:var(--accent)}
 .onb-big.empty .bn-val{order:2}
 @keyframes bnBlink{0%{opacity:1}50%{opacity:0}}
 @media (prefers-reduced-motion: reduce){.bn-caret.blink{animation:none}}
@@ -2628,6 +2630,8 @@ function openOnboarding(){
         if(/^[0-9]$/.test(e.key)) press(e.key); else if(e.key === "." || e.key === ",") press("."); else if(e.key === "Backspace") press("del"); else if(e.key === "Enter") next.click(); else return; e.preventDefault(); };
       addEventListener("keydown", onKey);
       name.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); name.blur(); } };
+      // only one field looks active at a time: while the name is being edited the amount hides its caret
+      name.addEventListener("focus", () => box.classList.add("idle")); name.addEventListener("blur", () => box.classList.remove("idle"));
       const more = el("button", {class:"onb-text"}, `${ic("add")}<span>Add another</span>`);
       more.onclick = () => { const same = st.rows.filter(x => x.t === r.t).length;
         st.rows.splice(st.i + 1, 0, {t:r.t, name:`${KINDS.find(k => k.t === r.t).n} ${same + 1}`, cur:r.cur, bal:""}); r.bal = inp.value; st.i++; go(4); };
