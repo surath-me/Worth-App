@@ -466,9 +466,9 @@ html.onb-open,body.onb-open{overflow:hidden;overscroll-behavior:none}
 body.onb-open{position:fixed;inset:0}
 body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{visibility:hidden}
 .onb[hidden]{display:none}
-.onb{position:fixed;top:0;left:0;right:0;bottom:0;z-index:60;display:flex;flex-direction:column;background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 6px) 20px max(env(safe-area-inset-bottom,0px), 16px)}
+.onb{position:fixed;top:0;left:0;right:0;bottom:0;z-index:60;display:flex;flex-direction:column;background:var(--bg);overflow:hidden;padding:calc(env(safe-area-inset-top,0px) + 6px) 0 max(env(safe-area-inset-bottom,0px), 16px)}
 .onb::before{content:"";position:absolute;inset:0 0 auto;height:420px;pointer-events:none;background:radial-gradient(70% 60% at 25% 0%,var(--g1a),transparent 70%),radial-gradient(60% 50% at 90% 10%,var(--g2a),transparent 70%);opacity:.55}
-.onb-top{position:relative;display:flex;align-items:center;justify-content:space-between;height:52px;flex:none}
+.onb-top{position:relative;display:flex;align-items:center;justify-content:space-between;height:52px;flex:none;padding:0 20px}
 .onb-back{width:44px;height:44px;border-radius:50%;background:var(--card);display:grid;place-items:center;color:var(--text)}
 .onb-back svg{width:24px;height:24px;fill:currentColor}
 .onb-back:active{transform:scale(.9)}
@@ -479,7 +479,7 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{visibility:hidden}
 .onb-dots i.done{background:var(--sec)}
 .onb-dots i.on{width:26px;background:var(--g1)}
 .onb-stage{position:relative;flex:1;min-height:0}
-.onb-pg{position:absolute;inset:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding-top:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.onb-pg{position:absolute;inset:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:6px 20px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .onb-pg::-webkit-scrollbar{display:none}
 .onb-pg.center{text-align:center;align-items:stretch}
 .onb-h{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.12;margin:6px 0 8px}
@@ -534,7 +534,7 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{visibility:hidden}
 /* the intro art: the app's curve in a big bubble, the kinds of things you own floating around it */
 .onb-pg.intro .onb-mid{margin:auto 0;padding:8px 0 4px}
 .onb-pg.intro .onb-foot{margin-top:0}
-.onb-art{position:relative;height:330px;margin:0 -6px 22px;flex:none}
+.onb-art{position:relative;height:330px;margin:0 -20px 22px;flex:none}
 .oa-core,.oa-ring{position:absolute;left:50%;top:50%;width:156px;height:156px;margin:-78px 0 0 -78px;border-radius:50%}
 .oa-core{display:grid;place-items:center;z-index:2;
   background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),rgba(255,255,255,0) 55%),linear-gradient(160deg,#34D69E,#0B7F68);box-shadow:0 20px 60px -20px rgba(20,184,166,.6),inset 0 -8px 18px rgba(0,0,0,.18)}
