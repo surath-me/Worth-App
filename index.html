@@ -2598,6 +2598,8 @@ function openOnboarding(){
   // top, so a layer pinned to bottom:0 stops short and leaves a black band. There, size the layer to the whole screen.
   const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
   const fullH = () => standalone && screen.height > window.innerHeight ? screen.height : 0;
+  // give the (otherwise empty) page a full screen of height, so iOS lays it out at full height too
+  if(standalone) document.body.style.minHeight = screen.height + "px";
   const fitVV = () => { if(!onbOpen) return;
     const kb = !!vv && vv.height < window.innerHeight - 120, tall = fullH();
     root.classList.toggle("kb", kb);
@@ -2618,7 +2620,7 @@ function openOnboarding(){
 }
 function closeOnboarding(){
   const root = $("#onb");
-  const end = () => { if(root._vv && window.visualViewport){ visualViewport.removeEventListener("resize", root._vv); visualViewport.removeEventListener("scroll", root._vv); } root.style.height = root.style.transform = root.style.bottom = ""; root.classList.remove("kb"); root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
+  const end = () => { if(root._vv && window.visualViewport){ visualViewport.removeEventListener("resize", root._vv); visualViewport.removeEventListener("scroll", root._vv); } root.style.height = root.style.transform = root.style.bottom = ""; document.body.style.minHeight = ""; root.classList.remove("kb"); root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
   if(matchMedia("(prefers-reduced-motion: reduce)").matches || !root.animate) return end();
   root.animate([{opacity:1, transform:"none"}, {opacity:0, transform:"scale(1.04)"}], {duration:380, easing:"cubic-bezier(.4,0,.2,1)", fill:"forwards"}).onfinish = end;
 }
