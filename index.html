@@ -2382,7 +2382,9 @@ const bubCentre = b => ({x:b.offsetLeft + b.offsetWidth / 2, y:b.offsetTop + b.o
 // Entry: the logo (the core) comes into focus, then every bubble slides out from behind it to its spot, biggest first.
 // One long soft ease-out throughout, no overshoot.
 function playArt(art, delay = 0){
-  if(matchMedia("(prefers-reduced-motion: reduce)").matches || !art.animate) return;
+  art.dataset.ready = "";
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches || !art.animate){ art.dataset.ready = 1; return; }
+  const anims = [];
   const ease = "cubic-bezier(.16,1,.3,1)";
   const {c:core, x:cx, y:cy} = artCentre(art);
   core.animate([{opacity:0, transform:"scale(.6)", filter:"blur(14px)"}, {opacity:1, transform:"scale(1)", filter:"blur(0)"}],
@@ -2394,12 +2396,14 @@ function playArt(art, delay = 0){
   const bs = [...art.querySelectorAll(".oa-b")].sort((x, y) => y.offsetWidth - x.offsetWidth);
   bs.forEach((b, k) => {
     const p = bubCentre(b), dx = cx - p.x, dy = cy - p.y;
-    b.animate([
+    anims.push(b.animate([
       {opacity:0, transform:`translate(${dx}px,${dy}px) scale(.3)`},
       {opacity:1, transform:`translate(${dx * .8}px,${dy * .8}px) scale(.45)`, offset:.12},
       {opacity:1, transform:"none"}],
-      {duration:1500, delay:delay + 480 + k * 80, easing:ease, fill:"backwards"});
+      {duration:1500, delay:delay + 480 + k * 80, easing:ease, fill:"backwards"}));
   });
+  // the intro's "Get started" only reacts once everything has landed
+  Promise.all(anims.map(a => a.finished)).then(() => { art.dataset.ready = 1; }, () => { art.dataset.ready = 1; });
 }
 // Leaving: the words fade, the bubbles are pulled back into the logo (smallest first), then we zoom into the logo
 // until its green fills the screen; `done` then swaps in the next screen underneath and the green fades away.
@@ -2468,7 +2472,7 @@ function openOnboarding(){
         try{ const raw = JSON.parse(await f.text()); if(!raw || typeof raw !== "object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0;
           S = normalize(raw); commit({keepMonth:true}); fetchRates(true); closeOnboarding(); toast("Backup restored"); }
         catch(e){ toast("That file isn’t a Worth backup"); } };
-      const gs = cta("Get started", () => { if(gs.dataset.busy) return; gs.dataset.busy = 1;
+      const gs = cta("Get started", () => { if(gs.dataset.busy || !art.dataset.ready) return; gs.dataset.busy = 1;
         exitArt(art, [...mid.querySelectorAll(".onb-a"), f], () => go(1, 1, "zoom")); });
       const f = foot(gs, restore, file); pg.append(f);
     },
