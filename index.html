@@ -2628,6 +2628,15 @@ function openOnboarding(){
   root.addEventListener("focusin", e => { if(e.target.tagName === "INPUT" && e.target.type !== "file" && Date.now() - lastTap < 900 && matchMedia("(pointer: coarse)").matches) setKb(true); });
   root.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if(!(a && root.contains(a) && a.tagName === "INPUT")) setKb(false); }, 60));
   if(vv){ vv.addEventListener("resize", fitVV); vv.addEventListener("scroll", fitVV); root._vv = fitVV; }
+  if(window.WORTH_DEV){ // TEMP keyboard probe: samples every frame for 1.2s after a focus
+    const pr = el("div", {style:"position:absolute;left:6px;right:6px;top:calc(env(safe-area-inset-top) + 2px);z-index:99;font:9px/1.25 monospace;color:#ff0;pointer-events:none;white-space:pre-wrap"});
+    root.appendChild(pr);
+    root.addEventListener("focusin", () => { const t0 = performance.now(), log = [];
+      const f = () => { const t = performance.now() - t0, r = root.getBoundingClientRect();
+        log.push(`${Math.round(t)}:sy${Math.round(scrollY)} vo${vv ? Math.round(vv.offsetTop) : "-"} vh${vv ? Math.round(vv.height) : "-"} ih${innerHeight} rt${Math.round(r.top)} rh${Math.round(r.height)}${root.classList.contains("kb") ? "K" : ""}`);
+        if(t < 1200) requestAnimationFrame(f); else pr.textContent = log.filter((x, i) => i % 3 === 0 || i < 12).join("  "); };
+      requestAnimationFrame(f); });
+  }
   go(0);
   if(!still) root.animate([{opacity:0}, {opacity:1}], {duration:400, easing:"ease"});
 }
