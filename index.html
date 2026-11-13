@@ -2571,7 +2571,7 @@ function openOnboarding(){
       const av = el("div", {class:"onb-av", style:`background:linear-gradient(140deg,${(BGRAD[r.t] || [t.c, t.c])[0]},${(BGRAD[r.t] || [t.c, t.c])[1]})`}, ic(r.t));
       const name = el("input", {class:"onb-name", value:r.name, "aria-label":"Name", autocomplete:"off", enterkeyhint:"next"});
       const edit = el("button", {class:"onb-edit", "aria-label":"Rename"}, ic("edit"));
-      edit.onclick = () => { name.focus(); name.select(); try{ name.setSelectionRange(0, name.value.length); }catch(e){} };
+      edit.onclick = () => { name.focus(); const n = name.value.length; try{ name.setSelectionRange(n, n); }catch(e){} }; // cursor at the end, nothing selected
       name.oninput = () => { r.name = name.value; };
       head.append(av, name, edit);
       pg.append(head, el("p", {class:"onb-sub onb-a"}, ASK(r.t) + " Rough is fine."));
