@@ -462,10 +462,10 @@ body.empty .hero,body.empty #chartWrap,body.empty #range{display:none}
 @media (prefers-reduced-motion: reduce){.sp-in{animation:none}.sp-logo path,.oa-core path{animation:none;stroke-dashoffset:0;opacity:1}.sp-logo circle,.oa-core circle{animation:none;transform:none}.sp-word{animation:none;opacity:1}}
 
 /* onboarding */
-html.onb-open,body.onb-open{overscroll-behavior:none;overflow:visible}
-/* pinned, not overflow:hidden: on iOS home-screen apps that clips the layer at the shorter layout box */
-body.onb-open{position:fixed;inset:0;overflow:visible}
-body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{visibility:hidden}
+/* While onboarding is open the app is taken out of the layout, so there's nothing to scroll. Don't pin the body with
+   position:fixed: in the iOS home-screen app that shrinks the page box (812 of 874pt) and clips the layer's bottom. */
+html.onb-open,body.onb-open{overscroll-behavior:none}
+body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{display:none}
 .onb[hidden]{display:none}
 .onb{position:fixed;top:0;left:0;right:0;bottom:0;z-index:60;display:flex;flex-direction:column;background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 6px) 0 max(env(safe-area-inset-bottom,0px), 16px)}
 .onb::before{content:"";position:absolute;inset:0 0 auto;height:420px;pointer-events:none;background:radial-gradient(70% 60% at 25% 0%,var(--g1a),transparent 70%),radial-gradient(60% 50% at 90% 10%,var(--g2a),transparent 70%);opacity:.55}
