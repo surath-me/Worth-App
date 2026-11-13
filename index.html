@@ -395,6 +395,7 @@ body.sheet-open #scrim{opacity:1;pointer-events:auto}
 /* entry icon: a row with the current icon that opens a grid of icons to pick from */
 button.field{width:100%;text-align:left}
 .icon-pick .avatar{width:30px;height:30px} .icon-pick .avatar svg{width:18px;height:18px}
+.icon-more.open{transition:grid-template-rows .85s var(--spring),visibility 0s} /* the grid is tall, so it opens slower; closing keeps .more's .5s */
 .icon-more + .field::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
 .icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:10px;padding:4px 16px 16px}
 .icon-grid button{aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:var(--fill);color:var(--text);transition:background-color .2s,transform .2s cubic-bezier(.2,.8,.2,1)}
@@ -1635,6 +1636,7 @@ function renderBubbles(fromKey){
       el.style.transitionDelay = dl + "ms";
       setTimeout(() => el.classList.remove("pre"), 160 + dl);
     } else {
+      bubFace(el, x);
       el.style.transitionDelay = "0ms";
       const oldR = +el.dataset.r;
       if(Math.abs(oldR - p.r) > .5){ // keep it looking the same size, then let the scale settle to 1
@@ -1807,19 +1809,29 @@ function popBubble(key, done){
   }, 320);
 }
 
-function el_bubble(x){
-  const el = document.createElement("button");
-  el.className = "bb" + (x.liab ? " liab" : ""); el.dataset.key = x.key;
+// what a bubble shows (name, icon, colours); set when it's made and again on every render, so edits show up
+function bubFace(el, x){
+  el._x = x; el.classList.toggle("liab", !!x.liab);
   el.style.setProperty("--bc", x.c);
   if(x.g){ el.style.setProperty("--ba", x.g[0]); el.style.setProperty("--bb", x.g[1]); }
+  const face = (x.icon || "") + "|" + x.n;
+  if(el._face === face) return; el._face = face;
+  const bv = el.querySelector(".bv"), v = bv ? bv.textContent : "";
+  el.querySelector(".bt").innerHTML = `${x.icon ? `<span class="bi">${ic(x.icon)}</span>` : ""}<span class="bn">${esc(x.n)}</span><span class="bv num amt">${esc(v)}</span>`;
+}
+function el_bubble(x){
+  const el = document.createElement("button");
+  el.className = "bb"; el.dataset.key = x.key;
   el.style.setProperty("--fd", (-Math.random() * 6).toFixed(2) + "s");
-  el.innerHTML = `<span class="bf"><span class="bt">${x.icon ? `<span class="bi">${ic(x.icon)}</span>` : ""}<span class="bn">${esc(x.n)}</span><span class="bv num amt"></span></span></span>`;
+  el.innerHTML = `<span class="bf"><span class="bt"></span></span>`;
+  bubFace(el, x);
   el.addEventListener("pointerdown", e => bubPress(el, e));
   el.addEventListener("contextmenu", e => e.preventDefault());
   el.onclick = () => {
     if(hex.moved){ hex.moved = false; return; }
+    const x = el._x; // the latest render's item, so an edited entry opens with its new name
     if(x.group){ bubLevel = x.group; renderBubbles(x.key); }
-    else if(x.acc) accountSheet(x.acc);
+    else if(x.acc) accountSheet(S.accounts.find(a => a.id === x.acc.id) || x.acc);
   };
   return el;
 }
