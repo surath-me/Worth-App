@@ -455,6 +455,9 @@ body.empty .hero,body.empty #chartWrap,body.empty #range{display:none}
 /* launch splash: the icon's curve draws itself, the dot pops, the word fades in, then it all lifts away */
 #splash{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:radial-gradient(120% 80% at 30% 15%,rgba(255,255,255,.18),rgba(255,255,255,0) 60%),linear-gradient(160deg,#34D69E 0%,#11A27C 55%,#0B7F68 100%);transition:opacity .5s ease,transform .6s cubic-bezier(.2,.8,.2,1)}
 #splash.out{opacity:0;transform:scale(1.12);pointer-events:none}
+/* safety net: if start-up ever fails before the script removes it, the splash still gets out of the way */
+#splash{animation:spGone .4s ease 4s forwards}
+@keyframes spGone{to{opacity:0;visibility:hidden}}
 .sp-in{display:flex;flex-direction:column;align-items:center;gap:14px;animation:spIn .7s cubic-bezier(.2,.8,.2,1) both}
 .sp-logo svg{width:124px;height:124px;overflow:visible}
 .sp-logo path,.oa-core path{fill:none;stroke:#fff;stroke-width:9;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;opacity:0;animation:spDraw .85s cubic-bezier(.65,0,.35,1) .2s forwards}
@@ -1930,12 +1933,13 @@ function renderMonthly(dir){
     const still = items.filter(a => !a.changed).sort(byValue);
     // exchange rates: what the month's rates did to balances that stayed the same in their own currency
     let fx = 0; const fxCurs = new Set();
+    // counted on last month's balance for every foreign entry, changed or not, so the rows plus this line add up to the month's change
     items.forEach(a => { if(a.same && a.cur !== S.base){ const d = sgn(a.type) * (conv(a.pb, a.cur, rates) - conv(a.pb, a.cur, prates)); if(Math.abs(d) >= .5){ fx += d; fxCurs.add(a.cur); } } });
     const card = el("div", {class:"card"});
     moved.forEach(a => {
       const liab = isLiab(a.type);
       let chg;
-      if(a.gone) chg = '<span class="t2">Removed</span>';
+      if(a.gone) chg = `<span class="t2">${a.acc ? "Not recorded" : "Removed"}</span>`;
       else if(!a.same) chg = '<span class="t2">New</span>';
       else { const d = a.b - a.pb, good = liab ? d < 0 : d > 0, dec = {};
         chg = liab ? `<span class="t2 ${good ? "pos" : "neg"} amt">${fmt(Math.abs(d), a.cur, dec)} ${d < 0 ? "paid off" : "more owed"}</span>`
@@ -2418,10 +2422,10 @@ function playArt(art, delay = 0){
   const {c:core, x:cx, y:cy} = artCentre(art);
   core.animate([{opacity:0, transform:"scale(.6)", filter:"blur(14px)"}, {opacity:1, transform:"scale(1)", filter:"blur(0)"}],
     {duration:1100, delay, easing:ease, fill:"backwards"});
-  const ring = art.querySelector(".oa-ring");
-  ring.animate([{transform:"scale(.95)", opacity:0}, {transform:"scale(1.15)", opacity:.4, offset:.25}, {transform:"scale(2)", opacity:0}],
-    {duration:2200, delay:delay + 420, easing:"cubic-bezier(.2,.6,.3,1)", fill:"both"});
-  art.querySelectorAll(".oa-ring")[1].style.display = "none";
+  // two soft green ripples keep breathing out of the logo, half a beat apart, for as long as the screen is up
+  art.querySelectorAll(".oa-ring").forEach((ring, k) => ring.animate(
+    [{transform:"scale(.95)", opacity:0}, {transform:"scale(1.12)", opacity:.4, offset:.2}, {transform:"scale(2.1)", opacity:0}],
+    {duration:3200, delay:delay + 420 + k * 1600, iterations:Infinity, easing:"cubic-bezier(.2,.6,.3,1)", fill:"backwards"}));
   const bs = [...art.querySelectorAll(".oa-b")].sort((x, y) => y.offsetWidth - x.offsetWidth);
   bs.forEach((b, k) => {
     const p = bubCentre(b), dx = cx - p.x, dy = cy - p.y;
@@ -2462,8 +2466,15 @@ function exitArt(art, fades, done){
     {duration:820, delay:t, easing:"cubic-bezier(.6,0,.8,.3)", fill:"forwards"}).onfinish = done;
 }
 let onbOpen = false;
+// Restore a backup's text (Settings and the onboarding both use this); throws if it isn't a Worth backup.
+function restoreBackup(txt){
+  const raw = JSON.parse(txt);
+  if(!raw || typeof raw !== "object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw new Error("not a backup");
+  S = normalize(raw); commit({keepMonth:true}); fetchRates(true);
+}
 // A tray that slides up from the bottom of the onboarding with the currencies; tap one to pick it, or tap outside / drag it down to close.
 function currencyTray(cur, onPick){
+  if($("#onb .onb-tray")) return; // already open (a quick double tap)
   const root = $("#onb"), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const scrim = el("div", {class:"onb-scrim"}), tray = el("div", {class:"onb-tray", role:"dialog", "aria-label":"Currency"});
   tray.innerHTML = `<div class="onb-grab"></div><div class="onb-tray-h">Currency</div>`;
@@ -2535,8 +2546,7 @@ function openOnboarding(){
       const restore = el("button", {class:"onb-text"}, "Restore a backup");
       restore.onclick = () => file.click();
       file.onchange = async () => { const f = file.files && file.files[0]; if(!f) return;
-        try{ const raw = JSON.parse(await f.text()); if(!raw || typeof raw !== "object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0;
-          S = normalize(raw); commit({keepMonth:true}); fetchRates(true); closeOnboarding(); toast("Backup restored"); }
+        try{ restoreBackup(await f.text()); closeOnboarding(); toast("Backup restored"); }
         catch(e){ toast("That file isn’t a Worth backup"); } };
       const gs = cta("Get started", () => { if(gs.dataset.busy || !art.dataset.ready) return; gs.dataset.busy = 1;
         exitArt(art, [...mid.querySelectorAll(".onb-a"), f], () => go(1, 1, "zoom")); });
@@ -2629,7 +2639,7 @@ function openOnboarding(){
         pad.appendChild(b);
       });
       // a hardware keyboard works too (while the name isn't being edited)
-      pg._key = e => { if(e.target === name) return;
+      pg._key = e => { if(e.target === name || $("#onb .onb-tray")) return;
         if(/^[0-9]$/.test(e.key)) press(e.key); else if(e.key === "." || e.key === ",") press("."); else if(e.key === "Backspace") press("del"); else if(e.key === "Enter") next.click(); else return; e.preventDefault(); };
       name.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); name.blur(); } };
       // only one field looks active at a time: while the name is being edited the amount hides its caret
@@ -2770,10 +2780,7 @@ function renderSettings(){
   const restoreGo = el("button", {class:"primary", style:"display:none"}, "Restore");
   const bkNote = el("p", {class:"note"});
   const paintBk = () => { bkNote.textContent = "Only on this phone · " + (S.backupAt ? "last backup " + agoText(S.backupAt) : "no backup yet"); };
-  const restore = txt => {
-    const raw = JSON.parse(txt); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0;
-    S = normalize(raw); commit({keepMonth:true}); fetchRates(true); setTab("worth"); toast("Backup restored");
-  };
+  const restore = txt => { restoreBackup(txt); setTab("worth"); toast("Backup restored"); };
   const done = () => { S.backupAt = Date.now(); saveLocal(); paintBk(); };
   saveF.onclick = async () => {
     const name = `worth-backup-${new Date().toISOString().slice(0,10)}.json`, txt = JSON.stringify(S, null, 1);
