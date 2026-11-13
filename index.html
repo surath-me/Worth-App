@@ -2445,7 +2445,8 @@ document.querySelectorAll("[data-mi]").forEach(n => {
 
 // Development build only: when there is no data (first launch, or after Erase all data), seed a year of sample data.
 // The generator lives in /dev/sample-data.js, which is removed from production builds (see vercel.json).
-if(window.WORTH_DEV && !S.accounts.length && !Object.keys(S.snaps).length){
+// add ?fresh to the address to skip it and see the first-run welcome
+if(window.WORTH_DEV && !/[?&]fresh\b/.test(location.search) && !S.accounts.length && !Object.keys(S.snaps).length){
   try{ const {makeSample} = await import("/dev/sample-data.js"); S = normalize(makeSample()); saveLocal(); }catch(e){}
 }
 render(true);
