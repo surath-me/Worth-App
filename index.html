@@ -436,6 +436,35 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .upd-row.ok .chk svg{opacity:1;transform:none}
 .upd-rest{display:block;width:100%;margin:10px 0 0;padding:12px;border-radius:14px;background:var(--fill);color:var(--text);font-size:15px;font-weight:600}
 .reveal{text-align:center;padding:14px 0 4px}
+body.empty .hero,body.empty #chartWrap,body.empty #range{display:none}
+.wl{text-align:center;padding:8px 4px 0}
+.wl-art{position:relative;height:120px;margin:4px auto 10px;width:200px}
+.wl-art i{position:absolute;border-radius:50%;background:linear-gradient(140deg,var(--a),var(--b));box-shadow:inset 0 -6px 14px rgba(0,0,0,.18);animation:bfloat 6s ease-in-out infinite}
+.wl-art i:nth-child(1){width:96px;height:96px;left:18px;top:14px}
+.wl-art i:nth-child(2){width:72px;height:72px;left:116px;top:4px;animation-delay:-2s}
+.wl-art i:nth-child(3){width:52px;height:52px;left:112px;top:72px;animation-delay:-4s}
+.wl h2{font-size:24px;font-weight:700;letter-spacing:-.01em;line-height:1.2;margin:0 12px 8px}
+.wl-sub{font-size:15px;color:var(--sec);line-height:1.45;margin:0 8px 18px}
+.wl-list{text-align:left;padding:4px 16px}
+.wl-i{display:flex;gap:14px;align-items:flex-start;padding:12px 0}
+.wl-i + .wl-i{border-top:.5px solid var(--sep)}
+.wl-i svg{width:24px;height:24px;flex:none;fill:var(--g1);margin-top:1px}
+.wl-i b{display:block;font-weight:600;font-size:15px;margin-bottom:2px}
+.wl-i span{font-size:14px;color:var(--sec);line-height:1.35}
+.wl-priv{font-size:13px;color:var(--sec);margin:12px 0 0}
+.bfc{padding:14px 16px 16px;margin-top:20px;text-align:left}
+.bf-h{display:flex;justify-content:space-between;align-items:center;font-size:16px}
+.bfc p{font-size:14px;color:var(--sec);line-height:1.4;margin:6px 0 12px}
+.bfc .chip{background:var(--fill)} .bfc .chip svg{width:16px;height:16px;fill:currentColor}
+.bf-x{width:36px;height:36px;margin:-8px -10px -8px 0;display:grid;place-items:center;color:var(--sec)}
+.bf-x svg{width:20px;height:20px;fill:currentColor;transform:rotate(45deg)}
+.su-bf{margin-top:24px}
+.su-chips .chip{background:var(--fill)} .su-chips .chip svg{width:16px;height:16px;fill:currentColor}
+.su-more .chip{background:var(--fill)} .su-more .chip svg{width:15px;height:15px;fill:currentColor}
+.su-note{margin-bottom:12px}
+.su-row .su-name{width:100%;border:0;background:none;color:var(--text);font-size:15px;padding:0;outline:none;text-overflow:ellipsis}
+.su-row .su-name:focus{text-decoration:underline;text-decoration-color:var(--accent);text-underline-offset:3px}
+.su-cur{border:0;background:none;color:var(--accent);font-size:13px;padding:0;margin:0;-webkit-appearance:none;appearance:none;font-weight:600}
 .rv-k{font-size:15px;color:var(--sec)}
 .rv-total{font-size:42px;font-weight:700;letter-spacing:-.025em;margin:4px 0 2px}
 .rv-chg{font-size:17px;font-weight:600;color:var(--sec)} .rv-chg.up .amt{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent} .rv-chg.down .amt{color:var(--down)}
@@ -533,6 +562,7 @@ svg.mi{fill:currentColor}
     <h1 class="large" id="largeTitle">Net worth</h1>
 
     <section class="view" id="vWorth">
+      <div id="welcome"></div>
       <section class="hero">
         
         <div class="total num amt" id="total">€0</div>
@@ -548,6 +578,7 @@ svg.mi{fill:currentColor}
         <span class="thumb"></span>
         <button data-r="1">1M</button><button data-r="6">6M</button><button data-r="12">1Y</button><button data-r="0">All</button>
       </div>
+      <div id="backfill"></div>
       <div id="bubSection">
         <div class="section-h"><h2>Breakdown</h2></div>
         <div class="card bubcard"><div class="bub-h" id="bubH"></div><div class="bub" id="bub"></div><div class="bub-leg" id="bubLeg"></div></div>
@@ -780,6 +811,7 @@ let scrubbing = false;
 
 function render(animateChart){
   document.body.classList.toggle("hide", !!UI.hide);
+  renderWelcome(); renderBackfill();
   renderTabs();
   renderHero();
   renderRange();
@@ -1681,7 +1713,7 @@ function renderMonthly(dir){
   const snap = S.snaps[m];
 
   if(!S.accounts.length && !Object.keys(S.snaps).length){
-    const start = el("button", {class:"primary"}, "Add your first entry"); start.onclick = () => accountSheet();
+    const start = el("button", {class:"primary"}, "Get started"); start.onclick = () => setupSheet();
     view.append(el("div", {class:"card mdetail-empty"}, "Each month you record your balances here, one month at a time. Start by adding what you own and owe."), start);
     return;
   }
@@ -1945,9 +1977,15 @@ function carried(a, m){
     if(from && v === (+S.snaps[from].items[a.id][0] || 0)) gap = mIndex(m) - mIndex(from);
   }
   else if(from){ v = +S.snaps[from].items[a.id][0] || 0; gap = mIndex(m) - mIndex(from); }
-  else return {v:"", from:null};
+  else {
+    // filling in history before the first record: start from the nearest later month (or today's balance), value change undone
+    const later = Object.keys(S.snaps).sort().find(k => k > m && S.snaps[k].items[a.id]);
+    if(later){ from = later; v = +S.snaps[later].items[a.id][0] || 0; gap = mIndex(m) - mIndex(later); }
+    else if(m < cm){ from = cm; v = +a.bal || 0; gap = mIndex(m) - mIndex(cm); }
+    else return {v:"", from:null};
+  }
   const dep = a.dep != null ? +a.dep : (TYPE[a.type] && TYPE[a.type].dep);
-  if(dep && gap > 0) v = Math.round(v * Math.pow(1 + dep / 100, gap / 12) * 100) / 100;
+  if(dep && gap !== 0) v = Math.round(v * Math.pow(1 + dep / 100, gap / 12) * 100) / 100;
   return {v, from};
 }
 // The monthly check-in. A new month starts from the last one: tick what hasn't changed, type what has; a progress bar
@@ -2023,7 +2061,9 @@ function updateSheet(start, keep){
       else if(from){
         const clear = el("button", {class:"link"}, "Clear all");
         clear.onclick = () => { accs.forEach(a => setVal(a.id, "")); done = new Set(); status.firstChild.innerHTML = "Starting from blank. Type each balance."; clear.remove(); accs.forEach(a => paintRow(a.id)); paintProgress(); recompute(); };
-        status.append(el("span", {}, `Starting from ${esc(mOnly(from))}’s balances. Tick what hasn’t changed, type what has. <b class="cnt"></b>`), clear);
+        status.append(el("span", {}, from > month
+          ? `Filled in from ${esc(mLabel(from))}. Change what was different back then, tick the rest. <b class="cnt"></b>`
+          : `Starting from ${esc(mLabel(from))}’s balances. Tick what hasn’t changed, type what has. <b class="cnt"></b>`), clear);
       } else status.append(el("span", {}, `Type each balance for ${esc(mLong(month))}. <b class="cnt"></b>`));
       saveBtn.textContent = "Save " + mLong(month);
       accs.forEach(a => paintRow(a.id)); paintProgress(); recompute();
@@ -2059,7 +2099,13 @@ function updateSheet(start, keep){
             <span class="d num amt ${x.d > 0 ? "up" : "down"}">${x.d > 0 ? "+" : "−"}${fmt(Math.abs(x.d), S.base, {dec:0})}</span></div>`).join("");
           wrap.append(card);
         } else wrap.append(el("div", {class:"rv-line"}, "Nothing moved this month."));
-      } else wrap.append(el("div", {class:"rv-line"}, "Your first month on record. Next month’s check-in shows what moved."));
+      } else {
+        const nk = Object.keys(S.snaps).filter(k => k > m).sort()[0];
+        if(nk && snap){ const d = snapTotal(S.snaps[nk]) - total;
+          wrap.append(el("div", {class:"rv-chg num " + (d >= 0 ? "up" : "down")}, `<span class="amt">${d >= 0 ? "▲" : "▼"} ${fmt(Math.abs(d), S.base, {dec:0})}</span> from here to ${esc(mLabel(nk))}`),
+            el("div", {class:"rv-line"}, `Your curve now starts in ${esc(mLong(m))}.`));
+        } else wrap.append(el("div", {class:"rv-line"}, "Your first month on record. Next month’s check-in shows what moved."));
+      }
       const ok = el("button", {class:"primary"}, "Done"); ok.onclick = closeSheet;
       wrap.append(ok); body.append(wrap);
       const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -2130,6 +2176,148 @@ function updateSheet(start, keep){
     body.append(mCard, el("p", {class:"note"}, "Pick an earlier month to fill in your history."),
       el("div", {class:"lbl-s"}, "Balances"), status, prog, card, rest, tot, saveBtn);
     fill(keep && keep.vals, !!keep);
+  });
+}
+
+/* ---------- first run ---------- */
+// With no data at all, the Net worth tab shows a welcome instead of an empty €0 chart. "Get started" opens a short setup:
+// pick what you have (and your main currency), enter rough balances, see your starting point, then optionally add a few
+// past months so the curve has a shape on day one. Until there are 4 months, a "Draw your curve" card offers the rest.
+const KINDS = [
+  {t:"bank", n:"Bank account"}, {t:"etf", n:"ETFs"}, {t:"stocks", n:"Stocks"}, {t:"mf", n:"Mutual funds"},
+  {t:"crypto", n:"Crypto"}, {t:"cash", n:"Cash"}, {t:"property", n:"Home or property"}, {t:"vehicle", n:"Car"},
+  {t:"valuables", n:"Gold & valuables"}, {t:"mortgage", n:"Mortgage"}, {t:"loan", n:"Loan"}, {t:"card", n:"Credit card"}];
+const isEmpty = () => !S.accounts.length && !Object.keys(S.snaps).length;
+const mShift = n => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - n); return monthKey(d); };
+const mLabel = m => mDate(m).getFullYear() === new Date().getFullYear() ? mOnly(m) : mShort(m);
+function renderWelcome(){
+  const w = $("#welcome"), empty = isEmpty();
+  document.body.classList.toggle("empty", empty);
+  if(!empty){ w.innerHTML = ""; return; }
+  if(w.childElementCount) return;
+  w.innerHTML = `<div class="wl">
+    <div class="wl-art" aria-hidden="true"><i style="--a:#2DD4BF;--b:#0A84FF"></i><i style="--a:#F2C14E;--b:#C2763A"></i><i style="--a:#5BE37D;--b:#11A08A"></i></div>
+    <h2>Everything you own and owe, in one place</h2>
+    <p class="wl-sub">Bank accounts, brokers, property and loans, in any country and currency. One quick check-in a month.</p>
+    <div class="card wl-list">
+      <div class="wl-i">${ic("bank")}<span><b>Add what you have</b>Rough numbers are fine to start.</span></div>
+      <div class="wl-i">${ic("calendar")}<span><b>Check in once a month</b>Tick what didn’t change, type what did.</span></div>
+      <div class="wl-i">${ic("chart")}<span><b>See your story</b>Your curve, and what moved it.</span></div>
+    </div>
+    <button class="primary" id="wlGo">Get started</button>
+    <p class="wl-priv">No bank logins. Everything stays on this phone.</p></div>`;
+  $("#wlGo").onclick = () => setupSheet();
+}
+// "Draw your curve": the months 1, 3, 6 and 12 back that aren't recorded yet, each opening a check-in for that month
+function renderBackfill(){
+  const box = $("#backfill"), n = Object.keys(S.snaps).length;
+  const months = [1, 3, 6, 12].map(mShift).filter(m => !S.snaps[m]);
+  if(isEmpty() || UI.bfDone || n >= 4 || !months.length){ box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="card bfc"><div class="bf-h"><b>Draw your curve</b><button class="bf-x" aria-label="Dismiss">${ic("add")}</button></div>
+    <p>Add where you stood in earlier months, so your chart has a shape today. Rough numbers are fine.</p>
+    <div class="chips">${months.map(m => `<button class="chip" data-m="${m}">${ic("add")}<span>${esc(mLabel(m))}</span></button>`).join("")}</div></div>`;
+  box.querySelectorAll(".chip").forEach(c => c.onclick = () => updateSheet(c.dataset.m));
+  box.querySelector(".bf-x").onclick = () => { UI.bfDone = true; saveUI(); renderBackfill(); };
+}
+function setupSheet(){
+  const picked = [], rows = []; // rows: {kind, name, cur, bal}
+  openSheet(({bar, body}) => {
+    const step1 = () => {
+      body.innerHTML = "";
+      const next = sheetBar(bar, "Set up Worth", "Cancel", {label:"Next", onClick: () => { if(picked.length) step2(); }});
+      const seg = el("div", {class:"seg"}); seg.innerHTML = '<span class="thumb"></span>' + CUR_KEYS.map(c => `<button data-c="${c}">${c}</button>`).join("");
+      seg.querySelectorAll("button").forEach(b => b.onclick = () => { S.base = b.dataset.c; paintSeg(seg, CUR_KEYS.indexOf(S.base)); });
+      const chips = liab => { const w = el("div", {class:"chips su-chips"});
+        KINDS.filter(k => isLiab(k.t) === liab).forEach(k => {
+          const c = el("button", {class:"chip", "aria-pressed": String(picked.includes(k.t))}, `${ic(k.t)}<span>${esc(k.n)}</span>`);
+          c.onclick = () => { const i = picked.indexOf(k.t); i < 0 ? picked.push(k.t) : picked.splice(i, 1);
+            c.setAttribute("aria-pressed", String(i < 0)); next.disabled = !picked.length; go.disabled = !picked.length; };
+          w.appendChild(c); });
+        return w; };
+      const go = el("button", {class:"primary"}, "Next"); go.onclick = () => step2();
+      body.append(el("div", {class:"lbl-s"}, "Your main currency"), seg,
+        el("div", {class:"lbl-s"}, "What do you own?"), chips(false),
+        el("div", {class:"lbl-s"}, "And owe?"), chips(true),
+        el("p", {class:"note"}, "Pick everything that applies. You can add more any time with +."), go);
+      paintSeg(seg, CUR_KEYS.indexOf(S.base)); next.disabled = go.disabled = !picked.length;
+    };
+    const step2 = () => {
+      body.innerHTML = "";
+      // one row per picked kind (keeps what was already typed when coming back)
+      picked.forEach(t => { if(!rows.some(r => r.t === t)) rows.push({t, name:KINDS.find(k => k.t === t).n, cur:S.base, bal:""}); });
+      for(let i = rows.length - 1; i >= 0; i--) if(!picked.includes(rows[i].t)) rows.splice(i, 1);
+      rows.sort((a, b) => isLiab(a.t) - isLiab(b.t) || picked.indexOf(a.t) - picked.indexOf(b.t));
+      const save = sheetBar(bar, "Your balances", "Back", {label:"Save", onClick: () => finish()});
+      bar.querySelector(".l").onclick = () => step1();
+      const card = el("div", {class:"card"}), totalV = el("span", {class:"v num amt"});
+      const recompute = () => {
+        let t = 0, any = false;
+        rows.forEach(r => { const v = parseNum(r.bal); if(!isNaN(v)){ any = true; t += sgn(r.t) * conv(Math.abs(v), r.cur); } });
+        totalV.textContent = fmt(t, S.base, {dec:0}); save.disabled = ok.disabled = !any;
+      };
+      const paint = () => {
+        card.innerHTML = "";
+        rows.forEach((r, i) => {
+          const t = TYPE[r.t];
+          const row = el("div", {class:"row upd-row su-row"});
+          row.innerHTML = `${avatar(t)}`;
+          const mid = el("span", {class:"mid"});
+          const nm = el("input", {class:"su-name", value:r.name, "aria-label":"Name", autocomplete:"off"});
+          nm.oninput = () => { r.name = nm.value; };
+          const sel = el("select", {class:"su-cur", "aria-label":"Currency"}, CUR_KEYS.map(c => `<option value="${c}"${c === r.cur ? " selected" : ""}>${c}</option>`).join(""));
+          sel.onchange = () => { r.cur = sel.value; sym.textContent = symOf(r.cur); recompute(); };
+          mid.append(nm, el("div", {class:"t2"}, t.liab ? "Amount owed · " : ""), ); mid.lastChild.appendChild(sel);
+          const box = el("label", {class:"amt-in"}), sym = el("span", {class:"sym"}, esc(symOf(r.cur)));
+          const inp = el("input", {inputmode:"decimal", placeholder:"0", "aria-label":r.name + (t.liab ? " amount owed" : " balance"), autocomplete:"off"});
+          inp.value = r.bal; box.append(sym, inp);
+          inp.oninput = () => { r.bal = inp.value; recompute(); };
+          inp.onfocus = () => { const v = parseNum(inp.value); inp.value = isNaN(v) ? "" : plain(v); };
+          inp.onblur = () => { const v = parseNum(inp.value); inp.value = isNaN(v) ? "" : fmtIn(Math.abs(v), r.cur); r.bal = inp.value; };
+          inp.onkeydown = e => { if(e.key === "Enter"){ const nx = card.querySelectorAll(".amt-in input")[i + 1]; nx ? nx.focus() : inp.blur(); } };
+          const end = el("span", {class:"end"}); end.appendChild(box); row.appendChild(mid); row.appendChild(end);
+          card.appendChild(row);
+        });
+        recompute();
+      };
+      // another account of a kind already picked (a second bank, another broker)
+      const more = el("div", {class:"chips scroll su-more"});
+      KINDS.forEach(k => { const c = el("button", {class:"chip"}, `${ic("add")}<span>${esc(k.n)}</span>`);
+        c.onclick = () => { if(!picked.includes(k.t)) picked.push(k.t);
+          const same = rows.filter(r => r.t === k.t).length;
+          rows.push({t:k.t, name: same ? `${k.n} ${same + 1}` : k.n, cur:S.base, bal:""});
+          rows.sort((a, b) => isLiab(a.t) - isLiab(b.t)); paint(); };
+        more.appendChild(c); });
+      const tot = el("div", {class:"upd-total"}, "<span>Net worth</span>"); tot.appendChild(totalV);
+      const ok = el("button", {class:"primary"}, "Save my starting point"); ok.onclick = () => finish();
+      body.append(el("p", {class:"note su-note"}, "Rough numbers are fine. Rename anything, and add what you owe as a positive amount."),
+        card, el("div", {class:"lbl-s"}, "Add another"), more, tot, ok);
+      paint();
+    };
+    const finish = () => {
+      const made = rows.map(r => ({r, v:parseNum(r.bal)})).filter(x => !isNaN(x.v));
+      if(!made.length) return;
+      made.forEach(({r, v}) => S.accounts.push({id:uid(), name:(r.name || "").trim() || KINDS.find(k => k.t === r.t).n, type:r.t, platform:"", cur:r.cur, bal:Math.abs(v)}));
+      S.lastCheckin = monthKey();
+      commit();
+      step3();
+    };
+    const step3 = () => {
+      body.innerHTML = "";
+      sheetBar(bar, "You’re set up", "Close"); bar.querySelector(".r").style.visibility = "hidden";
+      const sp = splitGroups(liveRows()), wrap = el("div", {class:"reveal"});
+      wrap.append(el("div", {class:"rv-k"}, "Your starting point"), el("div", {class:"rv-total num amt"}, fmt(liveTotal(), S.base, {dec:0})));
+      if(sp.debts > 0 || sp.mort > 0) wrap.append(el("div", {class:"rv-chg"}, `<span class="amt">${fmt(sp.owned + (sp.netted ? sp.mort : 0), S.base, {dec:0})}</span> owned · <span class="amt">${fmt(sp.debts + (sp.netted ? sp.mort : 0), S.base, {dec:0})}</span> owed`));
+      const months = [1, 3, 6, 12].map(mShift);
+      const card = el("div", {class:"card bfc su-bf"}, `<div class="bf-h"><b>Draw your curve now?</b></div>
+        <p>Add where you stood a few months back and your chart has a shape today. Your balances are filled in from now, so change only what was different.</p>
+        <div class="chips">${months.map(m => `<button class="chip" data-m="${m}">${ic("add")}<span>${esc(mLabel(m))}</span></button>`).join("")}</div>`);
+      card.querySelectorAll(".chip").forEach(c => c.onclick = () => updateSheet(c.dataset.m));
+      const done = el("button", {class:"ghost wide"}, "<span>Later</span>"); done.onclick = closeSheet;
+      wrap.append(card, done); body.append(wrap);
+      if(!matchMedia("(prefers-reduced-motion: reduce)").matches && wrap.animate) [...wrap.children].forEach((n, k) => n.animate([{opacity:0, transform:"translateY(10px)"}, {opacity:1, transform:"none"}],
+        {duration:500, delay:80 + k * 90, easing:"cubic-bezier(.2,.7,.2,1)", fill:"backwards"}));
+    };
+    step1();
   });
 }
 
@@ -2225,7 +2413,7 @@ async function fetchRates(force){
 }
 
 /* ---------- wiring ---------- */
-$("#fab").onclick = () => accountSheet(null, {fromFab:true});
+$("#fab").onclick = () => isEmpty() ? setupSheet() : accountSheet(null, {fromFab:true});
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => setTab(t.dataset.tab));
 $("#total").onclick = () => { UI.hide = !UI.hide; saveUI(); render(false); };
 $("#allocMode").querySelectorAll("button").forEach(b => b.onclick = () => { UI.alloc = b.dataset.m; saveUI(); renderAlloc(); });
