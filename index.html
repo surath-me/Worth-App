@@ -2459,7 +2459,7 @@ function exitArt(art, fades, done){
   const k = far / (r.width / 2) * 1.08;
   core.style.zIndex = 5;
   core.animate([{transform:"scale(1)"}, {transform:"scale(.94)", offset:.18}, {transform:`scale(${k})`}],
-    {duration:520, delay:t, easing:"cubic-bezier(.65,0,.85,.25)", fill:"forwards"}).onfinish = done;
+    {duration:820, delay:t, easing:"cubic-bezier(.6,0,.8,.3)", fill:"forwards"}).onfinish = done;
 }
 let onbOpen = false;
 // A tray that slides up from the bottom of the onboarding with the currencies; tap one to pick it, or tap outside / drag it down to close.
