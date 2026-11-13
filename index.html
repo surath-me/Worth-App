@@ -133,7 +133,7 @@ body.hide .amt{filter:blur(10px)}
 #chart .line{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;transition:stroke .4s}
 #chart .area{transition:opacity .8s ease .25s}
 #chart .base{stroke:var(--ter);stroke-width:1;stroke-dasharray:2 4}
-#chart .lbl{fill:var(--ter);font-size:11px}
+#chart .lbl{fill:var(--sec);font-size:12px}
 #chart .lbl .lv{fill:var(--sec);font-weight:600}
 #chart .scrub{opacity:0;transition:opacity .15s}
 #chart.scrubbing .scrub{opacity:1}
@@ -227,7 +227,7 @@ button.row:active{background:var(--fill)}
 /* leaving bubbles: the label fades out gently while the bubble shrinks away, instead of vanishing at once */
 .bb.gone .bt{opacity:0;transition:opacity .35s ease}
 .bf{position:absolute;inset:0;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;overflow:hidden;padding:0 6px;
-  color:#fff;text-align:center;line-height:1.15;
+  color:#fff;text-align:center;line-height:1.15;text-shadow:0 1px 2px rgba(0,0,0,.35),0 0 8px rgba(0,0,0,.12);
   background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),rgba(255,255,255,0) 55%),linear-gradient(140deg,var(--ba,var(--bc)) 10%,var(--bb,var(--bc)) 90%);
   box-shadow:inset 0 -6px 14px rgba(0,0,0,.18);
   animation:bfloat 6s ease-in-out infinite;animation-delay:var(--fd);transition:scale .3s var(--bounce)}
@@ -239,7 +239,7 @@ button.row:active{background:var(--fill)}
 .bub .bb.dragging{transition:none!important}
 
 .bn{font-size:13px;font-weight:600;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;-webkit-hyphens:auto;hyphens:auto}
-.bv{font-size:12px;font-weight:500;opacity:.88;white-space:nowrap}
+.bv{font-size:12px;font-weight:600;opacity:.95;white-space:nowrap}
 .bi svg{width:18px;height:18px;fill:#fff;opacity:.9}
 .bb.sm .bi{display:none}
 .bb.xs .bn{display:none} .bb.xxs .bv{display:none}
@@ -289,6 +289,7 @@ body.sheet-open .tabbar{transform:translateY(120%);opacity:0;pointer-events:none
 .tab{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;color:var(--text);border-radius:27px;transition:color .3s}
 .tab svg{width:24px;height:24px;transition:transform .5s var(--spring)}
 .tab[aria-selected="true"]{color:var(--accent)}
+.tab.due::after{content:"";position:absolute;top:7px;left:calc(50% + 9px);width:8px;height:8px;border-radius:50%;background:var(--g1);box-shadow:0 0 0 2px var(--tabbg),0 0 8px var(--g1a)}
 .tab[aria-selected="true"] svg{transform:scale(1.1)}
 .tab:active svg{transform:scale(.85)}
 .tab-ind{position:absolute;top:4px;bottom:4px;left:4px;width:92px;border-radius:27px;background:var(--fill);transition:transform .55s var(--spring)}
@@ -415,6 +416,11 @@ body.sheet-open #scrim{opacity:1;pointer-events:auto}
 .plain-btn{width:100%;height:50px;color:var(--accent);font-size:15px;text-align:left;padding:0 16px;position:relative}
 .plain-btn + .plain-btn::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
 .plain-btn:active{background:var(--fill)}
+.sw-row{display:flex;align-items:center;justify-content:space-between;width:100%;height:50px;padding:0 16px;font-size:15px;color:var(--text)}
+.sw-row .sw{position:relative;width:51px;height:31px;border-radius:16px;background:var(--fill2);transition:background .25s}
+.sw-row .sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.25);transition:transform .35s var(--bounce)}
+.sw-row[aria-checked="true"] .sw{background:var(--grad)}
+.sw-row[aria-checked="true"] .sw::after{transform:translateX(20px)}
 textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;background:var(--card);padding:12px 14px;font-size:13px;font-family:ui-monospace,Menlo,monospace;resize:vertical;margin-top:10px;outline:none}
 .upd-row .end input{width:120px;border:0;background:var(--fill);border-radius:9px;padding:8px 10px;text-align:right;font-size:16px;outline:none;font-variant-numeric:tabular-nums;transition:box-shadow .2s}
 .upd-row .end input:focus{box-shadow:0 0 0 2px var(--accent)}
@@ -427,7 +433,7 @@ textarea.backup{width:100%;min-height:120px;border:0;border-radius:14px;backgrou
 .carry b{font-weight:600;color:var(--text);white-space:nowrap}
 .upd-row .t1{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25}
 .upd-row .t2.hint{white-space:normal;line-height:1.3}
-.upd-row .hint .up{color:var(--up)} .upd-row .hint .down{color:var(--down)} .upd-row .hint .dep{color:var(--ter)}
+.upd-row .hint .up{color:var(--up)} .upd-row .hint .down{color:var(--down)} .upd-row .hint .dep{color:var(--sec)}
 .upd-row .end .amt-in{display:flex;align-items:center;gap:3px;width:132px;height:38px;padding:0 10px;border-radius:9px;background:var(--fill);transition:box-shadow .2s}
 .upd-row .end .amt-in:focus-within{box-shadow:0 0 0 2px var(--accent)}
 .upd-row .end .amt-in .sym{color:var(--sec);font-size:15px;flex:none}
@@ -724,7 +730,7 @@ const mOnly = m => mDate(m).toLocaleDateString("en-GB",{month:"long"});
 const fmtCache = {};
 function fmt(v, cur=S.base, opts={}){
   const abs = Math.abs(v);
-  const dec = opts.dec != null ? opts.dec : (abs >= 1000 ? 0 : 2);
+  const dec = opts.dec != null ? opts.dec : (abs >= 10 || abs === 0 ? 0 : 2); // whole units everywhere; cents only for tiny amounts
   const key = cur + dec;
   if(!fmtCache[key]){
     const o = {minimumFractionDigits:dec, maximumFractionDigits:dec};
@@ -1664,6 +1670,9 @@ const tabPitch = () => document.querySelector(".tab").getBoundingClientRect().wi
 function renderTabs(){
   const i = TABS.indexOf(UI.tab);
   document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.tab === UI.tab));
+  // a dot on Monthly while this month's check-in is due
+  const due = S.accounts.length > 0 && S.lastCheckin !== monthKey(), mt = document.querySelector('.tab[data-tab="monthly"]');
+  mt.classList.toggle("due", due); mt.setAttribute("aria-label", due ? "Monthly, check-in due" : "Monthly");
   document.querySelector(".tab-ind").style.transform = `translateX(${i * tabPitch()}px)`;
   TABS.forEach(t => $(VIEWS[t]).classList.toggle("active", t === UI.tab));
   $("#largeTitle").textContent = TITLES[UI.tab];
@@ -1734,7 +1743,7 @@ function renderMonthly(dir){
   const tv = el("div", {class:"total num amt"}); tv._v = pv != null ? pv : v * 0.94;
   const dl = el("div", {class:"delta num"});
   if(pv != null){ const d = v - pv, pct = pv ? d / Math.abs(pv) * 100 : 0;
-    dl.innerHTML = `<span class="chg ${d >= 0 ? "up" : "down"} amt">${ARROW}${fmt(Math.abs(d), S.base, Math.abs(d) >= 100 ? {dec:0} : {})} (${Math.abs(pct).toFixed(1)}%)</span><span class="when">vs ${vsLabel(m, pm)}</span>`;
+    dl.innerHTML = `<span class="chg ${d >= 0 ? "up" : "down"} amt">${ARROW}${fmt(Math.abs(d), S.base)} (${Math.abs(pct).toFixed(1)}%)</span><span class="when">vs ${vsLabel(m, pm)}</span>`;
   } else dl.innerHTML = '<span class="when">First month on record</span>';
   head.append(tv, dl);
   // one action, right under the total: update this month (highlighted while the current month still waits for its check-in)
@@ -1788,9 +1797,9 @@ function renderMonthly(dir){
       let chg;
       if(a.gone) chg = '<span class="t2">Removed</span>';
       else if(!a.same) chg = '<span class="t2">New</span>';
-      else { const d = a.b - a.pb, good = liab ? d < 0 : d > 0, dec = Math.abs(d) >= 100 ? {dec:0} : {};
+      else { const d = a.b - a.pb, good = liab ? d < 0 : d > 0, dec = {};
         chg = liab ? `<span class="t2 ${good ? "pos" : "neg"} amt">${fmt(Math.abs(d), a.cur, dec)} ${d < 0 ? "paid off" : "more owed"}</span>`
-          : `<span class="t2 ${good ? "pos" : "neg"} amt">${signed(d, a.cur, Math.abs(d) >= 100 ? 0 : 2)}</span>`; }
+          : `<span class="t2 ${good ? "pos" : "neg"} amt">${signed(d, a.cur)}</span>`; }
       card.appendChild(rowFor(a, chg));
     });
     if(Math.abs(fx) >= 1){
@@ -2385,23 +2394,55 @@ function renderSettings(){
     S.base = b.dataset.c; paintSeg(seg, CUR_KEYS.indexOf(S.base)); commit({keepMonth:true}); paintRatesInfo();
   });
 
-  // backup
+  // privacy: hiding amounts (also by tapping the total)
+  const pv = el("div", {class:"card"});
+  const sw = el("button", {class:"sw-row", role:"switch", "aria-checked":String(!!UI.hide)}, `<span>Hide amounts</span><i class="sw"></i>`);
+  sw.onclick = () => { UI.hide = !UI.hide; saveUI(); sw.setAttribute("aria-checked", String(UI.hide)); render(false); };
+  pv.appendChild(sw);
+
+  // backup: a file you keep in Files or iCloud Drive (data otherwise lives only on this phone); text copy as a fallback
   const bk = el("div", {class:"card"});
-  const copyB = el("button", {class:"plain-btn"}, '<span class="gtext">Copy backup</span>');
-  const restB = el("button", {class:"plain-btn"}, '<span class="gtext">Restore from backup</span>');
-  bk.append(copyB, restB);
+  const saveF = el("button", {class:"plain-btn"}, '<span class="gtext">Save backup file</span>');
+  const loadF = el("button", {class:"plain-btn"}, '<span class="gtext">Restore from file</span>');
+  const copyB = el("button", {class:"plain-btn"}, '<span class="gtext">Copy backup as text</span>');
+  const restB = el("button", {class:"plain-btn"}, '<span class="gtext">Restore from text</span>');
+  bk.append(saveF, loadF, copyB, restB);
+  const file = el("input", {type:"file", accept:".json,application/json", style:"display:none"});
   const area = el("textarea", {class:"backup", placeholder:"Paste a backup here", style:"display:none"});
   const restoreGo = el("button", {class:"primary", style:"display:none"}, "Restore");
+  const bkNote = el("p", {class:"note"});
+  const paintBk = () => { bkNote.textContent = "Your data lives only on this phone. Save a backup file to Files or iCloud Drive now and then. " +
+    (S.backupAt ? "Last backup: " + agoText(S.backupAt) + "." : "No backup yet."); };
+  const restore = txt => {
+    const raw = JSON.parse(txt); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0;
+    S = normalize(raw); commit({keepMonth:true}); fetchRates(true); setTab("worth"); toast("Backup restored");
+  };
+  const done = () => { S.backupAt = Date.now(); saveLocal(); paintBk(); };
+  saveF.onclick = async () => {
+    const name = `worth-backup-${new Date().toISOString().slice(0,10)}.json`, txt = JSON.stringify(S, null, 1);
+    const f = new File([txt], name, {type:"application/json"});
+    // iPhone: the share sheet offers "Save to Files"; elsewhere a download
+    if(navigator.canShare && navigator.canShare({files:[f]})){
+      try{ await navigator.share({files:[f], title:"Worth backup"}); done(); toast("Backup saved"); return; }
+      catch(e){ if(e && e.name === "AbortError") return; } // cancelled by you; any other failure falls back to a download
+    }
+    const a = el("a", {href:URL.createObjectURL(f), download:name}); document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000); done(); toast("Backup saved");
+  };
+  loadF.onclick = () => file.click();
+  file.onchange = async () => { const f = file.files && file.files[0]; file.value = ""; if(!f) return;
+    try{ restore(await f.text()); } catch(e){ toast("That file isn’t a Worth backup"); } };
   copyB.onclick = async () => {
     const txt = JSON.stringify(S);
-    try{ await navigator.clipboard.writeText(txt); toast("Backup copied"); }
+    try{ await navigator.clipboard.writeText(txt); done(); toast("Backup copied"); }
     catch(e){ area.style.display = ""; area.value = txt; area.select(); restoreGo.style.display = "none"; }
   };
   restB.onclick = () => { area.style.display = ""; area.value = ""; restoreGo.style.display = ""; area.focus(); };
   restoreGo.onclick = () => {
-    try{ const raw = JSON.parse(area.value); if(!raw || typeof raw!=="object" || Array.isArray(raw) || !Array.isArray(raw.accounts)) throw 0; S = normalize(raw); commit({keepMonth:true}); fetchRates(true); setTab("worth"); toast("Backup restored"); }
+    try{ restore(area.value); }
     catch(e){ area.style.boxShadow = "0 0 0 2px var(--down)"; setTimeout(() => area.style.boxShadow = "", 1200); }
   };
+  paintBk();
 
   const erase = el("button", {class:"danger"}, "Erase all data");
   armConfirm(erase, "Tap again to erase everything", () => {
@@ -2411,7 +2452,8 @@ function renderSettings(){
   v.append(
     el("div", {class:"lbl-s"}, "Show totals in"), seg,
     el("div", {class:"lbl-s"}, "Exchange rates"), el("div", {class:"card", id:"ratesCard"}), el("p", {class:"note", id:"ratesNote"}),
-    el("div", {class:"lbl-s"}, "Backup"), bk, area, restoreGo,
+    el("div", {class:"lbl-s"}, "Privacy"), pv, el("p", {class:"note"}, "Blurs every amount. Tapping your net worth does the same."),
+    el("div", {class:"lbl-s"}, "Backup"), bk, bkNote, file, area, restoreGo,
     erase
   );
 
