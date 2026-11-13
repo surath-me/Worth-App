@@ -2422,11 +2422,16 @@ function exitArt(art, fades, done){
   art.querySelectorAll(".oa-ring").forEach(r => { r.getAnimations().forEach(a => a.cancel()); r.style.opacity = 0; });
   const bs = [...art.querySelectorAll(".oa-b")].sort((x, y) => x.offsetWidth - y.offsetWidth);
   bs.forEach((b, k) => {
-    const p = bubCentre(b), dx = cx - p.x, dy = cy - p.y;
-    b.animate([{opacity:1, transform:"none"}, {opacity:1, transform:`translate(${dx * .85}px,${dy * .85}px) scale(.45)`, offset:.85}, {opacity:0, transform:`translate(${dx}px,${dy}px) scale(.3)`}],
-      {duration:360, delay:k * 18, easing:"cubic-bezier(.6,0,1,.4)", fill:"forwards"}); // quick, accelerating pull-in
+    // an anticlockwise spiral into the logo: the radius shrinks and the angle turns back by ~55°, accelerating all the way
+    const p = bubCentre(b), ox = p.x - cx, oy = p.y - cy, r0 = Math.hypot(ox, oy), a0 = Math.atan2(oy, ox), N = 10, frames = [];
+    for(let i = 0; i <= N; i++){
+      const t = i / N, e = Math.pow(t, 2.1), r = r0 * (1 - e), a = a0 - .95 * e;
+      frames.push({offset:t, opacity:i === N ? 0 : 1, transform:`translate(${cx + r * Math.cos(a) - p.x}px,${cy + r * Math.sin(a) - p.y}px) scale(${1 - .7 * e})`});
+    }
+    b.animate(frames, {duration:440, delay:k * 18, easing:"linear", fill:"forwards"});
   });
-  const t = 260 + bs.length * 18; // the logo's curve stays visible and zooms with it
+  const t = 260 + bs.length * 18;
+  core.querySelector("svg").animate([{opacity:1}, {opacity:0}], {duration:300, delay:60, easing:"ease-in", fill:"forwards"}); // the curve fades as the bubbles come in
   // big enough that the circle covers the whole screen from wherever the logo sits
   const r = core.getBoundingClientRect(), far = Math.max(Math.hypot(r.left + r.width / 2, r.top + r.height / 2), Math.hypot(innerWidth - r.left - r.width / 2, innerHeight - r.top - r.height / 2));
   const k = far / (r.width / 2) * 1.08;
@@ -2481,7 +2486,7 @@ function openOnboarding(){
         catch(e){ toast("That file isn’t a Worth backup"); } };
       const gs = cta("Get started", () => { if(gs.dataset.busy || !art.dataset.ready) return; gs.dataset.busy = 1;
         exitArt(art, [...mid.querySelectorAll(".onb-a"), f], () => go(1, 1, "zoom")); });
-      const f = foot(gs, restore, file); pg.append(f);
+      const f = foot(gs, restore, file); f.dataset.delay = 1900; pg.append(f);
     },
     currency(pg){
       head(pg, "Your main currency", "Totals show in this.");
@@ -2595,7 +2600,7 @@ function openOnboarding(){
       else prev.animate([{opacity:1, transform:"none"}, {opacity:0, transform:`translateX(${-36 * dir}px)`}], {duration:260, easing:"cubic-bezier(.4,0,1,1)", fill:"forwards"}).onfinish = () => prev.remove();
     }
     if(!still) page.querySelectorAll(".onb-a").forEach((x, k) => x.animate([{opacity:0, transform:`translateX(${44 * dir}px)`}, {opacity:1, transform:"none"}],
-      {duration:560, delay:(+page.dataset.delay || 140) + k * 70, easing:"cubic-bezier(.2,.8,.2,1)", fill:"backwards"}));
+      {duration:560, delay:x.dataset.delay ? +x.dataset.delay : (+page.dataset.delay || 140) + k * 70, easing:"cubic-bezier(.2,.8,.2,1)", fill:"backwards"}));
   };
   back.onclick = () => {
     if(STEPS[step] === "bal" && st.i > 0){ st.i--; go(4, -1); }
