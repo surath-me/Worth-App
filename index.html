@@ -473,9 +473,11 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{visibility:hidden}
 .onb-back svg{width:24px;height:24px;fill:currentColor}
 .onb-back:active{transform:scale(.9)}
 .onb-skip{min-width:44px;height:44px;font-size:16px;font-weight:600;color:var(--text)}
-.onb-dots{display:flex;gap:6px;align-items:center}
-.onb-dots i{width:7px;height:7px;border-radius:4px;background:var(--fill2);transition:width .4s var(--bounce),background .3s}
-.onb-dots i.on{width:24px;background:var(--grad)}
+.onb-dots{display:flex;gap:6px;align-items:center;transition:opacity .3s}
+.onb-dots.off{opacity:0}
+.onb-dots i{width:7px;height:7px;border-radius:4px;background:var(--fill2);transition:width .55s cubic-bezier(.3,1.35,.5,1),background-color .4s ease}
+.onb-dots i.done{background:var(--sec)}
+.onb-dots i.on{width:26px;background:var(--g1)}
 .onb-stage{position:relative;flex:1;min-height:0}
 .onb-pg{position:absolute;inset:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding-top:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .onb-pg::-webkit-scrollbar{display:none}
@@ -506,6 +508,24 @@ body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{visibility:hidden}
 .onb-av{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;margin-bottom:18px;box-shadow:inset 0 -6px 14px rgba(0,0,0,.18)}
 .onb-av svg{width:38px;height:38px;fill:#fff}
 .onb-name{width:100%;padding:0;margin:0 0 6px;border:0;background:none;color:var(--text);font:inherit;font-size:32px;font-weight:700;letter-spacing:-.02em;outline:none;text-overflow:ellipsis}
+.onb-amtwrap{display:flex;flex-direction:column;align-items:center;margin:auto 0;padding:10px 0}
+.onb-big{--bn:58px;display:flex;align-items:baseline;justify-content:center;max-width:100%;cursor:text;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.bn-sym{font-size:calc(var(--bn) * .55);color:var(--sec);margin-right:4px;font-weight:600}
+.onb-big input{font:inherit;font-size:var(--bn);letter-spacing:inherit;color:var(--text);background:none;border:0;padding:0;outline:none;text-align:left;caret-color:var(--accent);min-width:.6em}
+.onb-big input::placeholder{color:var(--ter)}
+.onb-big.empty .bn-sym{color:var(--ter)}
+.bn-size{position:absolute;visibility:hidden;white-space:pre;font-size:var(--bn);font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.bn-cur{position:relative;display:inline-flex;align-items:center;gap:4px;height:34px;margin-top:14px;padding:0 10px 0 14px;border-radius:17px;background:var(--card);font-size:15px;font-weight:600;color:var(--text)}
+.bn-cur svg{width:18px;height:18px;fill:var(--sec)}
+.bn-cur select{position:absolute;inset:0;opacity:0;width:100%;height:100%;font-size:16px;-webkit-appearance:none;appearance:none}
+.onb-amtwrap .onb-hint{margin-top:12px}
+/* keyboard up: a compact balance screen so the amount and the button both stay in view */
+.onb.kb .onb-av,.onb.kb .onb-count,.onb.kb .onb-hint,.onb.kb .onb-foot .onb-text{display:none}
+.onb.kb .onb-name{font-size:24px;margin-top:4px}
+.onb.kb .onb-sub{margin-bottom:4px;font-size:15px}
+.onb.kb .onb-amtwrap{margin:6px 0;padding:0}
+.onb.kb .bn-cur{margin-top:8px}
+.onb.kb .onb-foot{padding-top:12px}
 .onb-amt{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-radius:22px;background:var(--card);box-shadow:inset 0 0 0 2px transparent;transition:box-shadow .2s}
 .onb-amt:focus-within{box-shadow:inset 0 0 0 2px var(--accent)}
 .onb-amt select{flex:none;-webkit-appearance:none;appearance:none;border:0;border-radius:14px;background:var(--fill);color:var(--text);font-size:16px;font-weight:600;padding:10px 12px}
@@ -2339,7 +2359,7 @@ const ASK = t => isLiab(t) ? "How much do you owe?" : ["property","vehicle","val
 const SATS = [ // floating bubbles around the curve: icon (none = a small accent), gradient, size, position (% of the art box)
   {k:"property", g:BGRAD.property, s:96, x:82, y:15}, {k:"bank", g:BGRAD.savings, s:70, x:15, y:21},
   {k:"etf", g:BGRAD.inv, s:60, x:24, y:86}, {k:"vehicle", g:BGRAD.more, s:48, x:90, y:61},
-  {k:"crypto", g:BGRAD.crypto, s:38, x:7, y:57}, {k:"cash", g:BGRAD.cash, s:32, x:71, y:91},
+  {k:"crypto", g:BGRAD.crypto, s:38, x:11, y:57}, {k:"cash", g:BGRAD.cash, s:32, x:71, y:91},
   {k:null, g:BGRAD.mf, s:18, x:54, y:4}, {k:null, g:BGRAD.etf, s:13, x:46, y:97}];
 const CURVE = `<svg viewBox="0 0 120 120" aria-hidden="true"><path pathLength="1" d="M20 84C34 84 40 64 56 66S72 74 82 56 92 34 98 30"/><circle cx="98" cy="30" r="6.5"/></svg>`;
 function onbArt(){
@@ -2448,22 +2468,44 @@ function openOnboarding(){
       const name = el("input", {class:"onb-name onb-a", value:r.name, "aria-label":"Name", autocomplete:"off", enterkeyhint:"next"});
       name.oninput = () => { r.name = name.value; };
       pg.append(name, el("p", {class:"onb-sub onb-a"}, ASK(r.t)));
-      const box = el("div", {class:"onb-amt onb-a"});
-      const sel = el("select", {"aria-label":"Currency"}, CUR_KEYS.map(c => `<option value="${c}"${c === r.cur ? " selected" : ""}>${esc(CURS[c].sym)} ${c}</option>`).join(""));
+      // the amount is the hero: big, centred, grouped as you type; the currency is a small pill under it
+      const box = el("label", {class:"onb-big onb-a"});
+      const sym = el("span", {class:"bn-sym"}, esc(symOf(r.cur)));
       const inp = el("input", {inputmode:"decimal", placeholder:"0", "aria-label":"Amount", autocomplete:"off", enterkeyhint:"next"});
-      inp.value = r.bal;
-      box.append(sel, inp);
+      const sizer = el("span", {class:"bn-size", "aria-hidden":"true"});
+      box.append(sym, inp, sizer);
+      const pill = el("label", {class:"bn-cur onb-a"}, `<span>${r.cur}</span>${ic("expand")}`);
+      const sel = el("select", {"aria-label":"Currency"}, CUR_KEYS.map(c => `<option value="${c}"${c === r.cur ? " selected" : ""}>${esc(CURS[c].sym)}  ${CUR_NAMES[c] || c}</option>`).join(""));
+      pill.appendChild(sel);
+      // digits and one decimal point; the whole part grouped the way that currency writes it
+      const tidy = v => {
+        v = String(v || "").replace(/[^\d.]/g, ""); const dot = v.indexOf(".");
+        let int = (dot < 0 ? v : v.slice(0, dot)).replace(/^0+(?=\d)/, ""), dec = dot < 0 ? null : v.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+        if(int.length > 12) int = int.slice(0, 12);
+        const g = int ? new Intl.NumberFormat(CURS[r.cur] ? CURS[r.cur].loc : "en-IE", {maximumFractionDigits:0}).format(+int) : (dec != null ? "0" : "");
+        return dec == null ? g : g + "." + dec;
+      };
+      const fit = () => {
+        const txt = inp.value || "0"; sizer.textContent = txt;
+        const n = txt.length; let fs = n > 13 ? 34 : n > 10 ? 42 : n > 7 ? 50 : 58; if($("#onb").classList.contains("kb")) fs = Math.min(fs, 46);
+        box.style.setProperty("--bn", fs + "px");
+        inp.style.width = Math.ceil(sizer.getBoundingClientRect().width) + 10 + "px"; inp.scrollLeft = 0;
+        box.classList.toggle("empty", !inp.value);
+      };
+      inp.value = tidy(r.bal);
+      $("#onb")._fit = fit;
       const last = st.i === st.rows.length - 1;
       const next = cta(last ? "Finish" : "Next", () => { if(isNaN(parseNum(inp.value))) return; if(last) finish(); else { st.i++; go(4); } });
       const ok = () => { next.disabled = isNaN(parseNum(inp.value)); };
-      sel.onchange = () => { r.cur = sel.value; };
-      inp.oninput = () => { r.bal = inp.value; ok(); };
+      sel.onchange = () => { r.cur = sel.value; sym.textContent = symOf(r.cur); pill.firstChild.textContent = r.cur; inp.value = tidy(inp.value); r.bal = inp.value; fit(); };
+      inp.oninput = e => { if(e && (e.data === "," || e.data === ".") && !/[.]/.test(inp.value.slice(0, -1).replace(/,/g, ""))) inp.value = inp.value.replace(/[,.]$/, "") + "."; const v = tidy(inp.value); if(v !== inp.value){ inp.value = v; try{ inp.setSelectionRange(v.length, v.length); }catch(e){} } r.bal = inp.value; ok(); fit(); };
       inp.onkeydown = name.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); if(e.target === name) inp.focus(); else next.click(); } };
       const more = el("button", {class:"onb-text"}, `${ic("add")}<span>Add another</span>`);
       more.onclick = () => { const same = st.rows.filter(x => x.t === r.t).length;
         st.rows.splice(st.i + 1, 0, {t:r.t, name:`${KINDS.find(k => k.t === r.t).n} ${same + 1}`, cur:r.cur, bal:""}); r.bal = inp.value; st.i++; go(4); };
-      pg.append(box, el("p", {class:"onb-hint onb-a"}, "Rough is fine."), foot(next, more));
-      ok();
+      pg.append(el("div", {class:"onb-amtwrap"}, ""), foot(next, more));
+      pg.querySelector(".onb-amtwrap").append(box, pill, el("p", {class:"onb-hint onb-a"}, "Rough is fine."));
+      ok(); requestAnimationFrame(fit);
       setTimeout(() => { try{ inp.focus({preventScroll:true}); }catch(e){} }, still ? 0 : 420);
     },
     done(pg){
@@ -2490,7 +2532,9 @@ function openOnboarding(){
     page = el("div", {class:"onb-pg"}); build[STEPS[n]](page); stage.appendChild(page);
     back.style.visibility = n === 0 || n === 5 ? "hidden" : "";
     skip.style.visibility = STEPS[n] === "owe" ? "" : "hidden";
-    dots.innerHTML = n >= 1 && n <= 4 ? [1, 2, 3, 4].map(k => `<i class="${k === n ? "on" : ""}"></i>`).join("") : "";
+    if(!dots.childElementCount) dots.innerHTML = "<i></i><i></i><i></i><i></i>";
+    dots.classList.toggle("off", !(n >= 1 && n <= 4));
+    [...dots.children].forEach((d, k) => { d.classList.toggle("on", k + 1 === n); d.classList.toggle("done", k + 1 < n); });
     if(prev){
       if(still) prev.remove();
       else prev.animate([{opacity:1, transform:"none"}, {opacity:0, transform:`translateX(${-36 * dir}px)`}], {duration:260, easing:"cubic-bezier(.4,0,1,1)", fill:"forwards"}).onfinish = () => prev.remove();
@@ -2503,12 +2547,15 @@ function openOnboarding(){
     else go(Math.max(0, step - 1), -1);
   };
   skip.onclick = () => { st.owe = []; buildRows(); st.i = 0; go(4); };
+  const vv = window.visualViewport;
+  const fitVV = () => { if(!vv || !onbOpen) return; root.style.height = vv.height + "px"; root.style.transform = `translateY(${vv.offsetTop}px)`; root.classList.toggle("kb", vv.height < window.innerHeight - 120); if(root._fit) requestAnimationFrame(root._fit); };
+  if(vv){ vv.addEventListener("resize", fitVV); vv.addEventListener("scroll", fitVV); root._vv = fitVV; }
   go(0);
   if(!still) root.animate([{opacity:0}, {opacity:1}], {duration:400, easing:"ease"});
 }
 function closeOnboarding(){
   const root = $("#onb");
-  const end = () => { root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
+  const end = () => { if(root._vv && window.visualViewport){ visualViewport.removeEventListener("resize", root._vv); visualViewport.removeEventListener("scroll", root._vv); } root.style.height = root.style.transform = ""; root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
   if(matchMedia("(prefers-reduced-motion: reduce)").matches || !root.animate) return end();
   root.animate([{opacity:1, transform:"none"}, {opacity:0, transform:"scale(1.04)"}], {duration:380, easing:"cubic-bezier(.4,0,.2,1)", fill:"forwards"}).onfinish = end;
 }
