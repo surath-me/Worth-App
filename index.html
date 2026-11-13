@@ -2114,6 +2114,27 @@ function closeSheet(){
   if(onClose){ const f = onClose; onClose = null; f(); }
 }
 $("#scrim").onclick = closeSheet;
+/* While any tray is up (the bottom sheet, the onboarding's currency tray), the page behind never scrolls. iOS ignores
+   overflow:hidden on the body for touch, and a drag on a tray's header, on the scrim, or past the end of a tray's list
+   would otherwise scroll the page underneath. So a touch drag may only scroll a list inside the tray, and only while that
+   list still has room to go that way; everything else is cancelled. One guard for every tray. */
+const TRAYS = "#sheet, .onb-tray";
+const trayUp = () => document.body.classList.contains("sheet-open") || !!document.querySelector(".onb-tray");
+let trayY = 0;
+document.addEventListener("touchstart", e => { if(e.touches.length === 1) trayY = e.touches[0].clientY; }, {passive:true});
+document.addEventListener("touchmove", e => {
+  if(!trayUp() || e.touches.length !== 1) return;
+  const y = e.touches[0].clientY, dy = y - trayY; trayY = y;
+  if(!dy) return;
+  const tray = e.target.closest && e.target.closest(TRAYS);
+  for(let n = e.target; tray && n && n !== tray.parentNode; n = n.parentNode){
+    if(n.nodeType !== 1 || n.scrollHeight <= n.clientHeight + 1) continue;
+    const oy = getComputedStyle(n).overflowY;
+    if(oy !== "auto" && oy !== "scroll") continue;
+    if(dy > 0 ? n.scrollTop > 0 : n.scrollTop + n.clientHeight < n.scrollHeight - 1) return; // this list can still scroll
+  }
+  if(e.cancelable) e.preventDefault();
+}, {passive:false});
 document.addEventListener("keydown", e => { if(e.key === "Escape" && sheet.classList.contains("open")) closeSheet(); });
 function enableDrag(area){
   let y0 = 0, dy = 0, t0 = 0, dragging = false;
