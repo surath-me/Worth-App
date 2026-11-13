@@ -2561,7 +2561,6 @@ function openOnboarding(){
       pg.append(el("div", {class:"onb-amtwrap"}, ""), foot(next, more));
       pg.querySelector(".onb-amtwrap").append(box, pill, el("p", {class:"onb-hint onb-a"}, "Rough is fine."));
       ok(); requestAnimationFrame(fit);
-      setTimeout(() => { try{ inp.focus({preventScroll:true}); }catch(e){} }, still ? 0 : 420);
     },
     done(pg){
       pg.classList.add("center", "intro");
@@ -2624,7 +2623,9 @@ function openOnboarding(){
     if(h > 120){ kbH = h; try{ sessionStorage.setItem("worth.kbH", h); }catch(e){} setKb(true); }
     else if(!root.contains(document.activeElement) || document.activeElement.tagName !== "INPUT") setKb(false);
     if(vv.offsetTop) window.scrollTo(0, 0); };
-  root.addEventListener("focusin", e => { if(e.target.tagName === "INPUT" && e.target.type !== "file") setKb(true); });
+  // only a focus that comes from your tap opens a keyboard (iOS ignores programmatic focus), so only that enters keyboard mode
+  let lastTap = 0; root.addEventListener("pointerdown", () => { lastTap = Date.now(); }, true);
+  root.addEventListener("focusin", e => { if(e.target.tagName === "INPUT" && e.target.type !== "file" && Date.now() - lastTap < 900 && matchMedia("(pointer: coarse)").matches) setKb(true); });
   root.addEventListener("focusout", () => setTimeout(() => { const a = document.activeElement; if(!(a && root.contains(a) && a.tagName === "INPUT")) setKb(false); }, 60));
   if(vv){ vv.addEventListener("resize", fitVV); vv.addEventListener("scroll", fitVV); root._vv = fitVV; }
   go(0);
