@@ -462,9 +462,11 @@ body.empty .hero,body.empty #chartWrap,body.empty #range{display:none}
 @media (prefers-reduced-motion: reduce){.sp-in{animation:none}.sp-logo path,.oa-core path{animation:none;stroke-dashoffset:0;opacity:1}.sp-logo circle,.oa-core circle{animation:none;transform:none}.sp-word{animation:none;opacity:1}}
 
 /* onboarding */
-body.onb-open{overflow:hidden}
+html.onb-open,body.onb-open{overflow:hidden;overscroll-behavior:none}
+body.onb-open{position:fixed;inset:0}
+body.onb-open #app,body.onb-open .tabbar,body.onb-open #fab{visibility:hidden}
 .onb[hidden]{display:none}
-.onb{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 6px) 20px calc(env(safe-area-inset-bottom,0px) + 14px)}
+.onb{position:fixed;inset:0;height:100dvh;z-index:60;display:flex;flex-direction:column;background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 6px) 20px calc(env(safe-area-inset-bottom,0px) + 14px)}
 .onb::before{content:"";position:absolute;inset:0 0 auto;height:420px;pointer-events:none;background:radial-gradient(70% 60% at 25% 0%,var(--g1a),transparent 70%),radial-gradient(60% 50% at 90% 10%,var(--g2a),transparent 70%);opacity:.55}
 .onb-top{position:relative;display:flex;align-items:center;justify-content:space-between;height:52px;flex:none}
 .onb-back{width:44px;height:44px;border-radius:50%;background:var(--card);display:grid;place-items:center;color:var(--text)}
@@ -475,14 +477,14 @@ body.onb-open{overflow:hidden}
 .onb-dots i{width:7px;height:7px;border-radius:4px;background:var(--fill2);transition:width .4s var(--bounce),background .3s}
 .onb-dots i.on{width:24px;background:var(--grad)}
 .onb-stage{position:relative;flex:1;min-height:0}
-.onb-pg{position:absolute;inset:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding-top:6px;scrollbar-width:none}
+.onb-pg{position:absolute;inset:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding-top:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .onb-pg::-webkit-scrollbar{display:none}
 .onb-pg.center{text-align:center;align-items:stretch}
-.onb-h{font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.12;margin:6px 0 8px}
+.onb-h{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.12;margin:6px 0 8px}
 .onb-sub{font-size:17px;color:var(--sec);margin:0 0 22px;line-height:1.35}
 .onb-hint{font-size:14px;color:var(--sec);margin:10px 4px 0}
-.onb-foot{margin-top:auto;padding-top:18px;flex:none}
-.onb-foot .primary{margin-top:0;height:56px;font-size:17px}
+.onb-foot{position:sticky;bottom:0;z-index:3;margin-top:auto;padding:28px 0 6px;flex:none;background:linear-gradient(to bottom,transparent,var(--bg) 26px)}
+.onb-foot .primary{margin-top:0;height:56px;font-size:17px;box-shadow:0 10px 26px -14px var(--g1a)}
 .onb-text{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:50px;margin-top:6px;font-size:16px;font-weight:600;color:var(--text)}
 .onb-text svg{width:20px;height:20px;fill:currentColor}
 .onb-list{display:flex;flex-direction:column;gap:10px}
@@ -493,8 +495,8 @@ body.onb-open{overflow:hidden}
 .onb-opt small{display:block;font-size:13px;font-weight:400;color:var(--sec);margin-top:1px}
 .onb-opt .sym{width:44px;height:44px;flex:none;border-radius:50%;background:var(--fill);display:grid;place-items:center;font-size:18px;font-weight:700}
 .onb-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.onb-card{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:14px;min-height:112px;padding:16px;font-size:16px;font-weight:600;line-height:1.2}
-.onb-card .avatar{width:42px;height:42px}
+.onb-card{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;min-height:96px;padding:14px;font-size:16px;font-weight:600;line-height:1.2}
+.onb-card .avatar{width:38px;height:38px}
 .ck{position:absolute;top:14px;right:14px;width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--ter);display:grid;place-items:center;transition:background .2s,box-shadow .2s,transform .35s var(--bounce)}
 .onb-opt .ck{position:static;margin-left:auto}
 .ck svg{width:16px;height:16px;fill:#fff;opacity:0;transform:scale(.4);transition:opacity .2s,transform .35s var(--bounce)}
@@ -510,18 +512,20 @@ body.onb-open{overflow:hidden}
 .onb-amt input{flex:1;min-width:0;border:0;background:none;color:var(--text);font-size:36px;font-weight:700;text-align:right;outline:none;font-variant-numeric:tabular-nums}
 .onb-total{font-size:44px;font-weight:700;letter-spacing:-.025em;margin:6px 0 2px}
 /* the intro art: the app's curve in a big bubble, the kinds of things you own floating around it */
-.onb-art{position:relative;height:300px;margin:4px -4px 18px;flex:none}
-.oa-core{position:absolute;left:50%;top:48%;width:156px;height:156px;margin:-78px 0 0 -78px;border-radius:50%;display:grid;place-items:center;
-  background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),rgba(255,255,255,0) 55%),linear-gradient(160deg,#34D69E,#0B7F68);box-shadow:0 20px 60px -20px rgba(20,184,166,.6),inset 0 -8px 18px rgba(0,0,0,.18);animation:oaIn .8s cubic-bezier(.34,1.56,.64,1) both}
+.onb-pg.intro .onb-mid{margin:auto 0;padding:8px 0 4px}
+.onb-pg.intro .onb-foot{margin-top:0}
+.onb-art{position:relative;height:330px;margin:0 -6px 22px;flex:none}
+.oa-core,.oa-ring{position:absolute;left:50%;top:50%;width:156px;height:156px;margin:-78px 0 0 -78px;border-radius:50%}
+.oa-core{display:grid;place-items:center;z-index:1;
+  background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),rgba(255,255,255,0) 55%),linear-gradient(160deg,#34D69E,#0B7F68);box-shadow:0 20px 60px -20px rgba(20,184,166,.6),inset 0 -8px 18px rgba(0,0,0,.18)}
+.oa-ring{border:1.5px solid rgba(52,214,158,.55);opacity:0;pointer-events:none}
 .oa-core svg{width:96px;height:96px;overflow:visible}
-.oa-b{position:absolute;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),rgba(255,255,255,0) 55%),linear-gradient(140deg,var(--a),var(--b));
-  box-shadow:inset 0 -5px 12px rgba(0,0,0,.18);animation:oaIn .7s cubic-bezier(.34,1.56,.64,1) both,bfloat 6s ease-in-out infinite;animation-delay:calc(.25s + var(--i,0) * 1s),var(--fd)}
+.onb-art .oa-core path{animation-delay:.75s} .onb-art .oa-core circle{animation-delay:1.5s}
+.oa-b{position:absolute;z-index:2;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 32% 24%,rgba(255,255,255,.3),rgba(255,255,255,0) 55%),linear-gradient(140deg,var(--a),var(--b));
+  box-shadow:inset 0 -5px 12px rgba(0,0,0,.18);animation:oaFloat var(--fdur,6s) ease-in-out infinite;animation-delay:var(--fd)}
 .oa-b svg{width:46%;height:46%;fill:#fff}
-.oa-b:nth-child(2){--i:.08}.oa-b:nth-child(3){--i:.16}.oa-b:nth-child(4){--i:.24}.oa-b:nth-child(5){--i:.32}.oa-b:nth-child(6){--i:.4}.oa-b:nth-child(7){--i:.48}
-@keyframes oaIn{from{transform:scale(0);opacity:0}}
-.burst .oa-b{animation:oaBurst .9s cubic-bezier(.2,.9,.25,1.15) both,bfloat 6s ease-in-out infinite;animation-delay:calc(.35s + var(--i,0) * .6s),var(--fd)}
-@keyframes oaBurst{from{transform:translate(var(--dx,0),var(--dy,0)) scale(.2);opacity:0}}
-@media (prefers-reduced-motion: reduce){.oa-core,.oa-b,.burst .oa-b{animation:none}}
+@keyframes oaFloat{0%,100%{translate:0 0}30%{translate:calc(var(--amp) * .5) calc(var(--amp) * -1)}65%{translate:calc(var(--amp) * -.6) calc(var(--amp) * .5)}}
+@media (prefers-reduced-motion: reduce){.oa-b{animation:none}}
 
 .wl{text-align:center;padding:8px 4px 0}
 .wl-art{position:relative;height:120px;margin:4px auto 10px;width:200px}
@@ -2332,22 +2336,44 @@ function renderBackfill(){
 // back and (where it makes sense) Skip; big tappable cards; one balance at a time; a "You're good to go" finish.
 const CUR_NAMES = {EUR:"Euro", INR:"Indian rupee", USD:"US dollar", GBP:"British pound", CHF:"Swiss franc"};
 const ASK = t => isLiab(t) ? "How much do you owe?" : ["property","vehicle","valuables"].includes(t) ? "What is it worth today?" : "How much is in it?";
-const SATS = [ // floating bubbles around the curve: icon, gradient, size, position (% of the art box)
-  {k:"bank", g:BGRAD.savings, s:64, x:14, y:16}, {k:"property", g:BGRAD.property, s:72, x:82, y:14},
-  {k:"crypto", g:BGRAD.crypto, s:50, x:8, y:62}, {k:"vehicle", g:BGRAD.more, s:56, x:88, y:66},
-  {k:"etf", g:BGRAD.inv, s:58, x:30, y:90}, {k:"cash", g:BGRAD.cash, s:46, x:70, y:92}];
+const SATS = [ // floating bubbles around the curve: icon (none = a small accent), gradient, size, position (% of the art box)
+  {k:"property", g:BGRAD.property, s:96, x:82, y:15}, {k:"bank", g:BGRAD.savings, s:70, x:15, y:21},
+  {k:"etf", g:BGRAD.inv, s:60, x:24, y:86}, {k:"vehicle", g:BGRAD.more, s:48, x:90, y:61},
+  {k:"crypto", g:BGRAD.crypto, s:38, x:7, y:57}, {k:"cash", g:BGRAD.cash, s:32, x:71, y:91},
+  {k:null, g:BGRAD.mf, s:18, x:54, y:4}, {k:null, g:BGRAD.etf, s:13, x:46, y:97}];
 const CURVE = `<svg viewBox="0 0 120 120" aria-hidden="true"><path pathLength="1" d="M20 84C34 84 40 64 56 66S72 74 82 56 92 34 98 30"/><circle cx="98" cy="30" r="6.5"/></svg>`;
-function onbArt(burst){
-  const art = el("div", {class:"onb-art" + (burst ? " burst" : "")});
-  art.innerHTML = `<div class="oa-core">${CURVE}</div>` + SATS.map((b, i) =>
-    `<div class="oa-b" style="width:${b.s}px;height:${b.s}px;left:calc(${b.x}% - ${b.s/2}px);top:calc(${b.y}% - ${b.s/2}px);--a:${b.g[0]};--b:${b.g[1]};--fd:${-i * 1.1}s;--dx:${(50 - b.x) * 3.5}px;--dy:${(48 - b.y) * 3}px">${ic(b.k)}</div>`).join("");
+function onbArt(){
+  const art = el("div", {class:"onb-art"});
+  art.innerHTML = `<i class="oa-ring"></i><i class="oa-ring"></i><div class="oa-core">${CURVE}</div>` + SATS.map((b, i) =>
+    `<div class="oa-b" style="width:${b.s}px;height:${b.s}px;left:calc(${b.x}% - ${b.s/2}px);top:calc(${b.y}% - ${b.s/2}px);--a:${b.g[0]};--b:${b.g[1]};--fd:${-i * 1.3}s;--fdur:${(4.5 + (b.s % 5) * .7).toFixed(1)}s;--amp:${Math.max(3, 9 - b.s / 14).toFixed(1)}px">${b.k ? ic(b.k) : ""}</div>`).join("");
   return art;
+}
+// Entry: the core springs in and sends out two ripples; then every bubble flies out of it along a slight arc, overshoots
+// and settles (biggest first), each then drifting at its own pace; the curve draws once the core has landed.
+function playArt(art, delay = 0){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches || !art.animate) return;
+  const core = art.querySelector(".oa-core"), cx = core.offsetLeft + core.offsetWidth / 2, cy = core.offsetTop + core.offsetHeight / 2;
+  core.animate([{transform:"scale(0)"}, {transform:"scale(1.12)", offset:.55}, {transform:"scale(.96)", offset:.78}, {transform:"scale(1)"}],
+    {duration:900, delay, easing:"cubic-bezier(.3,.7,.3,1)", fill:"backwards"});
+  art.querySelectorAll(".oa-ring").forEach((r, k) => r.animate([{transform:"scale(.6)", opacity:0}, {transform:"scale(1)", opacity:.7, offset:.15}, {transform:"scale(2.3)", opacity:0}],
+    {duration:1400, delay:delay + 380 + k * 260, easing:"cubic-bezier(.2,.7,.3,1)", fill:"both"}));
+  const bs = [...art.querySelectorAll(".oa-b")].map(b => ({b, s:b.offsetWidth})).sort((x, y) => y.s - x.s);
+  bs.forEach(({b}, k) => {
+    const dx = cx - (b.offsetLeft + b.offsetWidth / 2), dy = cy - (b.offsetTop + b.offsetHeight / 2);
+    const px = -dy * .22, py = dx * .22; // bend the path a little
+    b.animate([
+      {transform:`translate(${dx}px,${dy}px) scale(.15)`, opacity:0},
+      {transform:`translate(${dx * .55 + px}px,${dy * .55 + py}px) scale(.7)`, opacity:1, offset:.35},
+      {transform:`translate(${-dx * .07}px,${-dy * .07}px) scale(1.08)`, offset:.72},
+      {transform:"none", opacity:1}],
+      {duration:1050, delay:delay + 420 + k * 75, easing:"cubic-bezier(.25,.8,.3,1)", fill:"backwards"});
+  });
 }
 let onbOpen = false;
 function openOnboarding(){
   if(onbOpen) return; onbOpen = true;
   const root = $("#onb"), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  root.hidden = false; root.innerHTML = ""; document.body.classList.add("onb-open");
+  root.hidden = false; root.innerHTML = ""; window.scrollTo(0, 0); document.documentElement.classList.add("onb-open"); document.body.classList.add("onb-open");
   const st = {cur:S.base, own:[], owe:[], rows:[], i:0};
   const back = el("button", {class:"onb-back", "aria-label":"Back"}, ic("left"));
   const dots = el("div", {class:"onb-dots"}), skip = el("button", {class:"onb-skip"}, "Skip");
@@ -2375,9 +2401,12 @@ function openOnboarding(){
 
   const build = {
     intro(pg){
-      pg.classList.add("center");
-      pg.append(onbArt(false));
-      head(pg, "All your wealth,<br>in one place", "Any bank, broker or country.");
+      pg.classList.add("center", "intro");
+      // art and words sit centred in the space above the buttons
+      const mid = el("div", {class:"onb-mid"}), art = onbArt(); mid.append(art);
+      mid.append(el("h1", {class:"onb-h onb-a"}, "Know your worth."), el("p", {class:"onb-sub onb-a"}, "Every account, home and loan.<br>Any currency. One number."));
+      pg.append(mid); pg.dataset.delay = 1100;
+      requestAnimationFrame(() => playArt(art));
       const file = el("input", {type:"file", accept:".json,application/json", style:"display:none"});
       const restore = el("button", {class:"onb-text"}, "Restore a backup");
       restore.onclick = () => file.click();
@@ -2438,10 +2467,11 @@ function openOnboarding(){
       setTimeout(() => { try{ inp.focus({preventScroll:true}); }catch(e){} }, still ? 0 : 420);
     },
     done(pg){
-      pg.classList.add("center");
-      pg.append(onbArt(true));
-      head(pg, "You’re good to go!");
-      pg.append(el("div", {class:"onb-total num amt onb-a"}, fmt(liveTotal(), S.base, {dec:0})), el("p", {class:"onb-sub onb-a"}, "Your net worth today"));
+      pg.classList.add("center", "intro");
+      const mid = el("div", {class:"onb-mid"}), art = onbArt(); mid.append(art);
+      mid.append(el("h1", {class:"onb-h onb-a"}, "You’re good to go!"), el("div", {class:"onb-total num amt onb-a"}, fmt(liveTotal(), S.base, {dec:0})), el("p", {class:"onb-sub onb-a"}, "Your net worth today"));
+      pg.append(mid); pg.dataset.delay = 1000;
+      requestAnimationFrame(() => playArt(art, 100));
       const past = el("button", {class:"onb-text"}, "Add past months");
       past.onclick = () => { closeOnboarding(); setTimeout(() => updateSheet(mShift(1)), 450); };
       pg.append(foot(cta("Continue", () => closeOnboarding()), past));
@@ -2466,7 +2496,7 @@ function openOnboarding(){
       else prev.animate([{opacity:1, transform:"none"}, {opacity:0, transform:`translateX(${-36 * dir}px)`}], {duration:260, easing:"cubic-bezier(.4,0,1,1)", fill:"forwards"}).onfinish = () => prev.remove();
     }
     if(!still) page.querySelectorAll(".onb-a").forEach((x, k) => x.animate([{opacity:0, transform:`translateX(${44 * dir}px)`}, {opacity:1, transform:"none"}],
-      {duration:560, delay:140 + k * 55, easing:"cubic-bezier(.2,.8,.2,1)", fill:"backwards"}));
+      {duration:560, delay:(+page.dataset.delay || 140) + k * 70, easing:"cubic-bezier(.2,.8,.2,1)", fill:"backwards"}));
   };
   back.onclick = () => {
     if(STEPS[step] === "bal" && st.i > 0){ st.i--; go(4, -1); }
@@ -2478,7 +2508,7 @@ function openOnboarding(){
 }
 function closeOnboarding(){
   const root = $("#onb");
-  const end = () => { root.hidden = true; root.innerHTML = ""; onbOpen = false; document.body.classList.remove("onb-open"); render(true); };
+  const end = () => { root.hidden = true; root.innerHTML = ""; onbOpen = false; document.documentElement.classList.remove("onb-open"); document.body.classList.remove("onb-open"); render(true); };
   if(matchMedia("(prefers-reduced-motion: reduce)").matches || !root.animate) return end();
   root.animate([{opacity:1, transform:"none"}, {opacity:0, transform:"scale(1.04)"}], {duration:380, easing:"cubic-bezier(.4,0,.2,1)", fill:"forwards"}).onfinish = end;
 }
