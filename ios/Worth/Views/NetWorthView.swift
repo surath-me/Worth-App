@@ -55,7 +55,7 @@ struct NetWorthView: View {
                 .accessibilityAddTraits(.isButton)
                 .accessibilityHint(prefs.hide ? "Shows amounts" : "Hides amounts")
             delta(total: total, pts: pts, ref: ref).frame(height: 22)
-            insight(total: total, ref: ref).frame(minHeight: 18, alignment: .top)
+            insight(total: total, ref: ref).frame(height: 18, alignment: .top)
         }
         .padding(.horizontal, 4)
     }
@@ -72,15 +72,16 @@ struct NetWorthView: View {
         }
     }
 
-    @ViewBuilder private func insight(total: Double, ref: Store.Point?) -> some View {
-        let ins = store.insight(total: total, ref: ref)
-        if scrub == nil, ins.badge != nil || ins.move != nil {
-            (Text(ins.badge ?? "").fontWeight(.semibold).foregroundStyle(.white)
-             + Text(ins.badge != nil && ins.move != nil ? " · " : "")
-             + Text(ins.move ?? ""))
-                .font(.system(size: 13)).foregroundStyle(Color.sec).masked()
-                .transition(.opacity)
-        }
+    /// While scrubbing the line only fades out; it keeps its space, so nothing below it moves.
+    private func insight(total: Double, ref: Store.Point?) -> some View {
+        let ins = store.insight(total: store.liveTotal, ref: ref)
+        return (Text(ins.badge ?? "").fontWeight(.semibold).foregroundStyle(.white)
+                + Text(ins.badge != nil && ins.move != nil ? " · " : "")
+                + Text(ins.move ?? ""))
+            .font(.system(size: 13)).foregroundStyle(Color.sec).masked()
+            .lineLimit(1)
+            .opacity(scrub == nil ? 1 : 0)
+            .animation(.easeOut(duration: 0.15), value: scrub == nil)
     }
 }
 
