@@ -126,14 +126,19 @@ struct EntrySheet: View {
         return Catalog.safeSymbol(Catalog.type(type).symbol)
     }
 
-    /// Save (Add for a new entry), on its own: only active once something has changed; a new entry's Add once it
-    /// has a name.
+    /// Save (Add for a new entry), on its own and only there once something has changed (a new entry: once it has a
+    /// name and an amount).
     private var actions: some View {
-        Button(account == nil ? "Add" : "Save", action: save)
-            .buttonStyle(PrimaryButton())
-            .disabled(!canSave)
-            .animation(.easeOut(duration: 0.2), value: canSave)
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 8)
+        VStack {
+            if canSave {
+                Button(account == nil ? "Add" : "Save", action: save)
+                    .buttonStyle(PrimaryButton())
+                    .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 8)
+                    // hidden until there's something to save; then it rises into view (and drops away if undone)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(duration: 0.4, bounce: 0.2), value: canSave)
     }
 
     private func finishLeaving() {
