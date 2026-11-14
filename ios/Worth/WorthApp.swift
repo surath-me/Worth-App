@@ -36,7 +36,7 @@ struct RootView: View {
             TabView(selection: Binding(get: { tab }, set: { t in
                 if t == "add" { if store.isEmpty { onboarding = true } else { adding = true } } else { tab = t }
             })) {
-                Tab("Net worth", systemImage: "chart.line.uptrend.xyaxis", value: "worth") { NetWorthView() }
+                Tab(value: "worth") { NetWorthView() } label: { Label { Text("Net worth") } icon: { Image(uiImage: SVGIcon.chart) } } // the web app's icon
                 Tab("Monthly", systemImage: "calendar", value: "monthly") { MonthlyView() }
                     .badge(store.checkInDue ? Text("") : nil) // a dot while this month's check-in is due
                 Tab("Settings", systemImage: "gearshape.fill", value: "settings") { SettingsView() }

@@ -131,12 +131,17 @@ struct WorthChart: View {
                             PointMark(x: .value("Month", Month.date(s.month)), y: .value("Net worth", s.value))
                                 .foregroundStyle(c2).symbolSize(150)
                                 .annotation(position: .top, spacing: 10, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                                    // a solid dark card (a live blur can't render inside a chart annotation; it smears)
                                     VStack(spacing: 1) {
-                                        Text(Money.format(s.value, store.data.base, decimals: 0)).font(.system(size: 14, weight: .bold)).monospacedDigit().masked()
-                                        Text(Month.short(s.month)).font(.system(size: 11)).foregroundStyle(Color.sec)
+                                        Text(Money.format(s.value, store.data.base, decimals: 0)).font(.system(size: 14, weight: .semibold)).monospacedDigit()
+                                            .foregroundStyle(.white).masked()
+                                        Text(Month.short(s.month)).font(.system(size: 11, weight: .medium)).foregroundStyle(Color.sec)
                                     }
-                                    .padding(.horizontal, 10).padding(.vertical, 6)
-                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                                    .padding(.horizontal, 11).padding(.vertical, 6)
+                                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.hex(0x2C2C2E).opacity(0.94)))
+                                    .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(.white.opacity(0.1), lineWidth: 0.5))
+                                    .shadow(color: .black.opacity(0.45), radius: 10, y: 4)
+                                    .compositingGroup()
                                 }
                         } else if let last = pts.last {
                             PointMark(x: .value("Month", Month.date(last.month)), y: .value("Net worth", last.value)).foregroundStyle(c2.opacity(0.35)).symbolSize(420)
