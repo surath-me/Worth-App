@@ -55,7 +55,7 @@ struct RootView: View {
                 ZStack(alignment: .bottomTrailing) {
                     Color.clear.allowsHitTesting(false)
                     Button { if store.isEmpty { onboarding = true } else { adding = true } } label: {
-                        AddButtonFace().matchedTransitionSource(id: "add", in: addNS)
+                        AddButtonFace().matchedTransitionSource(id: "add", in: addNS) { $0.clipShape(RoundedRectangle(cornerRadius: 31)).background(.clear) } // just the circle (r = half of 62), no box
                     }
                     .buttonStyle(AddPressStyle())
                     .padding(.trailing, 21).padding(.bottom, 21)
@@ -93,25 +93,23 @@ struct RootView: View {
 /// The + button's face: the accent gradient circle (the web app's green → blue) with a white plus.
 struct AddButtonFace: View {
     var body: some View {
-        let face = Image(systemName: "plus")
+        Image(systemName: "plus")
             .font(.system(size: 24, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: 62, height: 62)
             .background(Circle().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
             .contentShape(Circle())
-        if #available(iOS 26, *) {
-            // interactive Liquid Glass: it swells and glows under the finger, like the tab bar's own items
-            face.glassEffect(.regular.tint(Color.hex(0x0B82A6)).interactive(), in: Circle())
-        } else {
-            face.overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5)).shadow(color: .black.opacity(0.35), radius: 10, y: 6)
-        }
     }
 }
 /// The press: the circle grows a little under the finger and springs back.
 struct AddPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        // grows under the finger (like the tab bar's items do), then springs back
-        configuration.label.scaleEffect(configuration.isPressed ? 1.12 : 1)
+        // grows under the finger (like the tab bar's items do) and brightens, then springs back
+        configuration.label
+            .overlay(Circle().fill(.white.opacity(configuration.isPressed ? 0.18 : 0)))
+            .scaleEffect(configuration.isPressed ? 1.12 : 1)
+            .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
             .animation(.spring(duration: 0.35, bounce: 0.45), value: configuration.isPressed)
     }
 }

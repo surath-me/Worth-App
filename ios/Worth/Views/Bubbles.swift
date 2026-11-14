@@ -137,7 +137,7 @@ struct Bubbles: View {
     private func back() {
         guard let l = level else { return }
         let old = itemsNow, P = layout(old, size: box)
-        let top = items(at: nil), PT = layout(top, size: box)
+        let top = items(at: nil), PT = layout(top, size: box, at: .some(nil)) // the groups' spots (cluster, not honeycomb)
         let home = "g:" + l
         let target = top.firstIndex { $0.id == home }.map { PT[$0].c } ?? CGPoint(x: box.width / 2, y: box.height / 2)
         leaving = old.indices.map { i in
@@ -237,11 +237,15 @@ struct Bubbles: View {
     /// Packing is a few hundred relaxation steps, so a layout is computed once per (level, size, order, values) and
     /// reused: re-renders during animations, drags and scrolling cost nothing.
     @MainActor private static var cache: [String: [Circ]] = [:]
-    private func layout(_ items: [Item], size: CGSize) -> [Circ] {
+    /// The layout for a level: groups (`at` nil) are a packed cluster, entries a honeycomb. The level is passed in, not
+    /// read from state, so a transition can ask for the other level's layout (going back needs the groups' spots while
+    /// the group is still open).
+    private func layout(_ items: [Item], size: CGSize, at lvl: String?? = .none) -> [Circ] {
+        let lvl: String? = lvl ?? level
         guard size.width > 0, !items.isEmpty else { return items.map { _ in Circ(c: .zero, r: 0) } }
-        let key = "\(level ?? "top")|\(Int(size.width))x\(Int(size.height))|" + items.map { "\($0.id)=\(Int($0.value))" }.joined(separator: ",")
+        let key = "\(lvl ?? "top")|\(Int(size.width))x\(Int(size.height))|" + items.map { "\($0.id)=\(Int($0.value))" }.joined(separator: ",")
         if let hit = Self.cache[key] { return hit }
-        let P = level == nil ? Self.arrange(items.map(\.value), size) : Self.hex(items.count, size)
+        let P = lvl == nil ? Self.arrange(items.map(\.value), size) : Self.hex(items.count, size)
         if Self.cache.count > 60 { Self.cache.removeAll() }
         Self.cache[key] = P
         return P
