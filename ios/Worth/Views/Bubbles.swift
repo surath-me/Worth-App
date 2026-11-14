@@ -7,6 +7,8 @@ struct Bubbles: View {
     @Environment(Prefs.self) private var prefs
     let onOpen: (Account) -> Void
     let onAdd: (String) -> Void
+    /// True while a bubble is lifted and being dragged; the page doesn't scroll then.
+    @Binding var dragging: Bool
     @State private var level: String?            // an open group
     @State private var origin: CGPoint?          // where the opened group's bubble sat
     @State private var cameBack: String?         // the group we just left (it grows back first)
@@ -20,6 +22,17 @@ struct Bubbles: View {
         var liab = false; var group: String?; var account: Account?; var symbol: String?; var equity = false
     }
 
+    // The web app's transitions (index.html renderBubbles): bubbles that leave are drawn by `Leaving` views while the
+    // new level's bubbles enter from `entry`.
+    enum EntryMode: Equatable { case fresh, open(CGPoint), back(String) }
+    struct Leaving: Identifiable {
+        enum Mode { case recede(CGPoint), shrink, flyInto(CGPoint, Double) }
+        let id = UUID(); let item: Item; let c: CGPoint; let r: CGFloat; let mode: Mode
+    }
+    @State private var leaving: [Leaving] = []
+    @State private var entryMode: EntryMode = .fresh
+    @State private var box: CGSize = .zero
+
     var body: some View {
         let items = itemsNow
         VStack(alignment: .leading, spacing: 12) {
@@ -27,19 +40,18 @@ struct Bubbles: View {
             GeometryReader { g in
                 let P = layout(items, size: g.size)
                 ZStack {
+                    ForEach(leaving) { l in LeavingBubble(leaving: l, box: g.size) }
                     ForEach(Array(items.enumerated()), id: \.element.id) { i, x in
-                        Bubble(item: x, r: P[i].r, at: P[i].c, from: start(for: x, i: i, P: P, size: g.size), delay: Double(i) * 0.04,
+                        Bubble(item: x, r: P[i].r, at: P[i].c, entry: entry(for: x, i: i, at: P[i].c, size: g.size),
                                dragAt: drag?.id == x.id ? drag?.now : nil, pressing: pressing == x.id)
-                            .zIndex(drag?.id == x.id ? 10 : 0)
+                            .zIndex(drag?.id == x.id ? 10 : 1)
                             .onTapGesture { tap(x, at: P[i].c) }
                             .gesture(reorder(x, items: items, P: P))
                     }
                 }
                 .coordinateSpace(name: "bub")
-                .sensoryFeedback(.impact(weight: .medium), trigger: drag?.id) { _, new in new != nil }
-                .sensoryFeedback(.selection, trigger: order)
-                .id(level ?? "top")
-                .transition(.asymmetric(insertion: .identity, removal: .opacity.combined(with: .scale(scale: 0.85))))
+                .onAppear { box = g.size }
+                .onChange(of: g.size) { _, s in box = s }
             }
             .frame(height: 300)
             legend(items)
@@ -51,7 +63,8 @@ struct Bubbles: View {
 
     // MARK: items
 
-    private var itemsNow: [Item] {
+    private var itemsNow: [Item] { items(at: level) }
+    private func items(at level: String?) -> [Item] {
         if let level, let g = Catalog.groups.first(where: { $0.id == level }) {
             return store.accounts(in: g).map { a in
                 let t = Catalog.type(a.type)
@@ -72,7 +85,7 @@ struct Bubbles: View {
     private func reorder(_ x: Item, items: [Item], P: [Circ]) -> some Gesture {
         LongPressGesture(minimumDuration: 0.45)
             .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("bub")))
-            .updating($pressing) { v, st, _ in if case .first(true) = v { st = x.id } }
+            .updating($pressing) { v, st, _ in if case .first(true) = v { st = x.id; Haptics.prepare() } }
             .onChanged { v in
                 guard case .second(true, let g) = v else { return }
                 let ids = items.map(\.id)
@@ -80,6 +93,8 @@ struct Bubbles: View {
                 if drag == nil {
                     withAnimation(.spring(duration: 0.4, bounce: 0.35)) { drag = (x.id, P[i].c, P[i].c) }
                     order = ids
+                    dragging = true
+                    Haptics.lift() // a firm tap the moment it's picked up
                 }
                 guard let g, let d = drag else { return }
                 let now = CGPoint(x: d.start.x + g.translation.width, y: d.start.y + g.translation.height)
@@ -92,30 +107,59 @@ struct Bubbles: View {
                 }
                 if let hit {
                     var o = ids; o.remove(at: i); o.insert(x.id, at: hit)
-                    withAnimation(.spring(duration: 0.45, bounce: 0.2)) { order = o }
+                    order = o
+                    Haptics.tick() // a light tick each time it takes another spot
                 }
             }
             .onEnded { _ in
                 if let o = order { prefs.bubOrder[level ?? "top"] = o }
-                withAnimation(.spring(duration: 0.5, bounce: 0.3)) { drag = nil; order = nil }
+                dragging = false
+                drag = nil; order = nil
             }
     }
 
+    /// Opening a group: the other groups recede together (to 85% toward the middle, blurring and fading, like the App
+    /// Library behind an open folder), the tapped one shrinks away in place, and its entries pop out of its spot.
     private func tap(_ x: Item, at c: CGPoint) {
         if let a = x.account { onOpen(a); return }
         guard let gk = x.group else { return }
-        origin = c; cameBack = nil
-        withAnimation(.spring(duration: 0.5, bounce: 0.2)) { level = gk }
+        let old = itemsNow, P = layout(old, size: box), cx = box.width / 2, cy = box.height / 2
+        leaving = old.indices.map { i in
+            Leaving(item: old[i], c: P[i].c, r: P[i].r,
+                    mode: old[i].id == x.id ? .shrink : .recede(CGPoint(x: cx + (P[i].c.x - cx) * 0.85, y: cy + (P[i].c.y - cy) * 0.85)))
+        }
+        entryMode = .open(c)
+        level = gk
+        clearLeaving()
     }
+    /// Going back: each entry travels back into its group's bubble (last out, first in, 30ms apart), the group grows
+    /// back first, and the other groups follow from their own spots ~0.3s later.
     private func back() {
-        cameBack = level; origin = nil
-        withAnimation(.spring(duration: 0.5, bounce: 0.15)) { level = nil }
+        guard let l = level else { return }
+        let old = itemsNow, P = layout(old, size: box)
+        let top = items(at: nil), PT = layout(top, size: box)
+        let home = "g:" + l
+        let target = top.firstIndex { $0.id == home }.map { PT[$0].c } ?? CGPoint(x: box.width / 2, y: box.height / 2)
+        leaving = old.indices.map { i in
+            Leaving(item: old[i], c: P[i].c, r: P[i].r, mode: .flyInto(target, Double(old.count - 1 - i) * 0.03))
+        }
+        entryMode = .back(home)
+        level = nil
+        clearLeaving()
+    }
+    private func clearLeaving() {
+        let ids = Set(leaving.map(\.id))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { leaving.removeAll { ids.contains($0.id) } }
     }
 
-    /// Where a bubble grows from: inside a group, the opened group's spot; coming back, its own spot.
-    private func start(for x: Item, i: Int, P: [Circ], size: CGSize) -> CGPoint {
-        if level != nil, let o = origin { return o }
-        return P[i].c
+    /// How a bubble arrives (web: fresh ones grow from the middle 40ms apart; opening, from the tapped group's spot;
+    /// going back, the home group grows in place at once and the rest from their spots after 0.3s).
+    private func entry(for x: Item, i: Int, at c: CGPoint, size: CGSize) -> Bubble.Entry {
+        switch entryMode {
+        case .fresh: return .init(from: CGPoint(x: size.width / 2, y: size.height / 2), fade: true, delay: Double(i) * 0.04)
+        case .open(let o): return .init(from: o, fade: true, delay: Double(i) * 0.04)
+        case .back(let home): return x.id == home ? .init(from: c, fade: false, delay: 0) : .init(from: c, fade: true, delay: 0.3 + Double(i) * 0.04)
+        }
     }
 
     // MARK: header + legend
@@ -171,9 +215,13 @@ struct Bubbles: View {
             }
             if let level, let g = Catalog.groups.first(where: { $0.id == level }) {
                 Button { onAdd(g.types[0]) } label: {
-                    Label("Add to \(g.name)", systemImage: "plus").font(.system(size: 15, weight: .medium)).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 10)
+                    HStack(spacing: 6) { Image(systemName: "plus").font(.system(size: 17, weight: .semibold)).opacity(0.9); Text("Add to \(g.name)") }
+                        .font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).frame(height: 46)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(red: 118/255, green: 118/255, blue: 128/255).opacity(0.24)))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(AddToStyle())
+                .padding(.top, 12).padding(.bottom, 4)
             }
         }
         .id(level ?? "top")
@@ -289,18 +337,20 @@ struct Bubbles: View {
 }
 
 /// One bubble: a two-colour gradient with a soft highlight, name and amount; it grows out of `from` to its spot.
-private struct Bubble: View {
+
+/// The web app's bubble timings.
+private enum BubAnim {
+    /// moves and growth: 0.9s with a springy overshoot (CSS cubic-bezier(.34,1.56,.64,1))
+    static func move(_ delay: Double = 0) -> Animation { .timingCurve(0.34, 1.56, 0.64, 1, duration: 0.9).delay(delay) }
+    static func fade(_ delay: Double = 0) -> Animation { .easeInOut(duration: 0.35).delay(delay) }
+}
+
+/// What a bubble looks like: a two-colour gradient with a soft highlight, its name and amount.
+private struct BubbleFace: View {
     @Environment(Store.self) private var store
     let item: Bubbles.Item
     let r: CGFloat
-    let at: CGPoint
-    let from: CGPoint
-    let delay: Double
-    var dragAt: CGPoint? = nil      // lifted and following the finger
-    var pressing = false            // held, about to lift
-    @State private var shown = false
-    @State private var floatY: CGFloat = 0
-
+    var labels: Double = 1
     var body: some View {
         let d = r * 2
         ZStack {
@@ -308,33 +358,101 @@ private struct Bubble: View {
             Circle().fill(RadialGradient(colors: [.white.opacity(0.3), .clear], center: UnitPoint(x: 0.32, y: 0.24), startRadius: 0, endRadius: r * 1.1))
             VStack(spacing: 1) {
                 if let s = item.symbol, d >= 96 { Image(systemName: s).font(.system(size: 16, weight: .semibold)).padding(.bottom, 2) }
-                if true {
-                    Text(item.name).font(.system(size: 13, weight: .semibold)).lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.8)
-                }
+                Text(item.name).font(.system(size: 13, weight: .semibold)).lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.8)
                 Text((item.liab ? "−" : "") + Money.format(item.value, store.data.base, decimals: 0))
                     .font(.system(size: 12, weight: .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).masked()
             }
             .foregroundStyle(.white).shadow(color: .black.opacity(0.25), radius: 3, y: 1)
             .padding(.horizontal, d * 0.12)
-            .opacity(shown ? 1 : 0)
+            .opacity(labels)
         }
         .frame(width: d, height: d)
         .compositingGroup()
-        .shadow(color: .black.opacity(dragAt != nil ? 0.6 : 0.3), radius: dragAt != nil ? 22 : 8, y: dragAt != nil ? 16 : 5)
-        .scaleEffect(dragAt != nil ? 1.14 : pressing ? 0.9 : 1)
-        .animation(pressing ? .timingCurve(0.3, 0, 0.2, 1, duration: 0.55) : .spring(duration: 0.45, bounce: 0.4), value: pressing)
-        .scaleEffect(shown ? 1 : 0.05)
-        .opacity(shown ? 1 : 0)
-        .offset(y: dragAt == nil ? floatY : 0)
-        .position(dragAt ?? (shown ? at : from))
-        .animation(dragAt == nil ? .spring(duration: 0.55, bounce: 0.22) : nil, value: at)
-        .animation(.spring(duration: 0.55, bounce: 0.22), value: r)
-        .onAppear {
-            withAnimation(.spring(duration: 0.6, bounce: 0.25).delay(delay)) { shown = true }
-            withAnimation(.easeInOut(duration: 4 + Double(item.id.count % 5) * 0.6).repeatForever(autoreverses: true).delay(delay + 0.8)) { floatY = -3 }
+    }
+}
+
+/// One bubble on the current level: it arrives per `entry` (from a point, scale 0.05 → 1 with the overshoot, fading in
+/// unless it's the home group, its label fading in a moment later), floats gently (the web's 6s `bfloat`), sinks when
+/// held and lifts to follow the finger.
+private struct Bubble: View {
+    struct Entry { let from: CGPoint; let fade: Bool; let delay: Double }
+    let item: Bubbles.Item
+    let r: CGFloat
+    let at: CGPoint
+    let entry: Entry
+    var dragAt: CGPoint? = nil
+    var pressing = false
+    @State private var moved = false
+    @State private var visible = false
+    @State private var labels = false
+
+    var body: some View {
+        BubbleFace(item: item, r: r, labels: labels ? 1 : 0)
+            .keyframeAnimator(initialValue: CGSize.zero, repeating: true) { c, v in c.offset(dragAt == nil ? v : .zero) } keyframes: { _ in
+                let T = 6 + Double(abs(item.id.hashValue) % 7) * 0.25
+                KeyframeTrack {
+                    CubicKeyframe(CGSize(width: 1.5, height: -3), duration: T * 0.25)
+                    CubicKeyframe(CGSize(width: -1, height: 2), duration: T * 0.25)
+                    CubicKeyframe(CGSize(width: -2, height: -1.5), duration: T * 0.25)
+                    CubicKeyframe(.zero, duration: T * 0.25)
+                }
+            }
+            .shadow(color: .black.opacity(dragAt != nil ? 0.6 : 0.3), radius: dragAt != nil ? 22 : 8, y: dragAt != nil ? 16 : 5)
+            .scaleEffect(dragAt != nil ? 1.14 : pressing ? 0.9 : 1)
+            .animation(pressing ? .timingCurve(0.3, 0, 0.2, 1, duration: 0.55) : .spring(duration: 0.45, bounce: 0.4), value: pressing)
+            .animation(.spring(duration: 0.45, bounce: 0.4), value: dragAt == nil)
+            .scaleEffect(moved ? 1 : 0.05)
+            .opacity(visible || !entry.fade ? 1 : 0)
+            .position(dragAt ?? (moved ? at : entry.from))
+            .animation(dragAt == nil ? BubAnim.move() : nil, value: at)
+            .onAppear {
+                withAnimation(BubAnim.move(entry.delay)) { moved = true }
+                withAnimation(BubAnim.fade(entry.delay)) { visible = true }
+                withAnimation(.easeInOut(duration: 0.35).delay(entry.delay + 0.16)) { labels = true }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// A bubble leaving the current level, as in the web app: receding (to 85% toward the middle, blurring and fading),
+/// shrinking away in place, or flying back into its group's bubble.
+private struct LeavingBubble: View {
+    let leaving: Bubbles.Leaving
+    let box: CGSize
+    @State private var go = false
+    @State private var gone = false
+    @State private var labelsGone = false
+
+    var body: some View {
+        let l = leaving
+        var to = l.c, scale: CGFloat = 1, blur: CGFloat = 0
+        switch l.mode {
+        case .recede(let p): to = p; scale = 0.85; blur = 8
+        case .shrink: scale = 0.05
+        case .flyInto(let p, _): to = p; scale = 0.05
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
+        return BubbleFace(item: l.item, r: l.r, labels: labelsGone ? 0 : 1)
+            .scaleEffect(go ? scale : 1)
+            .blur(radius: gone ? blur : 0)
+            .opacity(gone ? 0 : 1)
+            .position(go ? to : l.c)
+            .allowsHitTesting(false)
+            .onAppear {
+                switch l.mode {
+                case .recede:
+                    withAnimation(.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.5)) { go = true }
+                    withAnimation(.easeInOut(duration: 0.35)) { gone = true; labelsGone = true }
+                case .shrink:
+                    withAnimation(.timingCurve(0.4, 0, 0.2, 1, duration: 0.5)) { go = true }
+                    withAnimation(.easeInOut(duration: 0.3)) { gone = true }
+                    withAnimation(.easeInOut(duration: 0.35)) { labelsGone = true }
+                case .flyInto(_, let k):
+                    withAnimation(.timingCurve(0.5, 0, 0.75, 0, duration: 0.42).delay(k)) { go = true }
+                    withAnimation(.linear(duration: 0.12).delay(k + 0.32)) { gone = true }
+                    withAnimation(.easeInOut(duration: 0.35)) { labelsGone = true }
+                }
+            }
     }
 }
 
@@ -344,5 +462,21 @@ private extension Array where Element == Bubbles.Item {
         guard let saved, !saved.isEmpty else { return self }
         let pos = Dictionary(saved.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
         return enumerated().sorted { (pos[$0.element.id] ?? 1_000_000 + $0.offset) < (pos[$1.element.id] ?? 1_000_000 + $1.offset) }.map(\.element)
+    }
+}
+
+/// Haptics for moving bubbles, fired straight from the gesture (UIKit generators, prepared while the finger is down).
+enum Haptics {
+    private static let impact = UIImpactFeedbackGenerator(style: .medium)
+    private static let select = UISelectionFeedbackGenerator()
+    static func prepare() { impact.prepare(); select.prepare() }
+    static func lift() { impact.impactOccurred(intensity: 0.9) }
+    static func tick() { select.selectionChanged(); select.prepare() }
+}
+
+/// The legend's "Add to <group>": presses in slightly, like the web's `.bub-add`.
+private struct AddToStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.scaleEffect(configuration.isPressed ? 0.97 : 1).animation(.spring(duration: 0.25), value: configuration.isPressed)
     }
 }

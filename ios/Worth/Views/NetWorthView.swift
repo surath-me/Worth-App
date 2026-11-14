@@ -10,6 +10,7 @@ struct NetWorthView: View {
     @State private var adding: String?          // a type to start a new entry with
     @State private var checkIn: String?         // a month to open the check-in for
     @State private var scrub: Store.Point?      // the month being read on the chart
+    @State private var bubbleDrag = false        // a bubble is lifted and following the finger
 
     var body: some View {
         ScrollView {
@@ -22,7 +23,7 @@ struct NetWorthView: View {
                     BackfillCard { checkIn = $0 }.padding(.top, 16)
                     if store.data.accounts.contains(where: { store.conv($0.bal, $0.cur) > 0 }) {
                         SectionTitle("Breakdown")
-                        Bubbles(onOpen: { editing = $0 }, onAdd: { adding = $0 })
+                        Bubbles(onOpen: { editing = $0 }, onAdd: { adding = $0 }, dragging: $bubbleDrag)
                     }
                     SavedFoot()
                 }
@@ -30,7 +31,7 @@ struct NetWorthView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
-        .scrollDisabled(scrub != nil)
+        .scrollDisabled(scrub != nil || bubbleDrag) // reading the chart or moving a bubble never scrolls the page
         .background(Aura())
         .sheet(item: $editing) { EntrySheet(account: $0) }
         .sheet(item: Binding(get: { adding.map(TypeChoice.init) }, set: { adding = $0?.id })) { EntrySheet(account: nil, startType: $0.id) }
@@ -145,12 +146,12 @@ struct WorthChart: View {
                                     LongPressGesture(minimumDuration: 0.12)
                                         .sequenced(before: DragGesture(minimumDistance: 0))
                                         .onChanged { v in if case .second(true, let drag?) = v { pick(drag.location.x, proxy: proxy, geo: g, pts: pts) } }
-                                        .onEnded { _ in withAnimation(.easeOut(duration: 0.2)) { scrub = nil } }
+                                        .onEnded { _ in endScrub() }
                                 )
                                 .simultaneousGesture(
                                     DragGesture(minimumDistance: 6)
                                         .onChanged { v in if scrub != nil || abs(v.translation.width) > abs(v.translation.height) { pick(v.location.x, proxy: proxy, geo: g, pts: pts) } }
-                                        .onEnded { _ in withAnimation(.easeOut(duration: 0.2)) { scrub = nil } }
+                                        .onEnded { _ in endScrub() }
                                 )
                             // the label rides above the dot, laid over the chart (not inside it) so it can be real glass
                             if let s = scrub, let plot = proxy.plotFrame,
@@ -194,6 +195,13 @@ struct WorthChart: View {
         .chartYScale(domain: lo...hi).chartXAxis(.hidden).chartYAxis(.hidden)
                     .chartXScale(range: .plotDimension(startPadding: 0, endPadding: 14)) // starts at the screen's edge; room for the end dot
         .allowsHitTesting(false)
+    }
+
+    /// Letting go: the dot and its label just vanish where they are. (Animating the chart here makes Swift Charts fly
+    /// the removed dot to its origin, the top-left corner.)
+    private func endScrub() {
+        var t = Transaction(); t.disablesAnimations = true
+        withTransaction(t) { scrub = nil }
     }
 
     private func pick(_ x: CGFloat, proxy: ChartProxy, geo: GeometryProxy, pts: [Store.Point]) {

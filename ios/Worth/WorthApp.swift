@@ -93,20 +93,26 @@ struct RootView: View {
 /// The + button's face: the accent gradient circle (the web app's green → blue) with a white plus.
 struct AddButtonFace: View {
     var body: some View {
-        Image(systemName: "plus")
+        let face = Image(systemName: "plus")
             .font(.system(size: 24, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: 62, height: 62)
             .background(Circle().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .topLeading, endPoint: .bottomTrailing)))
-            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
             .contentShape(Circle())
+        if #available(iOS 26, *) {
+            // interactive Liquid Glass: it swells and glows under the finger, like the tab bar's own items
+            face.glassEffect(.regular.tint(Color.hex(0x0B82A6)).interactive(), in: Circle())
+        } else {
+            face.overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5)).shadow(color: .black.opacity(0.35), radius: 10, y: 6)
+        }
     }
 }
-/// A soft press: the circle sinks a little under the finger.
+/// The press: the circle grows a little under the finger and springs back.
 struct AddPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.scaleEffect(configuration.isPressed ? 0.92 : 1).animation(.spring(duration: 0.3, bounce: 0.4), value: configuration.isPressed)
+        // grows under the finger (like the tab bar's items do), then springs back
+        configuration.label.scaleEffect(configuration.isPressed ? 1.12 : 1)
+            .animation(.spring(duration: 0.35, bounce: 0.45), value: configuration.isPressed)
     }
 }
 
