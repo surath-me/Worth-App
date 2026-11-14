@@ -91,7 +91,7 @@ struct EntrySheet: View {
     }
 
     private var currentSymbol: String {
-        if let icon, let s = Catalog.materialToSF[icon] { return Catalog.safeSymbol(s) }
+        if let icon, MaterialIcons.paths[icon] != nil { return icon }
         return Catalog.safeSymbol(Catalog.type(type).symbol)
     }
 
@@ -144,9 +144,8 @@ struct IconPicker: View {
         ScrollView {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 6), spacing: 12) {
                 cell(symbol: typeSymbol, on: selected == nil) { selected = nil }
-                ForEach(Catalog.iconChoices, id: \.self) { k in
-                    let s = Catalog.safeSymbol(Catalog.materialToSF[k] ?? "circle")
-                    if s != typeSymbol { cell(symbol: s, on: selected == k) { selected = k } }
+                ForEach(Catalog.iconChoices.filter { $0 != typeSymbol }, id: \.self) { k in
+                    cell(symbol: k, on: selected == k) { selected = k }
                 }
             }
             .padding(16)
@@ -160,12 +159,13 @@ struct IconPicker: View {
             pick()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) { dismiss() } // the pick lights up, then back
         } label: {
-            Image(systemName: symbol)
-                .font(.system(size: 20, weight: .semibold))
+            MIcon(symbol, size: 24)
                 .foregroundStyle(on ? .white : .primary)
-                .frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
+                .frame(width: 48, height: 48)
                 .background(Circle().fill(on ? AnyShapeStyle(color) : AnyShapeStyle(Color(.tertiarySystemFill))))
                 .overlay(Circle().stroke(on ? color : .clear, lineWidth: 2).padding(-4))
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: on)

@@ -421,7 +421,7 @@ private struct SatBubble: View {
         ZStack {
             Circle().fill(Catalog.gradient(sat.g))
             Circle().fill(RadialGradient(colors: [.white.opacity(0.3), .clear], center: UnitPoint(x: 0.32, y: 0.24), startRadius: 0, endRadius: sat.s * 0.55))
-            if let k = sat.k { Image(systemName: Catalog.safeSymbol(Catalog.type(k).symbol)).font(.system(size: sat.s * 0.4, weight: .semibold)).foregroundStyle(.white) }
+            if let k = sat.k { MIcon(Catalog.safeSymbol(Catalog.type(k).symbol), size: sat.s * 0.5).foregroundStyle(.white) }
         }
         .frame(width: sat.s, height: sat.s)
         .offset(x: drift ? max(3, 9 - sat.s / 14) * 0.5 : 0, y: drift ? -max(3, 9 - sat.s / 14) : 0)

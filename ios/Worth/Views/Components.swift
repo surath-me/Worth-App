@@ -9,8 +9,7 @@ struct Avatar: View {
     var grad: String? = nil
 
     var body: some View {
-        Image(systemName: symbol)
-            .font(.system(size: size * 0.45, weight: .semibold))
+        MIcon(symbol, size: size * 0.6) // the web app's Material icon (it fills ~22/40 of the avatar)
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background(Circle().fill(grad.map { AnyShapeStyle(Catalog.gradient($0)) } ?? AnyShapeStyle(color.gradient)))

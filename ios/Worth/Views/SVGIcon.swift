@@ -6,6 +6,16 @@ enum SVGIcon {
     /// The web app's tab icon for Net worth (MI.chart in index.html).
     static let chart = image("M93-266q0-13 10-23l234-234q17-17 42.5-17.5T422-523l118 118 278-312q8-9 20.5-10t21.5 8q8 8 8.5 20t-7.5 21L582-363q-17 20-43 20.5T495-360L380-474 149-243q-10 10-23 10t-23-10q-10-10-10-23Z")
 
+    private static var cache: [String: UIImage] = [:]
+    /// A web icon by name (MaterialIcons.paths), drawn once per size and reused.
+    static func named(_ name: String, size: CGFloat) -> UIImage {
+        let key = "\(name)@\(Int(size * 2))"
+        if let hit = cache[key] { return hit }
+        let img = image(MaterialIcons.paths[name] ?? MaterialIcons.paths["other"] ?? "", size: size)
+        cache[key] = img
+        return img
+    }
+
     /// A template image (tinted by the tab bar) from Material path data.
     static func image(_ d: String, size: CGFloat = 33) -> UIImage {
         let path = parse(d)
@@ -64,5 +74,16 @@ enum SVGIcon {
             lastCmd = cmd
         }
         return p
+    }
+}
+
+import SwiftUI
+/// One of the web app's icons, tinted by the foreground style (white on the coloured avatars and bubbles).
+struct MIcon: View {
+    let name: String
+    let size: CGFloat
+    init(_ name: String, size: CGFloat) { self.name = name; self.size = size }
+    var body: some View {
+        Image(uiImage: SVGIcon.named(name, size: size)).renderingMode(.template).resizable().frame(width: size, height: size)
     }
 }

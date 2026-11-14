@@ -357,7 +357,7 @@ private struct BubbleFace: View {
             Circle().fill(Catalog.gradient(item.grad))
             Circle().fill(RadialGradient(colors: [.white.opacity(0.3), .clear], center: UnitPoint(x: 0.32, y: 0.24), startRadius: 0, endRadius: r * 1.1))
             VStack(spacing: 1) {
-                if let s = item.symbol, d >= 96 { Image(systemName: s).font(.system(size: 16, weight: .semibold)).padding(.bottom, 2) }
+                if let s = item.symbol, d >= 96 { MIcon(s, size: 22).padding(.bottom, 2) }
                 Text(item.name).font(.system(size: 13, weight: .semibold)).lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.8)
                 Text((item.liab ? "−" : "") + Money.format(item.value, store.data.base, decimals: 0))
                     .font(.system(size: 12, weight: .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).masked()
