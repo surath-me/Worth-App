@@ -27,6 +27,7 @@ struct RootView: View {
     @State private var onboarding = false
     @State private var pastMonth: String?
     @State private var adding = false
+    @Namespace private var addNS
 
     var body: some View {
         ZStack {
@@ -40,24 +41,32 @@ struct RootView: View {
                     .badge(store.checkInDue ? Text("") : nil) // a dot while this month's check-in is due
                 Tab("Settings", systemImage: "gearshape.fill", value: "settings") { SettingsView() }
                 if #available(iOS 27, *) {
-                    Tab(value: "add", role: .prominent) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: AccentPlus.image) } }
+                    Tab(value: "add", role: .prominent) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: ClearIcon.image) } }
                 } else {
-                    Tab(value: "add", role: .search) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: AccentPlus.image) } }
+                    Tab(value: "add", role: .search) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: ClearIcon.image) } }
                 }
             }
-            // The + is caught here, on top of the native button, so the tab bar never switches to the empty "add" page
-            // (which flashed black for a frame before switching back).
-            .overlay(alignment: .bottomTrailing) {
-                Button { if store.isEmpty { onboarding = true } else { adding = true } } label: {
-                    Circle().fill(Color.white.opacity(0.001)).frame(width: 64, height: 64)
+            // The + is drawn here, exactly over the tab bar's own trailing button: the web app's accent circle with a white
+            // plus. Catching the tap here also means the tab bar never switches to the empty "add" page (no black flash).
+            // The new-entry sheet zooms out of it (iOS's zoom transition, as in Structured): the circle lifts and
+            // grows, turns into a pill as the keyboard rises, then opens into the sheet; closing runs it in reverse.
+            .overlay {
+                // measured from the screen's edges (not the safe area), where the tab bar's own button sits
+                ZStack(alignment: .bottomTrailing) {
+                    Color.clear.allowsHitTesting(false)
+                    Button { if store.isEmpty { onboarding = true } else { adding = true } } label: {
+                        AddButtonFace().matchedTransitionSource(id: "add", in: addNS)
+                    }
+                    .buttonStyle(AddPressStyle())
+                    .padding(.trailing, 21).padding(.bottom, 21)
+                    .accessibilityLabel("Add entry")
+                    .sensoryFeedback(.impact(weight: .light), trigger: adding)
                 }
-                .buttonStyle(.plain)
-                .padding(.trailing, 20).padding(.bottom, 21)
                 .ignoresSafeArea()
-                .accessibilityLabel("Add entry")
-                .sensoryFeedback(.impact(weight: .light), trigger: adding)
             }
-            .sheet(isPresented: $adding) { EntrySheet(account: nil) }
+            .sheet(isPresented: $adding) {
+                EntrySheet(account: nil).navigationTransition(.zoom(sourceID: "add", in: addNS))
+            }
             .environment(\.openOnboarding, { onboarding = true })
 
             if splash {
@@ -81,22 +90,27 @@ struct RootView: View {
     }
 }
 
-/// The + drawn in the app's accent (green → blue, like the web app's + button), kept in its own colours in the tab bar.
-enum AccentPlus {
-    static let image: UIImage = {
-        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
-        guard let glyph = UIImage(systemName: "plus", withConfiguration: cfg) else { return UIImage() }
-        let size = glyph.size
-        let img = UIGraphicsImageRenderer(size: size).image { ctx in
-            let cg = ctx.cgContext
-            glyph.withRenderingMode(.alwaysTemplate).draw(in: CGRect(origin: .zero, size: size))
-            cg.setBlendMode(.sourceIn)
-            let colors = [UIColor(red: 0x36/255, green: 0xF5/255, blue: 0xB2/255, alpha: 1).cgColor,
-                          UIColor(red: 0x3A/255, green: 0xA4/255, blue: 0xFF/255, alpha: 1).cgColor] as CFArray
-            if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
-                cg.drawLinearGradient(g, start: .zero, end: CGPoint(x: size.width, y: size.height), options: [])
-            }
-        }
-        return img.withRenderingMode(.alwaysOriginal)
-    }()
+/// The + button's face: the accent gradient circle (the web app's green → blue) with a white plus.
+struct AddButtonFace: View {
+    var body: some View {
+        Image(systemName: "plus")
+            .font(.system(size: 24, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 62, height: 62)
+            .background(Circle().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
+            .contentShape(Circle())
+    }
+}
+/// A soft press: the circle sinks a little under the finger.
+struct AddPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.scaleEffect(configuration.isPressed ? 0.92 : 1).animation(.spring(duration: 0.3, bounce: 0.4), value: configuration.isPressed)
+    }
+}
+
+/// An empty icon for the tab bar's own trailing button, which only holds the space under our drawn + button.
+enum ClearIcon {
+    static let image: UIImage = UIGraphicsImageRenderer(size: CGSize(width: 24, height: 24)).image { _ in }.withRenderingMode(.alwaysOriginal)
 }

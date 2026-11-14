@@ -86,6 +86,7 @@ struct EntrySheet: View {
             }
             .onChange(of: type) { _, k in if let d = Catalog.type(k).dep, dep.isEmpty || account == nil { dep = Self.fmt(d) } }
             .onAppear(perform: load)
+            .defaultFocus($nameFocused, account == nil) // a new entry types its name straight away: the keyboard rises with the opening
         }
     }
 
