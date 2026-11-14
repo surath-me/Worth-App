@@ -17,6 +17,10 @@ struct EntrySheet: View {
     @State private var dep = ""
     @State private var icon: String?
     @State private var confirmDelete = false
+    @State private var confirmDiscard = false
+    /// What to do once the question's popover has gone: closing the sheet from inside it would only close the popover.
+    @State private var leaving: Leave?
+    enum Leave { case discard, delete }
     @FocusState private var nameFocused: Bool
 
     var body: some View {
@@ -67,23 +71,25 @@ struct EntrySheet: View {
                     TextField("Platform (optional)", text: $platform)
                 } footer: { if t.dep != nil { Text("Applied at each new month.") } }
 
-                if account != nil {
-                    Section {
-                        Button("Delete entry", role: .destructive) { confirmDelete = true }
-                    } footer: { Text("Past months keep it.") }
-                }
             }
             .navigationTitle(account == nil ? "New entry" : "Edit entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { after?(nil); dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(account == nil ? "Add" : "Done", action: save).disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                ToolbarItem(placement: .cancellationAction) {
+                    Group {
+                        if #available(iOS 26, *) { Button(role: .close, action: close) } else { Button("Cancel", action: close) }
+                    }
+                    // closing with unsaved changes asks first (the iOS pattern), anchored to the close button
+                    .confirmationDialog("Discard your changes?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+                        Button("Discard changes", role: .destructive) { leaving = .discard }
+                        Button("Keep editing", role: .cancel) {}
+                    }
                 }
             }
-            .confirmationDialog("Delete this entry?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) { if let account { store.delete(account) }; dismiss() }
-            }
+            // the actions sit at the bottom, above the keyboard when it's up: delete (editing only) and Save/Add
+            .safeAreaInset(edge: .bottom) { actions }
+            .interactiveDismissDisabled(changed) // a swipe down can't silently throw changes away
+            .onChange(of: confirmDiscard || confirmDelete) { _, open in if !open { finishLeaving() } }
             .onChange(of: type) { _, k in if let d = Catalog.type(k).dep, dep.isEmpty || account == nil { dep = Self.fmt(d) } }
             .onAppear(perform: load)
             .defaultFocus($nameFocused, account == nil) // a new entry types its name straight away: the keyboard rises with the opening
@@ -93,6 +99,68 @@ struct EntrySheet: View {
     private var currentSymbol: String {
         if let icon, MaterialIcons.paths[icon] != nil { return icon }
         return Catalog.safeSymbol(Catalog.type(type).symbol)
+    }
+
+    /// Delete on the left (a small round button, only when editing), the main action filling the rest: Save is only
+    /// active once something has changed; a new entry's Add once it has a name.
+    private var actions: some View {
+        HStack(spacing: 12) {
+            if let account {
+                Button { confirmDelete = true } label: {
+                    Image(systemName: "trash").font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.down)
+                        .frame(width: 52, height: 52)
+                        .background(Circle().fill(Color.white.opacity(0.08)))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(PressScale())
+                .accessibilityLabel("Delete entry")
+                .confirmationDialog("Delete \(account.name.isEmpty ? "this entry" : account.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                    Button("Delete entry", role: .destructive) { leaving = .delete }
+                    Button("Cancel", role: .cancel) {}
+                } message: { Text("Months already recorded keep its balance.") }
+            }
+            Button(account == nil ? "Add" : "Save", action: save)
+                .buttonStyle(PrimaryButton())
+                .disabled(!canSave)
+                .animation(.easeOut(duration: 0.2), value: canSave)
+        }
+        .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 8)
+        // the form scrolls under the bar and fades out behind it, rather than showing through between the buttons
+        .background {
+            let bg = Color(.systemGroupedBackground)
+            VStack(spacing: 0) {
+                LinearGradient(colors: [bg.opacity(0), bg], startPoint: .top, endPoint: .bottom).frame(height: 20)
+                bg
+            }
+            .ignoresSafeArea(.container, edges: .bottom) // down to the sheet's edge, but not behind the keyboard
+        }
+    }
+
+    private func finishLeaving() {
+        guard let l = leaving else { return }
+        leaving = nil
+        if l == .delete, let account { store.delete(account) } else { after?(nil) }
+        dismiss()
+    }
+
+    private var named: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
+    private var canSave: Bool { named && (account == nil || changed) }
+    private func close() { if changed { confirmDiscard = true } else { after?(nil); dismiss() } }
+
+    /// Whether anything differs from the saved entry, compared as values (so "1500" and "1500.00", or a default yearly
+    /// change filled in for display, don't count as edits). A new entry counts as changed once anything is typed.
+    private var changed: Bool {
+        guard let a = account else { return named || !amount.isEmpty || !platform.isEmpty }
+        let def = Catalog.type(type).dep
+        let nowDep = def != nil ? (Self.parse(dep) ?? def) : nil
+        let wasDep = Catalog.type(a.type).dep != nil ? (a.dep ?? Catalog.type(a.type).dep) : nil
+        return name.trimmingCharacters(in: .whitespaces) != a.name
+            || abs(abs(Self.parse(amount) ?? 0) - a.bal) > 0.001
+            || type != (Catalog.type[a.type] != nil ? a.type : "other")
+            || cur != a.cur
+            || platform.trimmingCharacters(in: .whitespaces) != a.platform
+            || icon != a.icon
+            || nowDep != wasDep
     }
 
     private func load() {
@@ -169,5 +237,15 @@ struct IconPicker: View {
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: on)
+    }
+}
+
+/// A small press-in for round icon buttons.
+private struct PressScale: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .animation(.spring(duration: 0.25), value: configuration.isPressed)
     }
 }
