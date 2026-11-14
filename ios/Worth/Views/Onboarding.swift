@@ -573,31 +573,37 @@ private struct KeyStyle: ButtonStyle {
     }
 }
 
-/// The currency tray from the bottom: tap one to pick it (it closes a beat later), drag down or tap outside to close.
+/// The currency tray: iOS's own sheet with a standard list (checkmark on the chosen one). Tap one to pick it (it closes
+/// a beat later); drag down or tap outside to close.
 private struct CurrencyTray: View {
     @Binding var cur: String
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Currency").font(.system(size: 17, weight: .semibold)).padding(.top, 22).padding(.horizontal, 4)
-            ForEach(Currency.all, id: \.self) { c in
-                OptionCard(selected: c == cur) {
-                    cur = c
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) { dismiss() }
-                } label: {
-                    Text(Currency.symbol[c] ?? c).font(.system(size: 17, weight: .bold)).frame(width: 40, height: 40)
-                        .background(Circle().fill(Color.white.opacity(0.08)))
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(Currency.name[c] ?? c).font(.system(size: 15, weight: .semibold))
-                        Text(c).font(.system(size: 12)).foregroundStyle(Color.sec)
+        NavigationStack {
+            List {
+                ForEach(Currency.all, id: \.self) { c in
+                    Button {
+                        cur = c
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) { dismiss() }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Text(Currency.symbol[c] ?? c).font(.system(size: 17, weight: .semibold)).frame(width: 36)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(Currency.name[c] ?? c)
+                                Text(c).font(.footnote).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if c == cur { Image(systemName: "checkmark").fontWeight(.semibold).foregroundStyle(Color.hex(0x3CD9CF)) }
+                        }
+                        .contentShape(Rectangle())
                     }
+                    .tint(.primary)
                 }
             }
-            Spacer(minLength: 0)
+            .navigationTitle("Currency")
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .padding(.horizontal, 16)
-        .presentationDetents([.height(440)])
+        .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(28)
     }
 }

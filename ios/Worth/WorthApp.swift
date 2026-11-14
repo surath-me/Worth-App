@@ -27,14 +27,27 @@ struct RootView: View {
     @State private var onboarding = false
     @State private var pastMonth: String?
     @State private var adding = false
+    @State private var addClosedAt = Date.distantPast   // when the new-entry sheet last started closing
+    @State private var addEpoch = 0                      // bumped after each close: re-registers the + as the zoom's source
     @Namespace private var addNS
+
+    /// Open the new-entry sheet. Tapping again while the closing zoom is still running would start the next zoom while
+    /// iOS still has the + hidden for the last one, so it measures the button wrong and the sheet flies out of the
+    /// top-left corner. A quick re-tap waits for the close to finish (under half a second); taps while open are ignored.
+    private func openAdd() {
+        if store.isEmpty { onboarding = true; return }
+        guard !adding else { return }
+        let wait = 0.5 - Date().timeIntervalSince(addClosedAt)
+        if wait > 0 { DispatchQueue.main.asyncAfter(deadline: .now() + wait) { if !adding { adding = true } } }
+        else { adding = true }
+    }
 
     var body: some View {
         ZStack {
             // The + sits on its own round button at the bottom right, beside the tab bar (like the web app's button):
             // it's the tab bar's separate trailing tab, which opens the new-entry sheet instead of a page.
             TabView(selection: Binding(get: { tab }, set: { t in
-                if t == "add" { if store.isEmpty { onboarding = true } else { adding = true } } else { tab = t }
+                if t == "add" { openAdd() } else { tab = t }
             })) {
                 Tab(value: "worth") { NetWorthView() } label: { Label { Text("Net worth") } icon: { Image(uiImage: SVGIcon.chart) } } // the web app's icon
                 Tab("Monthly", systemImage: "calendar", value: "monthly") { MonthlyView() }
@@ -54,8 +67,8 @@ struct RootView: View {
                 // measured from the screen's edges (not the safe area), where the tab bar's own button sits
                 ZStack(alignment: .bottomTrailing) {
                     Color.clear.allowsHitTesting(false)
-                    Button { if store.isEmpty { onboarding = true } else { adding = true } } label: {
-                        AddButtonFace().matchedTransitionSource(id: "add", in: addNS) { $0.clipShape(RoundedRectangle(cornerRadius: 31)).background(.clear) } // just the circle (r = half of 62), no box
+                    Button { openAdd() } label: {
+                        AddButtonFace().id(addEpoch).matchedTransitionSource(id: "add", in: addNS) { $0.clipShape(RoundedRectangle(cornerRadius: 31)).background(.clear) } // just the circle (r = half of 62), no box
                     }
                     .buttonStyle(AddPressStyle())
                     .padding(.trailing, 21).padding(.bottom, 21)
@@ -64,7 +77,10 @@ struct RootView: View {
                 }
                 .ignoresSafeArea()
             }
-            .sheet(isPresented: $adding) {
+            .onChange(of: adding) { _, open in if !open { addClosedAt = Date() } } // the close (and its zoom back) starts now
+            // After a swipe-down close iOS loses the zoom's source, and the next open grew out of the top-left corner;
+            // a fresh identity for the + once the close has finished registers it again.
+            .sheet(isPresented: $adding, onDismiss: { addEpoch += 1 }) {
                 EntrySheet(account: nil).navigationTransition(.zoom(sourceID: "add", in: addNS))
             }
             .environment(\.openOnboarding, { onboarding = true })
