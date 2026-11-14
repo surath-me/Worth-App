@@ -144,16 +144,27 @@ private struct MovedList: View {
                 let views = moved.map { AnyView(row($0, change: changeText($0))) } + (abs(fx.total) >= 1 ? [AnyView(fxRow(fx.total, fx.curs))] : [])
                 if views.isEmpty { card([AnyView(Text("No changes").font(.system(size: 15)).foregroundStyle(Color.sec).frame(maxWidth: .infinity).padding(.vertical, 18))]) }
                 else { card(views) }
-                if !still.isEmpty {
-                    Button { withAnimation(.spring(duration: 0.45, bounce: 0.1)) { prefs.unchangedOpen.toggle() } } label: {
+                if !still.isEmpty && due {
+                    // the month isn't checked in yet: these are what's left to do, so they're never folded away
+                    Text("Still to update · \(still.count)").sectionLabel().padding(.top, 10)
+                    card(still.map { AnyView(row($0, change: nil)) })
+                } else if !still.isEmpty {
+                    Button { withAnimation(.snappy(duration: 0.35)) { prefs.unchangedOpen.toggle() } } label: {
                         HStack(spacing: 6) {
-                            Text("\(still.count) \(due ? "to update" : "unchanged")")
+                            Text("\(still.count) unchanged")
                             Image(systemName: "chevron.down").rotationEffect(.degrees(prefs.unchangedOpen ? 180 : 0))
                         }
                         .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).frame(maxWidth: .infinity).padding(.top, 12).padding(.bottom, 14)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    if prefs.unchangedOpen { card(still.map { AnyView(row($0, change: nil)) }).transition(.opacity.combined(with: .move(edge: .top))) }
+                    // opens like a drawer: the list is revealed from the top as its space grows (clipped, so it never
+                    // slides over the button above), and the page below moves down with it
+                    VStack(spacing: 0) {
+                        if prefs.unchangedOpen { card(still.map { AnyView(row($0, change: nil)) }).transition(.opacity) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
+                    .clipped()
                 }
             }
         }
@@ -272,8 +283,10 @@ struct Allocation: View {
             VStack(alignment: .leading, spacing: 0) {
                 SectionTitle("Allocation")
                 VStack(spacing: 14) {
-                    Picker("View", selection: $prefs.allocBar) { Text("Pie").tag(false); Text("Bar").tag(true) }.pickerStyle(.segmented)
-                    if !prefs.allocBar {
+                    // the switch animates the whole page (not just this card), so what's below moves with the card
+                    Picker("View", selection: $prefs.allocBar.animation(.spring(duration: 0.45, bounce: 0.12))) { Text("Pie").tag(false); Text("Bar").tag(true) }.pickerStyle(.segmented)
+                    let bar = prefs.allocBar
+                    if !bar {
                         ZStack {
                             Chart(groups) { g in
                                 SectorMark(angle: .value("Value", g.value), innerRadius: .ratio(0.74), angularInset: 1.2)
@@ -285,11 +298,15 @@ struct Allocation: View {
                                 Text("Net worth").font(.system(size: 12)).foregroundStyle(Color.sec)
                             }
                         }
+                        // leaves quickly (before the rows slide up over it), arrives once its space has opened
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.7).combined(with: .opacity).animation(.spring(duration: 0.45, bounce: 0.2).delay(0.1)),
+                            removal: .scale(scale: 0.85).combined(with: .opacity).animation(.easeOut(duration: 0.14))))
                     }
                     VStack(spacing: 10) {
-                        ForEach(groups) { g in
+                        ForEach(Array(groups.enumerated()), id: \.element.id) { i, g in
                             let pct = g.value / owned * 100
-                            VStack(spacing: 6) {
+                            VStack(spacing: bar ? 6 : 0) {
                                 HStack {
                                     RoundedRectangle(cornerRadius: 3).fill(g.group.color).frame(width: 10, height: 10)
                                     Text(g.group.id == "property" && sp.netted ? "Property equity" : g.group.name).font(.system(size: 15))
@@ -298,13 +315,20 @@ struct Allocation: View {
                                     Text(Money.format(g.value, store.data.base, decimals: 0)).font(.system(size: 15, weight: .medium)).monospacedDigit()
                                         .frame(minWidth: 84, alignment: .trailing).masked()
                                 }
-                                if prefs.allocBar {
-                                    GeometryReader { geo in
-                                        Capsule().fill(Color.white.opacity(0.08))
-                                            .overlay(alignment: .leading) { Capsule().fill(g.group.color).frame(width: geo.size.width * g.value / (groups.first?.value ?? 1)) }
-                                    }
-                                    .frame(height: 6)
+                                // always there, so switching only animates it: the track opens up and the bar grows
+                                // from the left, one row after another
+                                GeometryReader { geo in
+                                    Capsule().fill(Color.white.opacity(0.08))
+                                        .overlay(alignment: .leading) {
+                                            // the delay is scoped to the growth only: the bar still moves with its row
+                                            Capsule().fill(g.group.color).frame(width: geo.size.width * g.value / (groups.first?.value ?? 1))
+                                                .animation(.spring(duration: 0.55, bounce: 0.15).delay(bar ? 0.1 + Double(i) * 0.04 : 0)) {
+                                                    $0.scaleEffect(x: bar ? 1 : 0.001, anchor: .leading)
+                                                }
+                                        }
                                 }
+                                .frame(height: bar ? 6 : 0)
+                                .opacity(bar ? 1 : 0)
                             }
                         }
                         if sp.debts > 0 {
@@ -322,9 +346,7 @@ struct Allocation: View {
                     }
                 }
                 .padding(16)
-                .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
-                .animation(.spring(duration: 0.4), value: prefs.allocBar)
-            }
+                .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))            }
         }
     }
 }

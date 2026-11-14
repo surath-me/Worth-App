@@ -67,13 +67,11 @@ struct RootView: View {
                 // measured from the screen's edges (not the safe area), where the tab bar's own button sits
                 ZStack(alignment: .bottomTrailing) {
                     Color.clear.allowsHitTesting(false)
-                    Button { openAdd() } label: {
-                        AddButtonFace().id(addEpoch).matchedTransitionSource(id: "add", in: addNS) { $0.clipShape(RoundedRectangle(cornerRadius: 31)).background(.clear) } // just the circle (r = half of 62), no box
-                    }
-                    .buttonStyle(AddPressStyle())
+                    Button { openAdd() } label: { EmptyView() }
+                    .buttonStyle(AddPressStyle(epoch: addEpoch, ns: addNS))
                     .padding(.trailing, 21).padding(.bottom, 21)
                     .accessibilityLabel("Add entry")
-                    .sensoryFeedback(.impact(weight: .light), trigger: adding)
+                    .sensoryFeedback(trigger: adding) { _, open in open ? .impact(weight: .light) : nil } // on open only
                 }
                 .ignoresSafeArea()
             }
@@ -108,25 +106,32 @@ struct RootView: View {
 
 /// The + button's face: the accent gradient circle (the web app's green → blue) with a white plus.
 struct AddButtonFace: View {
+    var pressed = false
     var body: some View {
         Image(systemName: "plus")
             .font(.system(size: 24, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: 62, height: 62)
             .background(Circle().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            .overlay(Circle().fill(.white.opacity(pressed ? 0.16 : 0)))
             .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
+            .scaleEffect(pressed ? 0.9 : 1)
+            // in fast (it follows the finger), out on a soft spring
+            .animation(pressed ? .easeOut(duration: 0.12) : .spring(duration: 0.4, bounce: 0.4), value: pressed)
             .contentShape(Circle())
     }
 }
-/// The press: the circle grows a little under the finger and springs back.
+/// The +: it sinks and brightens under the finger, and the new-entry sheet zooms out of it. The press is drawn inside
+/// the zoom's source, so the zoom starts from the circle exactly as it looks at that moment (before, the press sat
+/// outside it and the circle jumped back to full size the instant the zoom took over).
 struct AddPressStyle: ButtonStyle {
+    let epoch: Int
+    let ns: Namespace.ID
     func makeBody(configuration: Configuration) -> some View {
-        // grows under the finger (like the tab bar's items do) and brightens, then springs back
-        configuration.label
-            .overlay(Circle().fill(.white.opacity(configuration.isPressed ? 0.18 : 0)))
-            .scaleEffect(configuration.isPressed ? 1.12 : 1)
+        AddButtonFace(pressed: configuration.isPressed)
+            .id(epoch)
+            .matchedTransitionSource(id: "add", in: ns) { $0.clipShape(RoundedRectangle(cornerRadius: 31)).background(.clear) } // just the circle (r = half of 62), no box
             .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
-            .animation(.spring(duration: 0.35, bounce: 0.45), value: configuration.isPressed)
     }
 }
 

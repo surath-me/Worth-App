@@ -382,7 +382,10 @@ private struct BubbleFace: View {
             .opacity(labels)
         }
         .frame(width: d, height: d)
-        .compositingGroup()
+        // One flattened image: circle, highlight and label are drawn together, so the float, the springs and the drag
+        // move a single picture. Left as separate layers, iOS snaps the text to whole pixels each frame while the circle
+        // glides, and the name visibly stutters against its bubble.
+        .drawingGroup()
     }
 }
 
