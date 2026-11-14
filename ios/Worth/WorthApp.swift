@@ -40,10 +40,22 @@ struct RootView: View {
                     .badge(store.checkInDue ? Text("") : nil) // a dot while this month's check-in is due
                 Tab("Settings", systemImage: "gearshape.fill", value: "settings") { SettingsView() }
                 if #available(iOS 27, *) {
-                    Tab("Add entry", systemImage: "plus", value: "add", role: .prominent) { Color.clear }
+                    Tab(value: "add", role: .prominent) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: AccentPlus.image) } }
                 } else {
-                    Tab("Add entry", systemImage: "plus", value: "add", role: .search) { Color.clear }
+                    Tab(value: "add", role: .search) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: AccentPlus.image) } }
                 }
+            }
+            // The + is caught here, on top of the native button, so the tab bar never switches to the empty "add" page
+            // (which flashed black for a frame before switching back).
+            .overlay(alignment: .bottomTrailing) {
+                Button { if store.isEmpty { onboarding = true } else { adding = true } } label: {
+                    Circle().fill(Color.white.opacity(0.001)).frame(width: 64, height: 64)
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 20).padding(.bottom, 21)
+                .ignoresSafeArea()
+                .accessibilityLabel("Add entry")
+                .sensoryFeedback(.impact(weight: .light), trigger: adding)
             }
             .sheet(isPresented: $adding) { EntrySheet(account: nil) }
             .environment(\.openOnboarding, { onboarding = true })
@@ -67,4 +79,24 @@ struct RootView: View {
         }
         .onChange(of: store.isEmpty) { _, empty in if empty && !splash { tab = "worth"; onboarding = true } }
     }
+}
+
+/// The + drawn in the app's accent (green → blue, like the web app's + button), kept in its own colours in the tab bar.
+enum AccentPlus {
+    static let image: UIImage = {
+        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        guard let glyph = UIImage(systemName: "plus", withConfiguration: cfg) else { return UIImage() }
+        let size = glyph.size
+        let img = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            glyph.withRenderingMode(.alwaysTemplate).draw(in: CGRect(origin: .zero, size: size))
+            cg.setBlendMode(.sourceIn)
+            let colors = [UIColor(red: 0x36/255, green: 0xF5/255, blue: 0xB2/255, alpha: 1).cgColor,
+                          UIColor(red: 0x3A/255, green: 0xA4/255, blue: 0xFF/255, alpha: 1).cgColor] as CFArray
+            if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
+                cg.drawLinearGradient(g, start: .zero, end: CGPoint(x: size.width, y: size.height), options: [])
+            }
+        }
+        return img.withRenderingMode(.alwaysOriginal)
+    }()
 }
