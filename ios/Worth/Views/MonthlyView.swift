@@ -306,7 +306,7 @@ struct Allocation: View {
                     VStack(spacing: 10) {
                         ForEach(Array(groups.enumerated()), id: \.element.id) { i, g in
                             let pct = g.value / owned * 100
-                            VStack(spacing: 6) {
+                            VStack(spacing: bar ? 6 : 0) {
                                 HStack {
                                     RoundedRectangle(cornerRadius: 3).fill(g.group.color).frame(width: 10, height: 10)
                                     Text(g.group.id == "property" && sp.netted ? "Property equity" : g.group.name).font(.system(size: 15))
@@ -315,11 +315,21 @@ struct Allocation: View {
                                     Text(Money.format(g.value, store.data.base, decimals: 0)).font(.system(size: 15, weight: .medium)).monospacedDigit()
                                         .frame(minWidth: 84, alignment: .trailing).masked()
                                 }
-                                // only in Bar view: the track fades in and the bar grows from the left, a row at a time
-                                if bar {
-                                    AllocBar(color: g.group.color, share: g.value / (groups.first?.value ?? 1), index: i)
-                                        .transition(.opacity)
+                                // always there, so switching only animates it: the track opens up and the bar grows
+                                // from the left, one row after another (inserting and removing it instead left a fading
+                                // trail of bars behind the rows when switching to Pie)
+                                GeometryReader { geo in
+                                    Capsule().fill(Color.white.opacity(0.08))
+                                        .overlay(alignment: .leading) {
+                                            // the delay is scoped to the growth only: the bar still moves with its row
+                                            Capsule().fill(g.group.color).frame(width: geo.size.width * g.value / (groups.first?.value ?? 1))
+                                                .animation(.spring(duration: 0.55, bounce: 0.15).delay(bar ? 0.1 + Double(i) * 0.04 : 0)) {
+                                                    $0.scaleEffect(x: bar ? 1 : 0.001, anchor: .leading)
+                                                }
+                                        }
                                 }
+                                .frame(height: bar ? 6 : 0)
+                                .opacity(bar ? 1 : 0)
                             }
                         }
                         if sp.debts > 0 {
@@ -340,24 +350,5 @@ struct Allocation: View {
                 .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
             }
         }
-    }
-}
-
-/// One allocation bar: its track, and the bar growing from the left when it appears (staggered by row).
-private struct AllocBar: View {
-    let color: Color
-    let share: Double
-    let index: Int
-    @State private var grown = false
-    var body: some View {
-        GeometryReader { geo in
-            Capsule().fill(Color.white.opacity(0.08))
-                .overlay(alignment: .leading) {
-                    Capsule().fill(color).frame(width: geo.size.width * share)
-                        .scaleEffect(x: grown ? 1 : 0.001, anchor: .leading)
-                }
-        }
-        .frame(height: 6)
-        .onAppear { withAnimation(.spring(duration: 0.55, bounce: 0.15).delay(0.1 + Double(index) * 0.04)) { grown = true } }
     }
 }
