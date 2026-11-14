@@ -1,1 +1,7 @@
 .vercel
+
+# Xcode
+ios/**/xcuserdata/
+*.xcuserstate
+ios/build/
+DerivedData/
