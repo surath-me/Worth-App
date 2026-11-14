@@ -138,7 +138,10 @@ struct CheckInSheet: View {
             HStack(spacing: 3) {
                 Text(Currency.symbol[a.cur] ?? a.cur).foregroundStyle(Color.sec)
                 TextField("0", text: Binding(get: { text[a.id] ?? "" }, set: { v in text[a.id] = v; if isNew, focus == a.id { done.insert(a.id) } }))
-                    .keyboardType(.decimalPad).multilineTextAlignment(.trailing).monospacedDigit()
+                    // the native keyboard with its ✓ in the return key's spot (single-line, so no line breaks): it
+                    // finishes typing. The number pad has no return key, so it couldn't offer the ✓.
+                    .keyboardType(.numbersAndPunctuation).submitLabel(.done).onSubmit { focus = nil }
+                    .multilineTextAlignment(.trailing).monospacedDigit()
                     .focused($focus, equals: a.id)
                     .frame(minWidth: 70, maxWidth: 110)
             }
