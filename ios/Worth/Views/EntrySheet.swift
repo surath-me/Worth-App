@@ -35,7 +35,7 @@ struct EntrySheet: View {
                             .multilineTextAlignment(.center).font(.system(size: 17))
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(Currency.symbol[cur] ?? cur).font(.system(size: 24, weight: .semibold)).foregroundStyle(Color.sec)
-                            TextField("0", text: $amount).keyboardType(.numbersAndPunctuation).focused($focus, equals: .amount).submitLabel(.done)
+                            TextField("0", text: $amount).keyboardType(.decimalPad).focused($focus, equals: .amount) // the native number pad
                                 .font(.system(size: 40, weight: .bold)).monospacedDigit()
                                 .fixedSize()
                         }
@@ -74,7 +74,27 @@ struct EntrySheet: View {
                     TextField("Platform (optional)", text: $platform).focused($focus, equals: .platform).submitLabel(.done)
                 } footer: { if t.dep != nil { Text("Applied at each new month.") } }
 
+                if let account {
+                    // a secondary full-width button at the end of the options; its question comes out of the button itself
+                    Section {
+                        Button { confirmDelete = true } label: {
+                            // the secondary button: our soft filled capsule (as GhostButton), red for a destructive action
+                            Label("Delete entry", systemImage: "trash")
+                                .font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.down)
+                                .frame(maxWidth: .infinity).frame(height: 52)
+                                .background(Capsule().fill(Color.white.opacity(0.08)))
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .confirmationDialog("Delete \(account.name.isEmpty ? "this entry" : account.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                            Button("Delete entry", role: .destructive) { leaving = .delete }
+                            Button("Cancel", role: .cancel) {}
+                        } message: { Text("Months already recorded keep its balance.") }
+                    }
+                    .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+                }
             }
+            .scrollDismissesKeyboard(.interactively) // dragging the form down closes the keyboard (the number pad has no ✓)
             .navigationTitle(account == nil ? "New entry" : "Edit entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -89,14 +109,14 @@ struct EntrySheet: View {
                     }
                 }
             }
-            // the actions sit at the bottom, above the keyboard when it's up: delete (editing only) and Save/Add
+            // Save (Add for a new entry) floats at the bottom, above the keyboard when it's up
             .safeAreaInset(edge: .bottom) { actions }
             .interactiveDismissDisabled(changed) // a swipe down can't silently throw changes away
             .onChange(of: confirmDiscard || confirmDelete) { _, open in if !open { finishLeaving() } }
             .onChange(of: type) { _, k in if let d = Catalog.type(k).dep, dep.isEmpty || account == nil { dep = Self.fmt(d) } }
             .onAppear(perform: load)
-            // every field's keyboard has the blue ✓ in the return key's spot (the amount too: numbers + ✓ rather than
-            // the number pad, which has no return key); it finishes typing
+            // the text fields' keyboards have the blue ✓ in the return key's spot; it finishes typing (the amount uses
+            // the number pad, which has none: Save sits right above it, and scrolling or tapping elsewhere closes it)
             .onSubmit { focus = nil }
         }
     }
@@ -106,39 +126,14 @@ struct EntrySheet: View {
         return Catalog.safeSymbol(Catalog.type(type).symbol)
     }
 
-    /// Delete on the left (a small round button, only when editing), the main action filling the rest: Save is only
-    /// active once something has changed; a new entry's Add once it has a name.
+    /// Save (Add for a new entry), on its own: only active once something has changed; a new entry's Add once it
+    /// has a name.
     private var actions: some View {
-        HStack(spacing: 12) {
-            if let account {
-                Button { confirmDelete = true } label: {
-                    Image(systemName: "trash").font(.system(size: 18, weight: .semibold)).foregroundStyle(Color.down)
-                        .frame(width: 52, height: 52)
-                        .background(Circle().fill(Color.white.opacity(0.08)))
-                        .contentShape(Circle())
-                }
-                .buttonStyle(PressScale())
-                .accessibilityLabel("Delete entry")
-                .confirmationDialog("Delete \(account.name.isEmpty ? "this entry" : account.name)?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                    Button("Delete entry", role: .destructive) { leaving = .delete }
-                    Button("Cancel", role: .cancel) {}
-                } message: { Text("Months already recorded keep its balance.") }
-            }
-            Button(account == nil ? "Add" : "Save", action: save)
-                .buttonStyle(PrimaryButton())
-                .disabled(!canSave)
-                .animation(.easeOut(duration: 0.2), value: canSave)
-        }
-        .padding(.horizontal, 20).padding(.top, 20).padding(.bottom, 8)
-        // the form scrolls under the bar and fades out behind it, rather than showing through between the buttons
-        .background {
-            let bg = Color(.systemGroupedBackground)
-            VStack(spacing: 0) {
-                LinearGradient(colors: [bg.opacity(0), bg], startPoint: .top, endPoint: .bottom).frame(height: 20)
-                bg
-            }
-            .ignoresSafeArea(.container, edges: .bottom) // down to the sheet's edge, but not behind the keyboard
-        }
+        Button(account == nil ? "Add" : "Save", action: save)
+            .buttonStyle(PrimaryButton())
+            .disabled(!canSave)
+            .animation(.easeOut(duration: 0.2), value: canSave)
+            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 8)
     }
 
     private func finishLeaving() {
@@ -149,7 +144,9 @@ struct EntrySheet: View {
     }
 
     private var named: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
-    private var canSave: Bool { named && (account == nil || changed) }
+    /// Needs a name and an amount (an emptied amount would otherwise save as 0 without a word; type 0 if that's meant),
+    /// and, when editing, a change.
+    private var canSave: Bool { named && Self.parse(amount) != nil && (account == nil || changed) }
     private func close() { if changed { confirmDiscard = true } else { after?(nil); dismiss() } }
 
     /// Whether anything differs from the saved entry, compared as values (so "1500" and "1500.00", or a default yearly
@@ -241,15 +238,5 @@ struct IconPicker: View {
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: on)
-    }
-}
-
-/// A small press-in for round icon buttons.
-private struct PressScale: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.92 : 1)
-            .opacity(configuration.isPressed ? 0.8 : 1)
-            .animation(.spring(duration: 0.25), value: configuration.isPressed)
     }
 }

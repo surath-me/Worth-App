@@ -9,6 +9,7 @@ struct WorthApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .background(TapOutsideEndsEditing()) // a tap outside any field closes the keyboard
                 .environment(store)
                 .environment(prefs)
                 .preferredColorScheme(.dark)

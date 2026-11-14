@@ -103,9 +103,11 @@ struct PrimaryButton: ButtonStyle {
             .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity).frame(height: 52)
+            .foregroundStyle(.white.opacity(enabled ? 1 : 0.45))
             .background(Capsule().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .leading, endPoint: .trailing)))
+            // inactive: darkened, not faded, so it stays opaque when it floats over content
+            .overlay(Capsule().fill(Color.black.opacity(enabled ? 0 : 0.6)).allowsHitTesting(false))
             .shadow(color: Color.hex(0x36F5B2).opacity(enabled ? 0.28 : 0), radius: 14, y: 8)
-            .opacity(enabled ? 1 : 0.4)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.25), value: configuration.isPressed)
     }
@@ -134,5 +136,34 @@ extension EnvironmentValues {
     var openOnboarding: () -> Void {
         get { self[OpenOnboardingKey.self] }
         set { self[OpenOnboardingKey.self] = newValue }
+    }
+}
+
+/// Tapping anywhere that isn't a text field closes the keyboard, everywhere in the app (sheets included: they share
+/// the window). A window-wide tap that never takes the touch from what was tapped, so a button tapped while typing still
+/// works, and it closes the keyboard too.
+struct TapOutsideEndsEditing: UIViewRepresentable {
+    func makeUIView(context: Context) -> Installer { Installer() }
+    func updateUIView(_ v: Installer, context: Context) {}
+
+    final class Installer: UIView, UIGestureRecognizerDelegate {
+        private weak var host: UIWindow?
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard let w = window, host !== w else { return }
+            let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
+            tap.cancelsTouchesInView = false
+            tap.delegate = self
+            w.addGestureRecognizer(tap)
+            host = w
+        }
+        @objc private func tapped() { host?.endEditing(true) }
+        // a tap on a text field (or inside one) is for typing, not for closing the keyboard
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            var v = touch.view
+            while let x = v { if x is UITextField || x is UITextView { return false }; v = x.superview }
+            return true
+        }
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith o: UIGestureRecognizer) -> Bool { true }
     }
 }
