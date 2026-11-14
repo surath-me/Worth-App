@@ -42,10 +42,11 @@ struct Bubbles: View {
             GeometryReader { g in
                 let P = layout(items, size: g.size)
                 ZStack {
-                    ForEach(leaving) { l in LeavingBubble(leaving: l, box: g.size) }
+                    ForEach(leaving) { l in LeavingBubble(leaving: l, box: g.size).transition(.identity) }
                     ForEach(Array(items.enumerated()), id: \.element.id) { i, x in
                         Bubble(item: x, r: P[i].r, at: P[i].c, entry: entry(for: x, i: i, at: P[i].c, size: g.size),
                                dragAt: drag?.id == x.id ? drag?.now : nil, pressing: pressing == x.id)
+                            .transition(.identity) // bubbles run their own arrival, never a default fade
                             .zIndex(drag?.id == x.id ? 10 : 1)
                             .onTapGesture { if Date().timeIntervalSince(droppedAt) > 0.3 { tap(x, at: P[i].c) } }
                             // UIKit's long press, not SwiftUI's: it lets go of the touch the moment the finger moves,
@@ -64,7 +65,8 @@ struct Bubbles: View {
                 .onChange(of: g.size) { _, s in box = s }
             }
             .frame(height: 300)
-            legend(items)
+            // old and new lists overlap here while one leaves and the other arrives (stacked, the card would jump)
+            ZStack(alignment: .top) { legend(items) }
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
@@ -137,7 +139,7 @@ struct Bubbles: View {
                     mode: old[i].id == x.id ? .shrink : .recede(CGPoint(x: cx + (P[i].c.x - cx) * 0.85, y: cy + (P[i].c.y - cy) * 0.85)))
         }
         entryMode = .open(c)
-        level = gk
+        withAnimation(.snappy(duration: 0.4)) { level = gk } // the header, the list and the card's height
         clearLeaving()
     }
     /// Going back: each entry travels back into its group's bubble (last out, first in, 30ms apart), the group grows
@@ -152,7 +154,7 @@ struct Bubbles: View {
             Leaving(item: old[i], c: P[i].c, r: P[i].r, mode: .flyInto(target, Double(old.count - 1 - i) * 0.03))
         }
         entryMode = .back(home)
-        level = nil
+        withAnimation(.snappy(duration: 0.4)) { level = nil }
         clearLeaving()
     }
     private func clearLeaving() {
@@ -194,7 +196,7 @@ struct Bubbles: View {
         let nAssets = items.filter { !$0.liab }.count
         let sorted = items.sorted { ($0.liab ? 1 : 0, -$0.value) < ($1.liab ? 1 : 0, -$1.value) }
         return VStack(spacing: 0) {
-            ForEach(sorted) { x in
+            ForEach(Array(sorted.enumerated()), id: \.element.id) { k, x in
                 Button {
                     if let a = x.account { onOpen(a) }
                     else if x.group != nil, let i = items.firstIndex(where: { $0.id == x.id }) { tap(x, at: layout(items, size: box)[i].c) } // out of its own bubble
@@ -213,16 +215,20 @@ struct Bubbles: View {
                     .padding(.vertical, 8).contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .arrives(k)
             }
             if items.contains(where: \.liab), items.contains(where: { !$0.liab }) {
                 let t = items.reduce(0) { $0 + ($1.liab ? -$1.value : $1.value) }
-                Divider().padding(.vertical, 4)
-                HStack {
-                    Text(level != nil ? "Your equity" : "Net worth").font(.system(size: 15, weight: .semibold))
-                    Spacer()
-                    Text((t < 0 ? "−" : "") + Money.format(abs(t), store.data.base, decimals: 0)).font(.system(size: 15, weight: .semibold)).monospacedDigit().masked()
+                VStack(spacing: 0) {
+                    Divider().padding(.vertical, 4)
+                    HStack {
+                        Text(level != nil ? "Your equity" : "Net worth").font(.system(size: 15, weight: .semibold))
+                        Spacer()
+                        Text((t < 0 ? "−" : "") + Money.format(abs(t), store.data.base, decimals: 0)).font(.system(size: 15, weight: .semibold)).monospacedDigit().masked()
+                    }
+                    .padding(.vertical, 6)
                 }
-                .padding(.vertical, 6)
+                .arrives(sorted.count)
             }
             if let level, let g = Catalog.groups.first(where: { $0.id == level }) {
                 Button { onAdd(g.types[0]) } label: {
@@ -233,10 +239,12 @@ struct Bubbles: View {
                 }
                 .buttonStyle(AddToStyle())
                 .padding(.top, 12).padding(.bottom, 4)
+                .arrives(sorted.count + 1)
             }
         }
         .id(level ?? "top")
-        .transition(.opacity)
+        // the old list fades out quickly while the new one's rows arrive one by one (see `arrives`)
+        .transition(.asymmetric(insertion: .identity, removal: .opacity.animation(.easeOut(duration: 0.12))))
     }
 
     // MARK: layout (ported from the web app's topLayout / packCircles / hexLayout)
@@ -472,6 +480,22 @@ private struct LeavingBubble: View {
                 }
             }
     }
+}
+
+/// A legend row arriving: it rises a few points and fades in, each row 40ms after the one above, starting as the
+/// bubbles pop out.
+private struct Arrives: ViewModifier {
+    let index: Int
+    @State private var shown = false
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown ? 0 : 10)
+            .onAppear { withAnimation(.spring(duration: 0.45, bounce: 0.15).delay(0.1 + Double(index) * 0.04)) { shown = true } }
+    }
+}
+private extension View {
+    func arrives(_ index: Int) -> some View { modifier(Arrives(index: index)) }
 }
 
 private extension Array where Element == Bubbles.Item {
