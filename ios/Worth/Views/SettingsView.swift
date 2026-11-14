@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 /// Totals currency, live exchange rates, backup (same file format as the web app) and Erase all data.
 struct SettingsView: View {
     @Environment(Store.self) private var store
+    @Environment(Prefs.self) private var prefs
     @State private var importing = false
     @State private var confirmErase = false
     @State private var message: String?
@@ -29,6 +30,10 @@ struct SettingsView: View {
                         }
                     }
                 } header: { Text("Exchange rates") } footer: { Text(ratesNote) }
+
+                Section {
+                    Toggle("Hide amounts", isOn: Binding(get: { prefs.hide }, set: { prefs.hide = $0 })).tint(Color.g1)
+                } header: { Text("Privacy") } footer: { Text("Or tap your net worth.") }
 
                 Section {
                     ShareLink(item: BackupFile(data: store.backupData()), preview: SharePreview("Worth backup", image: Image(systemName: "doc"))) {

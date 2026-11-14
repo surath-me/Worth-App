@@ -5,6 +5,9 @@ struct EntrySheet: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     let account: Account?
+    var startType: String? = nil
+    /// Called with the saved entry (or nil when cancelled) instead of just closing; the check-in uses this.
+    var after: ((Account?) -> Void)? = nil
 
     @State private var name = ""
     @State private var amount = ""
@@ -67,7 +70,7 @@ struct EntrySheet: View {
             .navigationTitle(account == nil ? "New entry" : "Edit entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { after?(nil); dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(account == nil ? "Add" : "Done", action: save).disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -92,6 +95,7 @@ struct EntrySheet: View {
             if let d = a.dep ?? Catalog.type(type).dep { dep = Self.fmt(d) }
         } else {
             cur = store.data.base
+            if let t = startType, Catalog.type[t] != nil { type = t; if let d = Catalog.type(t).dep { dep = Self.fmt(d) } }
             nameFocused = true
         }
     }
@@ -103,6 +107,7 @@ struct EntrySheet: View {
         a.platform = platform.trimmingCharacters(in: .whitespaces); a.icon = icon
         a.dep = Catalog.type(type).dep != nil ? (Self.parse(dep) ?? Catalog.type(type).dep) : nil
         store.upsert(a)
+        after?(a)
         dismiss()
     }
 

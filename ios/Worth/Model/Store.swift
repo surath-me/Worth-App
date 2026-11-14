@@ -56,7 +56,7 @@ final class Store {
 
     /// A mortgage is set against property, so Property shows your equity, as long as the property is worth more than
     /// what's owed; otherwise the mortgage stays a plain debt. Groups minus debts always equals net worth.
-    func split(_ rows: [(type: String, v: Double)]) -> Split {
+    func split(_ rows: [(type: String, v: Double)], gross: Bool = false) -> Split {
         var by: [String: Double] = [:]; var mort = 0.0, debts = 0.0
         for r in rows {
             let v = max(0, r.v)
@@ -64,7 +64,7 @@ final class Store {
             else if Catalog.isLiab(r.type) { debts += v }
             else { by[Catalog.group(of: r.type).id, default: 0] += v }
         }
-        let prop = by["property"] ?? 0, netted = mort > 0 && prop > mort
+        let prop = by["property"] ?? 0, netted = !gross && mort > 0 && prop > mort
         if netted { by["property"] = prop - mort } else { debts += mort }
         return Split(groups: Catalog.groups.filter { !$0.liab }.map { GroupTotal(group: $0, value: by[$0.id] ?? 0) }, debts: debts, netted: netted)
     }

@@ -33,7 +33,9 @@ come with the paid Apple Developer Program ($99/year), needed later for TestFlig
 | `Worth/Model/WorthData.swift` | The `worth.v1` data shape (Codable, lenient decoding), month helpers |
 | `Worth/Model/Catalog.swift` | Currencies, entry types, groups and colours (mirrors the web app), SF Symbols, icon mapping |
 | `Worth/Model/Store.swift` | State, JSON persistence, totals, grouping (`split`), backup, live rates, money formatting |
-| `Worth/Views/` | Net worth, entry sheet + icon picker, Monthly, Settings |
+| `Worth/Model/Story.swift`, `Prefs.swift` | The story logic (changes, insight, what moved, carry-over, check-in save) and view preferences |
+| `Worth/Views/` | Net worth + chart, Bubbles, Monthly + allocation, CheckInSheet + reveal, Onboarding, Logo + Splash, entry sheet + icon picker, Settings |
+| `Worth-Info.plist` | Extra Info.plist keys (the green launch screen) |
 | `Worth/Resources/DevSample.json` | Sample data made by `dev/sample-data.js` (Debug "Load sample data") |
 
 To refresh the sample after changing `dev/sample-data.js`:

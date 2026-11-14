@@ -68,6 +68,34 @@ enum Catalog {
     ]
     static func group(of type: String) -> Group { groups.first { $0.types.contains(type) } ?? groups.first { $0.id == "more" }! }
 
+    /// Two-colour gradients (light → deep) for bubbles and avatars, by group or type (the web app's BGRAD).
+    static let gradient: [String: (UInt32, UInt32)] = [
+        "savings": (0x40B8F0, 0x0A5CFF), "bank": (0x40B8F0, 0x0A5CFF), "cash": (0x5BE37D, 0x11A08A),
+        "inv": (0x2DD4BF, 0x0A84FF), "etf": (0x2DD4BF, 0x0A84FF), "stocks": (0x8B7CF6, 0x4F46E5), "mf": (0xFFB340, 0xFF6A3D),
+        "crypto": (0xD77CF7, 0x7C4DFF), "property": (0xF2C14E, 0xC2763A), "more": (0x9AA8BC, 0x4A5568), "vehicle": (0x9AA8BC, 0x4A5568),
+        "valuables": (0xD9AE7E, 0x8C6239), "other": (0xA1A1AA, 0x5A5A60), "deposit": (0x5B9BFF, 0x2350D9), "wallet": (0x5BE3A6, 0x119A6E),
+        "bonds": (0x7DD3FC, 0x2563EB), "rsu": (0xA5A3FF, 0x5B4FE0), "gold": (0xFFD66B, 0xC98A12), "retire": (0x5AD1E6, 0x1A7FA8),
+        "pension": (0x5AD1E6, 0x1A7FA8), "insurance": (0x7CC4F2, 0x2A6FB8), "business": (0xD4B48A, 0x86643C), "lent": (0x7FE0D0, 0x2A8C7E),
+        "debt": (0xFF6B6B, 0xC81E5A), "mortgage": (0xFF6B6B, 0xC81E5A), "loan": (0xFF7A7A, 0xD9304F), "card": (0xFFA06B, 0xF2555A),
+        "carloan": (0xFF8A80, 0xD63A4A), "student": (0xFF8A9A, 0xD6405A), "tax": (0xFF9180, 0xCC3D33), "otherdebt": (0xF2777F, 0xB8323F),
+    ]
+    static func gradient(_ k: String) -> LinearGradient {
+        let g = gradient[k] ?? (0xA1A1AA, 0x5A5A60)
+        return LinearGradient(colors: [.hex(g.0), .hex(g.1)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    /// Onboarding's picks (the common types; the rest are in the entry sheet).
+    static let kinds: [(t: String, n: String)] = [
+        ("bank", "Bank account"), ("etf", "ETFs"), ("stocks", "Stocks"), ("mf", "Mutual funds"), ("bonds", "Bonds"), ("crypto", "Crypto"),
+        ("pension", "Pension"), ("cash", "Cash"), ("property", "Home or property"), ("vehicle", "Car"), ("valuables", "Gold & valuables"),
+        ("other", "Something else"), ("mortgage", "Mortgage"), ("loan", "Loan"), ("carloan", "Car loan"), ("student", "Student loan"),
+        ("card", "Credit card"), ("otherdebt", "Other debt"),
+    ]
+    static func ask(_ t: String) -> String {
+        if isLiab(t) { return "How much do you owe?" }
+        return ["property", "vehicle", "valuables", "gold", "business", "insurance", "other"].contains(t) ? "What is it worth today?" : "How much is in it?"
+    }
+
     /// Icons an entry can pick, as SF Symbols. The web app stores Material Symbols names in `acc.icon`; `materialToSF`
     /// maps the ones it offers, so a picked icon survives the move between the two apps.
     static let materialToSF: [String: String] = [

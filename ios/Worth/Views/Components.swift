@@ -5,13 +5,15 @@ struct Avatar: View {
     let symbol: String
     let color: Color
     var size: CGFloat = 40
+    /// A type or group key for the two-colour gradient (falls back to `color`).
+    var grad: String? = nil
 
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.45, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(Circle().fill(color.gradient))
+            .background(Circle().fill(grad.map { AnyShapeStyle(Catalog.gradient($0)) } ?? AnyShapeStyle(color.gradient)))
     }
 }
 
@@ -23,14 +25,14 @@ struct EntryRow: View {
     var body: some View {
         let t = Catalog.type(account.type)
         HStack(spacing: 12) {
-            Avatar(symbol: Catalog.symbol(for: account), color: t.color)
+            Avatar(symbol: Catalog.symbol(for: account), color: t.color, grad: t.id)
             VStack(alignment: .leading, spacing: 2) {
                 Text(account.name).font(.system(size: 15, weight: .medium)).lineLimit(1)
                 Text(subtitle(t)).font(.system(size: 13)).foregroundStyle(Color.sec).lineLimit(1)
             }
             Spacer(minLength: 8)
             Text((t.liab ? "−" : "") + Money.format(account.bal, account.cur))
-                .font(.system(size: 15, weight: .medium)).monospacedDigit()
+                .font(.system(size: 15, weight: .medium)).monospacedDigit().masked()
         }
         .contentShape(Rectangle())
     }
@@ -58,5 +60,46 @@ struct ChangeLabel: View {
         }
         .font(.system(size: 15, weight: .semibold))
         .foregroundStyle(change >= 0 ? Color.up : Color.down)
+    }
+}
+
+/// The app's main button: a full-width capsule with the green→blue gradient and white text (never gradient text).
+struct PrimaryButton: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity).frame(height: 52)
+            .background(Capsule().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .leading, endPoint: .trailing)))
+            .opacity(enabled ? 1 : 0.4)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(duration: 0.25), value: configuration.isPressed)
+    }
+}
+
+/// A quiet full-width button (secondary actions).
+struct GhostButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
+            .frame(maxWidth: .infinity).frame(height: 46)
+            .background(Capsule().fill(Color.white.opacity(configuration.isPressed ? 0.14 : 0.08)))
+    }
+}
+
+extension Text {
+    /// Small grey section heading, like the web app's `.lbl-s`.
+    func sectionLabel() -> some View {
+        self.font(.system(size: 13, weight: .medium)).foregroundStyle(Color.sec).padding(.horizontal, 4).padding(.bottom, 8)
+    }
+}
+
+/// Opens the full-screen onboarding from anywhere (the empty state, Monthly while empty).
+private struct OpenOnboardingKey: EnvironmentKey { static let defaultValue: () -> Void = {} }
+extension EnvironmentValues {
+    var openOnboarding: () -> Void {
+        get { self[OpenOnboardingKey.self] }
+        set { self[OpenOnboardingKey.self] = newValue }
     }
 }
