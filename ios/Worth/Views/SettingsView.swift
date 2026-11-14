@@ -17,12 +17,22 @@ struct SettingsView: View {
             .listRowBackground(Color.clear).listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
 
             Section {
-                Picker("Currency", selection: Binding(get: { store.data.base }, set: { store.setBase($0) })) {
-                    ForEach(Currency.all, id: \.self) { Text($0).tag($0) }
+                // a row like the others: the choice on the right, a menu of currencies (full names, ticked) on tap
+                Menu {
+                    Picker("Show totals in", selection: Binding(get: { store.data.base }, set: { b in withAnimation { store.setBase(b) } })) {
+                        ForEach(Currency.all, id: \.self) { c in Text("\(Currency.name[c] ?? c) (\(c))").tag(c) }
+                    }
+                } label: {
+                    HStack {
+                        Text("Show totals in").foregroundStyle(.primary)
+                        Spacer()
+                        Text(store.data.base).foregroundStyle(Color.sec)
+                        Image(systemName: "chevron.up.chevron.down").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.sec)
+                    }
+                    .contentShape(Rectangle())
                 }
-                .pickerStyle(.segmented)
-                .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
-            } header: { Label13("Show totals in") }
+                Toggle("Hide amounts", isOn: Binding(get: { prefs.hide }, set: { prefs.hide = $0 })).tint(Color.g1)
+            } header: { Label13("Display") } footer: { Text("You can also hide amounts by tapping your net worth.") }
 
             Section {
                 ForEach(Currency.all.filter { $0 != store.data.base }, id: \.self) { c in
@@ -34,10 +44,6 @@ struct SettingsView: View {
                     }
                 }
             } header: { Label13("Exchange rates") } footer: { Text(ratesNote) }
-
-            Section {
-                Toggle("Hide amounts", isOn: Binding(get: { prefs.hide }, set: { prefs.hide = $0 })).tint(Color.g1)
-            } header: { Label13("Privacy") } footer: { Text("Or tap your net worth.") }
 
             Section {
                 ShareLink(item: BackupFile(data: store.backupData()), preview: SharePreview("Worth backup", image: Image(systemName: "doc"))) { Text("Save to Files") }
@@ -82,8 +88,14 @@ struct SettingsView: View {
             do { try store.restore(Data(contentsOf: url)); message = "Backup restored" }
             catch { message = "That file isn’t a Worth backup" }
         }
-        .confirmationDialog("Erase everything on this phone?", isPresented: $confirmErase, titleVisibility: .visible) {
-            Button("Erase all data", role: .destructive) { store.eraseAll() }
+        // the iOS pattern for erasing everything: a centred alert that says what's lost, a red Erase and Cancel
+        .alert("Erase all data?", isPresented: $confirmErase) {
+            Button("Erase", role: .destructive) { store.eraseAll() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(store.data.backupAt == nil
+                 ? "All your entries and monthly records will be deleted from this phone. You have no backup, so this can't be undone."
+                 : "All your entries and monthly records will be deleted from this phone. This can't be undone, but you can restore your last backup.")
         }
         .alert(message ?? "", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) { Button("OK") {} }
     }
