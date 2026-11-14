@@ -573,35 +573,38 @@ private struct KeyStyle: ButtonStyle {
     }
 }
 
-/// The currency tray: iOS's own drawer (its background, grabber and title) holding the same selection cards as the
-/// "Your main currency" page. Tap one to pick it (it closes a beat later); drag down or tap outside to close.
+/// The currency tray: iOS's own drawer (its background and grabber) holding the same selection cards as the
+/// "Your main currency" page, with a left-aligned title like the onboarding pages. The drawer is exactly as tall as its
+/// content. Tap one to pick it (it closes a beat later); drag down or tap outside to close.
 private struct CurrencyTray: View {
     @Binding var cur: String
     @Environment(\.dismiss) private var dismiss
+    @State private var height: CGFloat = 430
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 10) {
-                    ForEach(Currency.all, id: \.self) { c in
-                        OptionCard(selected: c == cur) {
-                            cur = c
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) { dismiss() }
-                        } label: {
-                            Text(Currency.symbol[c] ?? c).font(.system(size: 17, weight: .bold)).frame(width: 40, height: 40)
-                                .background(Circle().fill(Color.white.opacity(0.08)))
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(Currency.name[c] ?? c).font(.system(size: 15, weight: .semibold))
-                                Text(c).font(.system(size: 12)).foregroundStyle(Color.sec)
-                            }
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Currency").font(.system(size: 22, weight: .bold)).padding(.horizontal, 4)
+            VStack(spacing: 10) {
+                ForEach(Currency.all, id: \.self) { c in
+                    OptionCard(selected: c == cur) {
+                        cur = c
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) { dismiss() }
+                    } label: {
+                        Text(Currency.symbol[c] ?? c).font(.system(size: 17, weight: .bold)).frame(width: 40, height: 40)
+                            .background(Circle().fill(Color.white.opacity(0.08)))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(Currency.name[c] ?? c).font(.system(size: 15, weight: .semibold))
+                            Text(c).font(.system(size: 12)).foregroundStyle(Color.sec)
                         }
                     }
                 }
-                .padding(.horizontal, 16).padding(.bottom, 16)
             }
-            .navigationTitle("Currency")
-            .navigationBarTitleDisplayMode(.inline)
         }
-        .presentationDetents([.height(470), .large])
+        .padding(.horizontal, 16).padding(.top, 28).padding(.bottom, 8)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(height)])
         .presentationDragIndicator(.visible)
     }
 }
