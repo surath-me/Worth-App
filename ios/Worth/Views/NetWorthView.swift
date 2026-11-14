@@ -126,7 +126,6 @@ struct WorthChart: View {
                                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                                 .interpolationMethod(.monotone)
                         }
-                        PointMark(x: .value("Month", Month.date(pts[0].month)), y: .value("Net worth", pts[0].value)).foregroundStyle(c1).symbolSize(36)
                         if let s = scrub {
                             RuleMark(x: .value("Month", Month.date(s.month))).foregroundStyle(.white.opacity(0.3)).lineStyle(StrokeStyle(lineWidth: 1))
                             PointMark(x: .value("Month", Month.date(s.month)), y: .value("Net worth", s.value))
@@ -138,7 +137,7 @@ struct WorthChart: View {
                     }
                     .chartYScale(domain: lo...hi)
                     .chartXAxis(.hidden).chartYAxis(.hidden)
-                    .chartXScale(range: .plotDimension(padding: 12)) // room for the end dot and its glow
+                    .chartXScale(range: .plotDimension(startPadding: 0, endPadding: 14)) // starts at the screen's edge; room for the end dot
                     .chartOverlay { proxy in
                         GeometryReader { g in
                             Rectangle().fill(.clear).contentShape(Rectangle())
@@ -167,6 +166,7 @@ struct WorthChart: View {
                 }
                 .frame(height: 172)
                 .mask(alignment: .leading) { GeometryReader { g in Rectangle().frame(width: g.size.width * drawn) } }
+                .padding(.leading, -16) // the curve runs from the left edge of the screen (after the mask, which would clip it)
                 .sensoryFeedback(.selection, trigger: scrub?.month)
                 HStack {
                     label(pts.first!)
@@ -192,7 +192,7 @@ struct WorthChart: View {
                 .lineStyle(StrokeStyle(lineWidth: width, lineCap: .round)).interpolationMethod(.monotone)
         }
         .chartYScale(domain: lo...hi).chartXAxis(.hidden).chartYAxis(.hidden)
-                    .chartXScale(range: .plotDimension(padding: 12)) // room for the end dot and its glow
+                    .chartXScale(range: .plotDimension(startPadding: 0, endPadding: 14)) // starts at the screen's edge; room for the end dot
         .allowsHitTesting(false)
     }
 
