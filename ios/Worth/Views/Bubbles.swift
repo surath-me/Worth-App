@@ -15,10 +15,9 @@ struct Bubbles: View {
     // press and hold: the bubble sinks, then lifts and follows your finger; passing over another bubble takes its place
     @State private var drag: (id: String, start: CGPoint, now: CGPoint)?
     @State private var order: [String]?          // the order while dragging (saved on release)
-    @GestureState private var pressing: String?
-    /// True while a finger is on a bubble. SwiftUI resets it however the touch ends, cancelled included (when a call
-    /// or Control Center takes the touch, onEnded never runs), so the drag is always cleaned up.
-    @GestureState private var holding = false
+    @State private var pressing: String?         // a finger is resting on this bubble (it sinks)
+    @State private var finger: CGPoint = .zero   // where the finger was when the bubble lifted
+    @State private var droppedAt = Date.distantPast // a release right after a drag isn't a tap
 
     struct Item: Identifiable, Equatable {
         let id: String; let name: String; let value: Double; let color: Color; let grad: String
@@ -48,8 +47,16 @@ struct Bubbles: View {
                         Bubble(item: x, r: P[i].r, at: P[i].c, entry: entry(for: x, i: i, at: P[i].c, size: g.size),
                                dragAt: drag?.id == x.id ? drag?.now : nil, pressing: pressing == x.id)
                             .zIndex(drag?.id == x.id ? 10 : 1)
-                            .onTapGesture { tap(x, at: P[i].c) }
-                            .gesture(reorder(x, items: items, P: P))
+                            .onTapGesture { if Date().timeIntervalSince(droppedAt) > 0.3 { tap(x, at: P[i].c) } }
+                            // UIKit's long press, not SwiftUI's: it lets go of the touch the moment the finger moves,
+                            // so a swipe that starts on a bubble scrolls the page (SwiftUI's long-press-then-drag kept
+                            // the touch and the page wouldn't scroll). Once a bubble is lifted, `dragging` turns the
+                            // page's scrolling off until it's let go.
+                            .gesture(HoldToDrag(
+                                touching: { on in pressing = on ? x.id : (pressing == x.id ? nil : pressing); if on { Haptics.prepare() } },
+                                began: { p in lift(x, items: items, P: P, at: p) },
+                                moved: { p in move(x, items: items, P: P, to: p) },
+                                ended: endDrag))
                     }
                 }
                 .coordinateSpace(name: "bub")
@@ -61,7 +68,6 @@ struct Bubbles: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
-        .onChange(of: holding) { _, h in if !h { endDrag() } }
         .onChange(of: store.data.accounts) { if let l = level, store.accounts(in: Catalog.groups.first { $0.id == l }!).isEmpty { level = nil } }
     }
 
@@ -86,40 +92,34 @@ struct Bubbles: View {
 
     /// Hold ~0.45s to lift a bubble, then drag it; over another bubble it takes that one's place and the rest slide
     /// into the new order. Releasing saves the order (per level) and the bubble settles into its new spot.
-    private func reorder(_ x: Item, items: [Item], P: [Circ]) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.45)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("bub")))
-            .updating($pressing) { v, st, _ in if case .first(true) = v { st = x.id; Haptics.prepare() } }
-            .updating($holding) { _, st, _ in st = true }
-            .onChanged { v in
-                guard case .second(true, let g) = v else { return }
-                let ids = items.map(\.id)
-                guard let i = ids.firstIndex(of: x.id) else { return }
-                if drag == nil {
-                    withAnimation(.spring(duration: 0.4, bounce: 0.35)) { drag = (x.id, P[i].c, P[i].c) }
-                    order = ids
-                    dragging = true
-                    Haptics.lift() // a firm tap the moment it's picked up
-                }
-                guard let g, let d = drag else { return }
-                let now = CGPoint(x: d.start.x + g.translation.width, y: d.start.y + g.translation.height)
-                drag = (d.id, d.start, now)
-                // the nearest spot wins (its own included), with a little slack so it doesn't flicker between two
-                var hit: Int? = nil, best = hypot(P[i].c.x - now.x, P[i].c.y - now.y) - 12
-                for j in P.indices where j != i {
-                    let dd = hypot(P[j].c.x - now.x, P[j].c.y - now.y)
-                    if dd < best { best = dd; hit = j }
-                }
-                if let hit {
-                    var o = ids; o.remove(at: i); o.insert(x.id, at: hit)
-                    order = o
-                    Haptics.tick() // a light tick each time it takes another spot
-                }
-            }
-            .onEnded { _ in endDrag() }
+    private func lift(_ x: Item, items: [Item], P: [Circ], at p: CGPoint) {
+        let ids = items.map(\.id)
+        guard let i = ids.firstIndex(of: x.id) else { return }
+        finger = p
+        withAnimation(.spring(duration: 0.4, bounce: 0.35)) { drag = (x.id, P[i].c, P[i].c) }
+        order = ids
+        dragging = true
+        Haptics.lift() // a firm tap the moment it's picked up
     }
-    /// Letting go (or the touch being cancelled): save the order and let the page scroll again.
+    private func move(_ x: Item, items: [Item], P: [Circ], to p: CGPoint) {
+        let ids = items.map(\.id)
+        guard let i = ids.firstIndex(of: x.id), let d = drag, d.id == x.id else { return }
+        let now = CGPoint(x: d.start.x + p.x - finger.x, y: d.start.y + p.y - finger.y)
+        drag = (d.id, d.start, now)
+        // the nearest spot wins (its own included), with a little slack so it doesn't flicker between two
+        var hit: Int? = nil, best = hypot(P[i].c.x - now.x, P[i].c.y - now.y) - 12
+        for j in P.indices where j != i {
+            let dd = hypot(P[j].c.x - now.x, P[j].c.y - now.y)
+            if dd < best { best = dd; hit = j }
+        }
+        if let hit {
+            var o = ids; o.remove(at: i); o.insert(x.id, at: hit)
+            if o != order { order = o; Haptics.tick() } // a light tick each time it takes another spot
+        }
+    }
+    /// Letting go (or the touch being cancelled, e.g. by a call): save the order and let the page scroll again.
     private func endDrag() {
+        if drag != nil { droppedAt = Date() }
         if let o = order { prefs.bubOrder[level ?? "top"] = o }
         if dragging { dragging = false }
         if drag != nil { drag = nil }
@@ -480,6 +480,43 @@ private extension Array where Element == Bubbles.Item {
         guard let saved, !saved.isEmpty else { return self }
         let pos = Dictionary(saved.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
         return enumerated().sorted { (pos[$0.element.id] ?? 1_000_000 + $0.offset) < (pos[$1.element.id] ?? 1_000_000 + $1.offset) }.map(\.element)
+    }
+}
+
+/// Hold a bubble ~0.45s to lift it, then drag: UIKit's long press, which fails as soon as the finger travels (so the
+/// page's scroll gets the swipe) and reports the finger in the bubbles' coordinate space. `touching` is told when a
+/// finger rests on the bubble and when it leaves, however the touch ends (lifted, scrolled away or cancelled).
+struct HoldToDrag: UIGestureRecognizerRepresentable {
+    let touching: (Bool) -> Void
+    let began: (CGPoint) -> Void
+    let moved: (CGPoint) -> Void
+    let ended: () -> Void
+
+    final class Recognizer: UILongPressGestureRecognizer {
+        var touching: ((Bool) -> Void)?
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+            super.touchesBegan(touches, with: event)
+            if state == .possible { touching?(true) }
+        }
+        override func reset() { super.reset(); touching?(false) }
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> Recognizer {
+        let g = Recognizer()
+        g.minimumPressDuration = 0.45
+        g.allowableMovement = 10
+        g.cancelsTouchesInView = false // a quick tap still reaches the bubble's tap
+        return g
+    }
+    func updateUIGestureRecognizer(_ g: Recognizer, context: Context) { g.touching = touching }
+    func handleUIGestureRecognizerAction(_ g: Recognizer, context: Context) {
+        let p = context.converter.location(in: .named("bub"))
+        switch g.state {
+        case .began: began(p)
+        case .changed: moved(p)
+        case .ended, .cancelled, .failed: ended()
+        default: break
+        }
     }
 }
 
