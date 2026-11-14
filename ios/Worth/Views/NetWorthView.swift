@@ -1,46 +1,40 @@
 import SwiftUI
 import Charts
 
-/// The main tab: net worth today (tap to hide amounts), the change over the chosen range, one plain-language insight,
-/// the curve (drag along it to read any month), the "Add past months" card, and the bubbles.
+/// The main tab: net worth (tap it to hide amounts), the change over the chosen range, one plain-language insight,
+/// the curve (press and drag along it to read any month), the "Add past months" card, and the bubbles.
 struct NetWorthView: View {
     @Environment(Store.self) private var store
     @Environment(Prefs.self) private var prefs
     @State private var editing: Account?
-    @State private var adding: String?          // a type to start a new entry with ("" = default)
+    @State private var adding: String?          // a type to start a new entry with
     @State private var checkIn: String?         // a month to open the check-in for
     @State private var scrub: Store.Point?      // the month being read on the chart
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    if store.isEmpty { EmptyState() } else {
-                        hero.padding(.top, 2)
-                        WorthChart(scrub: $scrub).padding(.top, 14)
-                        RangePicker().padding(.top, 12)
-                        BackfillCard { checkIn = $0 }.padding(.top, 16)
-                        if store.data.accounts.contains(where: { store.conv($0.bal, $0.cur) > 0 }) {
-                            Text("Breakdown").sectionLabel().padding(.top, 24)
-                            Bubbles(onOpen: { editing = $0 }, onAdd: { adding = $0 })
-                        }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                PageTitle("Net worth")
+                if store.isEmpty { EmptyState() } else {
+                    hero
+                    WorthChart(scrub: $scrub).padding(.top, 12)
+                    RangePicker().padding(.top, 14)
+                    BackfillCard { checkIn = $0 }.padding(.top, 16)
+                    if store.data.accounts.contains(where: { store.conv($0.bal, $0.cur) > 0 }) {
+                        SectionTitle("Breakdown")
+                        Bubbles(onOpen: { editing = $0 }, onAdd: { adding = $0 })
                     }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 32)
-            }
-            .scrollDisabled(scrub != nil)
-            .background(Aura())
-            .navigationTitle("Net worth")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { adding = "" } label: { Image(systemName: "plus") }.accessibilityLabel("Add entry")
+                    SavedFoot()
                 }
             }
-            .sheet(item: $editing) { EntrySheet(account: $0) }
-            .sheet(item: Binding(get: { adding.map(TypeChoice.init) }, set: { adding = $0?.id })) { EntrySheet(account: nil, startType: $0.id.isEmpty ? nil : $0.id) }
-            .sheet(item: Binding(get: { checkIn.map(TypeChoice.init) }, set: { checkIn = $0?.id })) { CheckInSheet(start: $0.id) }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
         }
+        .scrollDisabled(scrub != nil)
+        .background(Aura())
+        .sheet(item: $editing) { EntrySheet(account: $0) }
+        .sheet(item: Binding(get: { adding.map(TypeChoice.init) }, set: { adding = $0?.id })) { EntrySheet(account: nil, startType: $0.id) }
+        .sheet(item: Binding(get: { checkIn.map(TypeChoice.init) }, set: { checkIn = $0?.id })) { CheckInSheet(start: $0.id) }
     }
 
     // MARK: hero
@@ -49,44 +43,43 @@ struct NetWorthView: View {
         let total = scrub?.value ?? store.liveTotal, base = store.data.base
         let pts = store.points(range: prefs.range)
         let ref = pts.first { $0.month != Month.key() }
-        return VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 6) {
-                Text(scrub.map { Month.long($0.month) } ?? "Today").font(.system(size: 13, weight: .medium)).foregroundStyle(Color.sec)
-                Button { prefs.hide.toggle() } label: {
-                    Image(systemName: prefs.hide ? "eye.slash.fill" : "eye.fill").font(.system(size: 12)).foregroundStyle(Color.sec)
-                }
-                .accessibilityLabel(prefs.hide ? "Show amounts" : "Hide amounts")
-            }
+        return VStack(alignment: .leading, spacing: 2) {
             Text(Money.format(total, base, decimals: 0))
-                .font(.system(size: 38, weight: .bold)).monospacedDigit()
+                .font(.system(size: 34, weight: .bold)).kerning(-0.8).monospacedDigit()
                 .contentTransition(.numericText(value: total))
                 .animation(.snappy(duration: 0.25), value: total)
                 .minimumScaleFactor(0.6).lineLimit(1)
                 .masked()
+                .contentShape(Rectangle())
                 .onTapGesture { prefs.hide.toggle() }
-            delta(total: total, pts: pts, ref: ref)
-            if scrub == nil {
-                let ins = store.insight(total: total, ref: ref)
-                if ins.badge != nil || ins.move != nil {
-                    (Text(ins.badge ?? "").fontWeight(.semibold).foregroundStyle(.white)
-                     + Text(ins.badge != nil && ins.move != nil ? " · " : "")
-                     + Text(ins.move ?? ""))
-                        .font(.system(size: 13)).foregroundStyle(Color.sec).masked()
-                        .transition(.opacity)
-                }
-            }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(prefs.hide ? "Shows amounts" : "Hides amounts")
+            delta(total: total, pts: pts, ref: ref).frame(height: 22)
+            insight(total: total, ref: ref).frame(minHeight: 18, alignment: .top)
         }
+        .padding(.horizontal, 4)
     }
 
     @ViewBuilder private func delta(total: Double, pts: [Store.Point], ref: Store.Point?) -> some View {
         if let scrub {
             if let first = pts.first, first.month != scrub.month {
-                ChangeLabel(change: scrub.value - first.value, from: first.value, cur: store.data.base, suffix: "  since " + Month.short(first.month)).masked()
+                ChangeLabel(change: scrub.value - first.value, from: first.value, cur: store.data.base, suffix: "since " + Month.short(first.month)).masked()
             } else { Text("Start of range").font(.system(size: 15)).foregroundStyle(Color.sec) }
         } else if let ref, let first = pts.first {
-            ChangeLabel(change: total - first.value, from: first.value, cur: store.data.base, suffix: "  " + store.rangeLabel(ref: ref, range: prefs.range)).masked()
+            ChangeLabel(change: total - first.value, from: first.value, cur: store.data.base, suffix: store.rangeLabel(ref: ref, range: prefs.range)).masked()
         } else if !store.data.accounts.isEmpty {
             Text("First month").font(.system(size: 15)).foregroundStyle(Color.sec)
+        }
+    }
+
+    @ViewBuilder private func insight(total: Double, ref: Store.Point?) -> some View {
+        let ins = store.insight(total: total, ref: ref)
+        if scrub == nil, ins.badge != nil || ins.move != nil {
+            (Text(ins.badge ?? "").fontWeight(.semibold).foregroundStyle(.white)
+             + Text(ins.badge != nil && ins.move != nil ? " · " : "")
+             + Text(ins.move ?? ""))
+                .font(.system(size: 13)).foregroundStyle(Color.sec).masked()
+                .transition(.opacity)
         }
     }
 }
@@ -96,7 +89,9 @@ struct TypeChoice: Identifiable { let id: String }
 
 // MARK: - chart
 
-/// The curve: green→blue when up over the range, red→orange when down. Drag along it to read any month; the hero follows.
+/// The curve, like the web app: a glowing line (green→blue when up over the range, red→orange when down), a soft
+/// area under it, a dotted line at the starting value, a glowing dot on the last month, and start/end labels.
+/// Press and drag along it to read any month: a label rides above the dot and the hero follows.
 struct WorthChart: View {
     @Environment(Store.self) private var store
     @Environment(Prefs.self) private var prefs
@@ -106,71 +101,97 @@ struct WorthChart: View {
     var body: some View {
         let pts = store.points(range: prefs.range)
         let up = pts.count < 2 || pts.last!.value >= pts.first!.value
-        let c1 = up ? Color.g1 : Color.hex(0xFF4D6A), c2 = up ? Color.hex(0x3AA4FF) : Color.hex(0xFF9F0A)
+        let c1 = up ? Color.g1 : Color.hex(0xFF4D6A), c2 = up ? Color.hex(0x2F7BEA) : Color.hex(0xFF9F0A)
         let vs = pts.map(\.value)
         let lo0 = vs.min() ?? 0, hi0 = vs.max() ?? 1
-        let span = max(hi0 - lo0, max(1, abs(hi0) * 0.04)), lo = lo0 - span * 0.14, hi = hi0 + span * 0.14
-        VStack(spacing: 6) {
+        let span = max(hi0 - lo0, max(1, abs(hi0) * 0.04)), lo = lo0 - span * 0.12, hi = hi0 + span * 0.12
+        VStack(spacing: 8) {
             if pts.count < 2 {
                 Text(pts.isEmpty ? "No data in this range" : "One month so far")
                     .font(.system(size: 13)).foregroundStyle(Color.sec).frame(maxWidth: .infinity, minHeight: 170)
             } else {
-                Chart {
-                    RuleMark(y: .value("Start", pts[0].value))
-                        .foregroundStyle(.white.opacity(0.12)).lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 4]))
-                    ForEach(pts) { p in
-                        AreaMark(x: .value("Month", Month.date(p.month)), yStart: .value("Low", lo), yEnd: .value("Net worth", p.value))
-                            .foregroundStyle(LinearGradient(colors: [c2.opacity(0.26), c1.opacity(0.08), .clear], startPoint: .top, endPoint: .bottom))
-                            .interpolationMethod(.monotone)
-                        LineMark(x: .value("Month", Month.date(p.month)), y: .value("Net worth", p.value))
-                            .foregroundStyle(LinearGradient(colors: [c1, c2], startPoint: .leading, endPoint: .trailing))
-                            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-                            .interpolationMethod(.monotone)
+                ZStack {
+                    // the glow: the same line, blurred, underneath
+                    line(pts, lo: lo, hi: hi, c1: c1, c2: c2, width: 6).blur(radius: 6).opacity(0.7)
+                    Chart {
+                        RuleMark(y: .value("Start", pts[0].value))
+                            .foregroundStyle(.white.opacity(0.22)).lineStyle(StrokeStyle(lineWidth: 1, dash: [1.5, 5]))
+                        ForEach(pts) { p in
+                            AreaMark(x: .value("Month", Month.date(p.month)), yStart: .value("Low", lo), yEnd: .value("Net worth", p.value))
+                                .foregroundStyle(LinearGradient(colors: [c2.opacity(0.26), c1.opacity(0.1), .clear], startPoint: .top, endPoint: .bottom))
+                                .interpolationMethod(.monotone)
+                            LineMark(x: .value("Month", Month.date(p.month)), y: .value("Net worth", p.value))
+                                .foregroundStyle(LinearGradient(colors: [c1, c2], startPoint: .leading, endPoint: .trailing))
+                                .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+                                .interpolationMethod(.monotone)
+                        }
+                        PointMark(x: .value("Month", Month.date(pts[0].month)), y: .value("Net worth", pts[0].value)).foregroundStyle(c1).symbolSize(36)
+                        if let s = scrub {
+                            RuleMark(x: .value("Month", Month.date(s.month))).foregroundStyle(.white.opacity(0.3)).lineStyle(StrokeStyle(lineWidth: 1))
+                            PointMark(x: .value("Month", Month.date(s.month)), y: .value("Net worth", s.value))
+                                .foregroundStyle(c2).symbolSize(150)
+                                .annotation(position: .top, spacing: 10, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
+                                    VStack(spacing: 1) {
+                                        Text(Money.format(s.value, store.data.base, decimals: 0)).font(.system(size: 14, weight: .bold)).monospacedDigit().masked()
+                                        Text(Month.short(s.month)).font(.system(size: 11)).foregroundStyle(Color.sec)
+                                    }
+                                    .padding(.horizontal, 10).padding(.vertical, 6)
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                                }
+                        } else if let last = pts.last {
+                            PointMark(x: .value("Month", Month.date(last.month)), y: .value("Net worth", last.value)).foregroundStyle(c2.opacity(0.35)).symbolSize(420)
+                            PointMark(x: .value("Month", Month.date(last.month)), y: .value("Net worth", last.value)).foregroundStyle(c2).symbolSize(80)
+                        }
                     }
-                    if let s = scrub {
-                        RuleMark(x: .value("Month", Month.date(s.month))).foregroundStyle(.white.opacity(0.25))
-                        PointMark(x: .value("Month", Month.date(s.month)), y: .value("Net worth", s.value))
-                            .foregroundStyle(c2).symbolSize(110)
-                    } else if let last = pts.last {
-                        PointMark(x: .value("Month", Month.date(last.month)), y: .value("Net worth", last.value))
-                            .foregroundStyle(c2).symbolSize(70)
+                    .chartYScale(domain: lo...hi)
+                    .chartXAxis(.hidden).chartYAxis(.hidden)
+                    .chartXScale(range: .plotDimension(padding: 12)) // room for the end dot and its glow
+                    .chartOverlay { proxy in
+                        GeometryReader { g in
+                            Rectangle().fill(.clear).contentShape(Rectangle())
+                                .gesture(
+                                    LongPressGesture(minimumDuration: 0.12)
+                                        .sequenced(before: DragGesture(minimumDistance: 0))
+                                        .onChanged { v in if case .second(true, let drag?) = v { pick(drag.location.x, proxy: proxy, geo: g, pts: pts) } }
+                                        .onEnded { _ in withAnimation(.easeOut(duration: 0.2)) { scrub = nil } }
+                                )
+                                .simultaneousGesture(
+                                    DragGesture(minimumDistance: 6)
+                                        .onChanged { v in if scrub != nil || abs(v.translation.width) > abs(v.translation.height) { pick(v.location.x, proxy: proxy, geo: g, pts: pts) } }
+                                        .onEnded { _ in withAnimation(.easeOut(duration: 0.2)) { scrub = nil } }
+                                )
+                        }
                     }
                 }
-                .chartYScale(domain: lo...hi)
-                .chartXAxis(.hidden).chartYAxis(.hidden)
-                .frame(height: 170)
+                .frame(height: 172)
                 .mask(alignment: .leading) { GeometryReader { g in Rectangle().frame(width: g.size.width * drawn) } }
-                .chartOverlay { proxy in
-                    GeometryReader { g in
-                        Rectangle().fill(.clear).contentShape(Rectangle())
-                            .gesture(
-                                LongPressGesture(minimumDuration: 0.12)
-                                    .sequenced(before: DragGesture(minimumDistance: 0))
-                                    .onChanged { v in
-                                        if case .second(true, let drag?) = v { pick(drag.location.x, proxy: proxy, geo: g, pts: pts) }
-                                    }
-                                    .onEnded { _ in withAnimation(.easeOut(duration: 0.2)) { scrub = nil } }
-                            )
-                            .simultaneousGesture(
-                                DragGesture(minimumDistance: 6)
-                                    .onChanged { v in
-                                        if scrub != nil || abs(v.translation.width) > abs(v.translation.height) { pick(v.location.x, proxy: proxy, geo: g, pts: pts) }
-                                    }
-                                    .onEnded { _ in withAnimation(.easeOut(duration: 0.2)) { scrub = nil } }
-                            )
-                    }
-                }
                 .sensoryFeedback(.selection, trigger: scrub?.month)
                 HStack {
-                    Text(Month.short(pts.first!.month)) + Text(prefs.hide ? "" : " · " + Money.format(pts.first!.value, store.data.base, decimals: 0))
+                    label(pts.first!)
                     Spacer()
-                    Text(Month.short(pts.last!.month)) + Text(prefs.hide ? "" : " · " + Money.format(pts.last!.value, store.data.base, decimals: 0))
+                    label(pts.last!)
                 }
                 .font(.system(size: 12)).foregroundStyle(Color.sec)
+                .padding(.horizontal, 4)
             }
         }
-        .onAppear { drawn = 0; withAnimation(.easeInOut(duration: 1)) { drawn = 1 } }
-        .onChange(of: prefs.range) { drawn = 0; withAnimation(.easeInOut(duration: 0.9)) { drawn = 1 } }
+        .onAppear { drawn = 0; withAnimation(.timingCurve(0.65, 0, 0.35, 1, duration: 1)) { drawn = 1 } }
+        .onChange(of: prefs.range) { drawn = 0; withAnimation(.timingCurve(0.65, 0, 0.35, 1, duration: 0.9)) { drawn = 1 } }
+    }
+
+    private func label(_ p: Store.Point) -> Text {
+        Text(Month.short(p.month)) + Text(prefs.hide ? "" : " · " + Money.format(p.value, store.data.base, decimals: 0)).fontWeight(.semibold)
+    }
+
+    private func line(_ pts: [Store.Point], lo: Double, hi: Double, c1: Color, c2: Color, width: CGFloat) -> some View {
+        Chart(pts) { p in
+            LineMark(x: .value("Month", Month.date(p.month)), y: .value("Net worth", p.value))
+                .foregroundStyle(LinearGradient(colors: [c1, c2], startPoint: .leading, endPoint: .trailing))
+                .lineStyle(StrokeStyle(lineWidth: width, lineCap: .round)).interpolationMethod(.monotone)
+        }
+        .chartYScale(domain: lo...hi).chartXAxis(.hidden).chartYAxis(.hidden)
+                    .chartXScale(range: .plotDimension(padding: 12)) // room for the end dot and its glow
+        .allowsHitTesting(false)
     }
 
     private func pick(_ x: CGFloat, proxy: ChartProxy, geo: GeometryProxy, pts: [Store.Point]) {
@@ -180,7 +201,7 @@ struct WorthChart: View {
     }
 }
 
-/// 1M · 6M · 1Y · All
+/// 1M · 6M · 1Y · All (a native segmented control).
 struct RangePicker: View {
     @Environment(Prefs.self) private var prefs
     var body: some View {
@@ -213,19 +234,23 @@ struct BackfillCard: View {
                     }
                     .accessibilityLabel("Dismiss")
                 }
-                HStack(spacing: 8) {
-                    ForEach(months, id: \.self) { m in
-                        Button { open(m) } label: {
-                            Label(store.label(m), systemImage: "plus").font(.system(size: 13, weight: .semibold))
-                                .padding(.horizontal, 12).frame(height: 32)
-                                .background(Capsule().fill(Color.white.opacity(0.1)))
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(months, id: \.self) { m in
+                            Button { open(m) } label: {
+                                HStack(spacing: 5) { Image(systemName: "plus").font(.system(size: 11, weight: .bold)); Text(store.label(m)) }
+                                    .font(.system(size: 13, weight: .semibold)).lineLimit(1).fixedSize()
+                                    .padding(.horizontal, 12).frame(height: 32)
+                                    .background(Capsule().fill(Color.white.opacity(0.1)))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
+                .scrollIndicators(.hidden)
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground)))
+            .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
             .transition(.opacity.combined(with: .scale(scale: 0.96)))
         }
     }
@@ -247,16 +272,26 @@ struct EmptyState: View {
     }
 }
 
-/// The soft green/blue glow behind the top of every tab, like the web app's aura.
+/// The soft green/blue glow behind the top of every tab (the web app's aura). Two blurred blobs are drawn once and
+/// then only moved and turned, which the GPU does for free, so the slow drift never costs a re-render.
 struct Aura: View {
     @State private var drift = false
     var body: some View {
-        ZStack {
-            Color.black
-            RadialGradient(colors: [Color.hex(0x36F5B2).opacity(0.28), .clear], center: UnitPoint(x: drift ? 0.2 : 0.05, y: 0), startRadius: 0, endRadius: 340)
-            RadialGradient(colors: [Color.hex(0x3AA4FF).opacity(0.26), .clear], center: UnitPoint(x: drift ? 0.85 : 1, y: drift ? 0.08 : 0.02), startRadius: 0, endRadius: 320)
+        GeometryReader { g in
+            let w = g.size.width
+            ZStack(alignment: .topLeading) {
+                Color.black
+                blob(Color.hex(0x36F5B2).opacity(0.42), w * 1.1)
+                    .offset(x: -w * 0.45 + (drift ? 30 : 0), y: -w * 0.55 + (drift ? 20 : -10))
+                blob(Color.hex(0x3AA4FF).opacity(0.4), w)
+                    .offset(x: w * 0.5 - (drift ? 24 : 0), y: -w * 0.35 + (drift ? -14 : 12))
+            }
         }
         .ignoresSafeArea()
-        .onAppear { withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) { drift = true } }
+        .onAppear { withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) { drift = true } }
+    }
+    /// A blurred blob rendered once into its own layer; moving it afterwards never redraws the blur.
+    private func blob(_ c: Color, _ d: CGFloat) -> some View {
+        Circle().fill(c).frame(width: d, height: d).padding(120).blur(radius: 90).drawingGroup().padding(-120)
     }
 }

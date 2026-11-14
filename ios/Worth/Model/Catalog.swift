@@ -150,4 +150,6 @@ extension Color {
     static let g1 = Color.hex(0x0EA67A)
     static let g2 = Color.hex(0x2466E0)
     static let sec = Color.hex(0x98989F)
+    /// Card surface (the web app's --card).
+    static let card = Color.hex(0x1C1C1E)
 }

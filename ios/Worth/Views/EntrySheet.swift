@@ -24,12 +24,18 @@ struct EntrySheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name, e.g. Savings", text: $name).focused($nameFocused)
-                    HStack {
-                        Text(Currency.symbol[cur] ?? cur).foregroundStyle(Color.sec)
-                        TextField("0", text: $amount).keyboardType(.decimalPad)
-                            .font(.system(size: 28, weight: .bold)).monospacedDigit()
+                    VStack(spacing: 10) {
+                        TextField("Name, e.g. Savings", text: $name).focused($nameFocused)
+                            .multilineTextAlignment(.center).font(.system(size: 17))
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(Currency.symbol[cur] ?? cur).font(.system(size: 24, weight: .semibold)).foregroundStyle(Color.sec)
+                            TextField("0", text: $amount).keyboardType(.decimalPad)
+                                .font(.system(size: 40, weight: .bold)).monospacedDigit()
+                                .fixedSize()
+                        }
+                        .frame(maxWidth: .infinity)
                     }
+                    .padding(.vertical, 12)
                 } footer: { if t.liab { Text("What you still owe") } }
 
                 Section {

@@ -14,6 +14,8 @@ final class Prefs {
     var unchangedOpen: Bool { didSet { d.set(unchangedOpen, forKey: "mUnch") } }
     /// The "Add past months" card was dismissed.
     var backfillDone: Bool { didSet { d.set(backfillDone, forKey: "bfDone") } }
+    /// Bubble order you arranged by press-and-drag, per level ("top" or a group key): bubble ids in order.
+    var bubOrder: [String: [String]] { didSet { d.set(try? JSONEncoder().encode(bubOrder), forKey: "bubOrder") } }
 
     init() {
         range = d.object(forKey: "range") as? Int ?? 12
@@ -21,6 +23,7 @@ final class Prefs {
         allocBar = d.bool(forKey: "allocBar")
         unchangedOpen = d.bool(forKey: "mUnch")
         backfillDone = d.bool(forKey: "bfDone")
+        bubOrder = (d.data(forKey: "bubOrder")).flatMap { try? JSONDecoder().decode([String: [String]].self, from: $0) } ?? [:]
     }
 }
 
@@ -28,7 +31,7 @@ final class Prefs {
 struct Masked: ViewModifier {
     @Environment(Prefs.self) private var prefs
     func body(content: Content) -> some View {
-        content.blur(radius: prefs.hide ? 9 : 0).animation(.easeOut(duration: 0.25), value: prefs.hide)
+        content.blur(radius: prefs.hide ? 9 : 0, opaque: false)
     }
 }
 extension View {

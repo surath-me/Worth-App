@@ -10,6 +10,10 @@ struct Bubbles: View {
     @State private var level: String?            // an open group
     @State private var origin: CGPoint?          // where the opened group's bubble sat
     @State private var cameBack: String?         // the group we just left (it grows back first)
+    // press and hold: the bubble sinks, then lifts and follows your finger; passing over another bubble takes its place
+    @State private var drag: (id: String, start: CGPoint, now: CGPoint)?
+    @State private var order: [String]?          // the order while dragging (saved on release)
+    @GestureState private var pressing: String?
 
     struct Item: Identifiable, Equatable {
         let id: String; let name: String; let value: Double; let color: Color; let grad: String
@@ -24,10 +28,16 @@ struct Bubbles: View {
                 let P = layout(items, size: g.size)
                 ZStack {
                     ForEach(Array(items.enumerated()), id: \.element.id) { i, x in
-                        Bubble(item: x, r: P[i].r, at: P[i].c, from: start(for: x, i: i, P: P, size: g.size), delay: Double(i) * 0.04)
+                        Bubble(item: x, r: P[i].r, at: P[i].c, from: start(for: x, i: i, P: P, size: g.size), delay: Double(i) * 0.04,
+                               dragAt: drag?.id == x.id ? drag?.now : nil, pressing: pressing == x.id)
+                            .zIndex(drag?.id == x.id ? 10 : 0)
                             .onTapGesture { tap(x, at: P[i].c) }
+                            .gesture(reorder(x, items: items, P: P))
                     }
                 }
+                .coordinateSpace(name: "bub")
+                .sensoryFeedback(.impact(weight: .medium), trigger: drag?.id) { _, new in new != nil }
+                .sensoryFeedback(.selection, trigger: order)
                 .id(level ?? "top")
                 .transition(.asymmetric(insertion: .identity, removal: .opacity.combined(with: .scale(scale: 0.85))))
             }
@@ -35,7 +45,7 @@ struct Bubbles: View {
             legend(items)
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 22).fill(Color(.secondarySystemBackground)))
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
         .onChange(of: store.data.accounts) { if let l = level, store.accounts(in: Catalog.groups.first { $0.id == l }!).isEmpty { level = nil } }
     }
 
@@ -47,14 +57,48 @@ struct Bubbles: View {
                 let t = Catalog.type(a.type)
                 return Item(id: "a:" + a.id, name: a.name, value: max(0, store.conv(a.bal, a.cur)), color: t.color, grad: t.id,
                             liab: t.liab, account: a, symbol: Catalog.symbol(for: a))
-            }.filter { $0.value > 0 }.sorted { $0.value > $1.value }
+            }.filter { $0.value > 0 }.sorted { $0.value > $1.value }.ordered(by: order ?? prefs.bubOrder[level])
         }
         let sp = store.liveSplit
         var out = sp.groups.map { Item(id: "g:" + $0.group.id, name: $0.group.name, value: $0.value, color: $0.group.color, grad: $0.group.id,
                                        group: $0.group.id, equity: $0.group.id == "property" && sp.netted) }
         let dg = Catalog.groups.first { $0.liab }!
         out.append(Item(id: "g:debt", name: dg.name, value: sp.debts, color: dg.color, grad: "debt", liab: true, group: "debt"))
-        return out.filter { $0.value > 0 }.sorted { $0.value > $1.value }
+        return out.filter { $0.value > 0 }.sorted { $0.value > $1.value }.ordered(by: order ?? prefs.bubOrder["top"])
+    }
+
+    /// Hold ~0.45s to lift a bubble, then drag it; over another bubble it takes that one's place and the rest slide
+    /// into the new order. Releasing saves the order (per level) and the bubble settles into its new spot.
+    private func reorder(_ x: Item, items: [Item], P: [Circ]) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.45)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("bub")))
+            .updating($pressing) { v, st, _ in if case .first(true) = v { st = x.id } }
+            .onChanged { v in
+                guard case .second(true, let g) = v else { return }
+                let ids = items.map(\.id)
+                guard let i = ids.firstIndex(of: x.id) else { return }
+                if drag == nil {
+                    withAnimation(.spring(duration: 0.4, bounce: 0.35)) { drag = (x.id, P[i].c, P[i].c) }
+                    order = ids
+                }
+                guard let g, let d = drag else { return }
+                let now = CGPoint(x: d.start.x + g.translation.width, y: d.start.y + g.translation.height)
+                drag = (d.id, d.start, now)
+                // the nearest spot wins (its own included), with a little slack so it doesn't flicker between two
+                var hit: Int? = nil, best = hypot(P[i].c.x - now.x, P[i].c.y - now.y) - 12
+                for j in P.indices where j != i {
+                    let dd = hypot(P[j].c.x - now.x, P[j].c.y - now.y)
+                    if dd < best { best = dd; hit = j }
+                }
+                if let hit {
+                    var o = ids; o.remove(at: i); o.insert(x.id, at: hit)
+                    withAnimation(.spring(duration: 0.45, bounce: 0.2)) { order = o }
+                }
+            }
+            .onEnded { _ in
+                if let o = order { prefs.bubOrder[level ?? "top"] = o }
+                withAnimation(.spring(duration: 0.5, bounce: 0.3)) { drag = nil; order = nil }
+            }
     }
 
     private func tap(_ x: Item, at c: CGPoint) {
@@ -89,7 +133,7 @@ struct Bubbles: View {
                     .font(.system(size: 15, weight: .semibold)).monospacedDigit().masked()
             }
         } else {
-            Text("Tap to open").font(.system(size: 13)).foregroundStyle(Color.sec)
+            Text("Tap to open").font(.system(size: 13)).foregroundStyle(Color.sec).frame(maxWidth: .infinity)
         }
     }
 
@@ -142,9 +186,17 @@ struct Bubbles: View {
     static let maxD: CGFloat = 150, groupMinR: CGFloat = 44, hexFitMin: CGFloat = 76, gapMax: CGFloat = 18
     static func gap(_ d: CGFloat) -> CGFloat { max(6, min(gapMax, d * 0.12)) }
 
+    /// Packing is a few hundred relaxation steps, so a layout is computed once per (level, size, order, values) and
+    /// reused: re-renders during animations, drags and scrolling cost nothing.
+    @MainActor private static var cache: [String: [Circ]] = [:]
     private func layout(_ items: [Item], size: CGSize) -> [Circ] {
         guard size.width > 0, !items.isEmpty else { return items.map { _ in Circ(c: .zero, r: 0) } }
-        return level == nil ? Self.top(items.map(\.value), size) : Self.hex(items.count, size)
+        let key = "\(level ?? "top")|\(Int(size.width))x\(Int(size.height))|" + items.map { "\($0.id)=\(Int($0.value))" }.joined(separator: ",")
+        if let hit = Self.cache[key] { return hit }
+        let P = level == nil ? Self.arrange(items.map(\.value), size) : Self.hex(items.count, size)
+        if Self.cache.count > 60 { Self.cache.removeAll() }
+        Self.cache[key] = P
+        return P
     }
 
     /// Groups: area true to value (at least 44pt radius so name and total fit, at most 150pt across), the biggest in
@@ -160,6 +212,23 @@ struct Bubbles: View {
         }
         return P
     }
+    /// Fixed spots for groups: the default layout (biggest first) defines where the spots are; a custom order puts each
+    /// group on the spot for its position, keeping its own size, and the cluster relaxes so nothing overlaps.
+    /// Same order in, same layout out.
+    static func arrange(_ vals: [Double], _ s: CGSize) -> [Circ] {
+        let byValue = vals.indices.sorted { vals[$0] > vals[$1] }
+        let base = top(byValue.map { vals[$0] }, s)
+        var r = Array(repeating: CGFloat(0), count: vals.count)
+        for (k, idx) in byValue.enumerated() { r[idx] = base[k].r }
+        if byValue == Array(vals.indices) { return base }
+        var sc: CGFloat = 1, P: [Circ] = []
+        for _ in 0..<20 {
+            P = pack(r.map { $0 * sc }, s, start: base.map(\.c), its: 300)
+            if fits(P, s) { break }
+            sc *= 0.96
+        }
+        return P
+    }
     static func fits(_ P: [Circ], _ s: CGSize) -> Bool {
         for i in P.indices {
             let a = P[i]
@@ -171,14 +240,15 @@ struct Bubbles: View {
         }
         return true
     }
-    static func pack(_ rs: [CGFloat], _ s: CGSize) -> [Circ] {
-        let cx = s.width / 2, cy = s.height / 2, its = 360
+    static func pack(_ rs: [CGFloat], _ s: CGSize, start: [CGPoint]? = nil, its: Int = 360) -> [Circ] {
+        let cx = s.width / 2, cy = s.height / 2
         var P = rs.enumerated().map { i, r -> Circ in
+            if let start, start.indices.contains(i) { return Circ(c: start[i], r: r) }
             let a = Double(i) * 2.39996, d = i > 0 ? 18 * sqrt(Double(i)) : 0
             return Circ(c: CGPoint(x: cx + cos(a) * d, y: cy + sin(a) * d), r: r)
         }
         for it in 0..<its {
-            let pull = 0.035 * (1 - Double(it) / Double(its)) + 0.004
+            let pull = start != nil ? 0.0012 : 0.035 * (1 - Double(it) / Double(its)) + 0.004
             for i in P.indices { P[i].c.x += (cx - P[i].c.x) * pull; P[i].c.y += (cy - P[i].c.y) * pull }
             for i in P.indices { for j in P.indices where j > i {
                 let dx = P[j].c.x - P[i].c.x, dy = P[j].c.y - P[i].c.y, d = max(0.01, hypot(dx, dy))
@@ -226,6 +296,8 @@ private struct Bubble: View {
     let at: CGPoint
     let from: CGPoint
     let delay: Double
+    var dragAt: CGPoint? = nil      // lifted and following the finger
+    var pressing = false            // held, about to lift
     @State private var shown = false
     @State private var floatY: CGFloat = 0
 
@@ -247,11 +319,15 @@ private struct Bubble: View {
             .opacity(shown ? 1 : 0)
         }
         .frame(width: d, height: d)
-        .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
+        .compositingGroup()
+        .shadow(color: .black.opacity(dragAt != nil ? 0.6 : 0.3), radius: dragAt != nil ? 22 : 8, y: dragAt != nil ? 16 : 5)
+        .scaleEffect(dragAt != nil ? 1.14 : pressing ? 0.9 : 1)
+        .animation(pressing ? .timingCurve(0.3, 0, 0.2, 1, duration: 0.55) : .spring(duration: 0.45, bounce: 0.4), value: pressing)
         .scaleEffect(shown ? 1 : 0.05)
         .opacity(shown ? 1 : 0)
-        .position(shown ? CGPoint(x: at.x, y: at.y + floatY) : from)
-        .animation(.spring(duration: 0.55, bounce: 0.22), value: at)
+        .offset(y: dragAt == nil ? floatY : 0)
+        .position(dragAt ?? (shown ? at : from))
+        .animation(dragAt == nil ? .spring(duration: 0.55, bounce: 0.22) : nil, value: at)
         .animation(.spring(duration: 0.55, bounce: 0.22), value: r)
         .onAppear {
             withAnimation(.spring(duration: 0.6, bounce: 0.25).delay(delay)) { shown = true }
@@ -259,5 +335,14 @@ private struct Bubble: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+private extension Array where Element == Bubbles.Item {
+    /// Keep an arranged order: saved ids first in their order, anything new after them, biggest first.
+    func ordered(by saved: [String]?) -> [Element] {
+        guard let saved, !saved.isEmpty else { return self }
+        let pos = Dictionary(saved.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
+        return enumerated().sorted { (pos[$0.element.id] ?? 1_000_000 + $0.offset) < (pos[$1.element.id] ?? 1_000_000 + $1.offset) }.map(\.element)
     }
 }

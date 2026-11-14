@@ -44,22 +44,55 @@ struct EntryRow: View {
     }
 }
 
-/// "▲ €4,069 (6.1%)" in green, or red when down.
+/// "↑ €4,069 (6.1%) vs October": the figure in green (red when down), the label after it in grey, like the web app.
 struct ChangeLabel: View {
     let change: Double
     let from: Double
     let cur: String
     var suffix: String = ""
+    var size: CGFloat = 15
 
     var body: some View {
         let pct = from != 0 ? change / abs(from) * 100 : 0
-        HStack(spacing: 4) {
-            Image(systemName: change >= 0 ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill").font(.system(size: 9))
-            Text(Money.format(abs(change), cur, decimals: 0) + (from != 0 ? String(format: " (%.1f%%)", abs(pct)) : "") + suffix)
-                .monospacedDigit()
+        HStack(spacing: 6) {
+            HStack(spacing: 3) {
+                Image(systemName: change >= 0 ? "arrow.up" : "arrow.down").font(.system(size: size * 0.75, weight: .heavy))
+                Text(Money.format(abs(change), cur, decimals: 0) + (from != 0 ? String(format: " (%.1f%%)", abs(pct)) : "")).monospacedDigit()
+            }
+            .fontWeight(.semibold)
+            .foregroundStyle(change >= 0 ? Color.up : Color.down)
+            if !suffix.isEmpty { Text(suffix.trimmingCharacters(in: .whitespaces)).foregroundStyle(Color.sec) }
         }
-        .font(.system(size: 15, weight: .semibold))
-        .foregroundStyle(change >= 0 ? Color.up : Color.down)
+        .font(.system(size: size))
+        .lineLimit(1).minimumScaleFactor(0.8)
+    }
+}
+
+/// The page title right under the status bar (the web app's 22pt `h1.large`), in place of a navigation bar.
+struct PageTitle: View {
+    let text: String
+    init(_ t: String) { text = t }
+    var body: some View {
+        Text(text).font(.system(size: 22, weight: .bold)).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4).padding(.top, 10).padding(.bottom, 6)
+    }
+}
+
+/// A section title ("Breakdown", "Allocation"): 19pt bold white.
+struct SectionTitle: View {
+    let text: String
+    init(_ t: String) { text = t }
+    var body: some View {
+        Text(text).font(.system(size: 19, weight: .bold)).frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4).padding(.top, 28).padding(.bottom, 8)
+    }
+}
+
+/// "Saved on this device" at the bottom of each tab.
+struct SavedFoot: View {
+    var body: some View {
+        Text("Saved on this device").font(.system(size: 12)).foregroundStyle(Color.hex(0x5C5C61))
+            .frame(maxWidth: .infinity).padding(.top, 28)
     }
 }
 
@@ -72,6 +105,7 @@ struct PrimaryButton: ButtonStyle {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity).frame(height: 52)
             .background(Capsule().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .leading, endPoint: .trailing)))
+            .shadow(color: Color.hex(0x36F5B2).opacity(enabled ? 0.28 : 0), radius: 14, y: 8)
             .opacity(enabled ? 1 : 0.4)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.25), value: configuration.isPressed)
@@ -91,7 +125,7 @@ struct GhostButton: ButtonStyle {
 extension Text {
     /// Small grey section heading, like the web app's `.lbl-s`.
     func sectionLabel() -> some View {
-        self.font(.system(size: 13, weight: .medium)).foregroundStyle(Color.sec).padding(.horizontal, 4).padding(.bottom, 8)
+        self.font(.system(size: 13)).foregroundStyle(Color.sec).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.bottom, 7)
     }
 }
 

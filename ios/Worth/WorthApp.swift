@@ -26,21 +26,26 @@ struct RootView: View {
     @State private var splash = true
     @State private var onboarding = false
     @State private var pastMonth: String?
+    @State private var adding = false
 
     var body: some View {
         ZStack {
-            TabView(selection: $tab) {
-                NetWorthView()
-                    .tabItem { Label("Net worth", systemImage: "chart.line.uptrend.xyaxis") }
-                    .tag("worth")
-                MonthlyView()
-                    .tabItem { Label("Monthly", systemImage: "calendar") }
+            // The + sits on its own round button at the bottom right, beside the tab bar (like the web app's button):
+            // it's the tab bar's separate trailing tab, which opens the new-entry sheet instead of a page.
+            TabView(selection: Binding(get: { tab }, set: { t in
+                if t == "add" { if store.isEmpty { onboarding = true } else { adding = true } } else { tab = t }
+            })) {
+                Tab("Net worth", systemImage: "chart.line.uptrend.xyaxis", value: "worth") { NetWorthView() }
+                Tab("Monthly", systemImage: "calendar", value: "monthly") { MonthlyView() }
                     .badge(store.checkInDue ? Text("") : nil) // a dot while this month's check-in is due
-                    .tag("monthly")
-                SettingsView()
-                    .tabItem { Label("Settings", systemImage: "gearshape.fill") }
-                    .tag("settings")
+                Tab("Settings", systemImage: "gearshape.fill", value: "settings") { SettingsView() }
+                if #available(iOS 27, *) {
+                    Tab("Add entry", systemImage: "plus", value: "add", role: .prominent) { Color.clear }
+                } else {
+                    Tab("Add entry", systemImage: "plus", value: "add", role: .search) { Color.clear }
+                }
             }
+            .sheet(isPresented: $adding) { EntrySheet(account: nil) }
             .environment(\.openOnboarding, { onboarding = true })
 
             if splash {

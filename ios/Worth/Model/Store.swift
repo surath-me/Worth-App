@@ -135,6 +135,7 @@ final class Store {
         if data.ratesSrc != nil { d.rates = data.rates; d.ratesAt = data.ratesAt; d.ratesSrc = data.ratesSrc } // keep live rates
         d.base = data.base
         data = d
+        commit { _ in } // the current month takes today's live rates, like any other change
     }
     #endif
 

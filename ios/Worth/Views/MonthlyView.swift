@@ -15,9 +15,9 @@ struct MonthlyView: View {
     @State private var confirmRemove = false
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    PageTitle("Monthly")
                     switcher
                     Group {
                         if store.isEmpty {
@@ -32,17 +32,18 @@ struct MonthlyView: View {
                     }
                     .id(month)
                     .transition(.asymmetric(insertion: .move(edge: dir).combined(with: .opacity), removal: .opacity))
-                    if !store.isEmpty { Allocation(month: month).padding(.top, 26) }
+                    if !store.isEmpty { Allocation(month: month) }
                     if store.data.snaps[month] != nil {
-                        Button("Remove \(Month.long(month))", role: .destructive) { confirmRemove = true }
-                            .font(.system(size: 15)).foregroundStyle(Color.down.opacity(0.9))
-                            .frame(maxWidth: .infinity).padding(.top, 28)
+                        Button("Remove \(Month.long(month))") { confirmRemove = true }
+                            .font(.system(size: 14, weight: .medium)).foregroundStyle(Color.down)
+                            .padding(.horizontal, 16).padding(.vertical, 9)
+                            .frame(maxWidth: .infinity).padding(.top, 26)
                     }
+                    if !store.isEmpty { SavedFoot() }
                 }
-                .padding(.horizontal, 16).padding(.bottom, 32)
+                .padding(.horizontal, 16).padding(.bottom, 24)
             }
             .background(Aura())
-            .navigationTitle("Monthly")
             .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { v in // sideways only; vertical scrolling stays normal
                 guard abs(v.translation.width) > 60, abs(v.translation.width) > abs(v.translation.height) * 1.5 else { return }
                 step(v.translation.width < 0 ? 1 : -1)
@@ -52,7 +53,6 @@ struct MonthlyView: View {
             .confirmationDialog("Remove \(Month.long(month))?", isPresented: $confirmRemove, titleVisibility: .visible) {
                 Button("Remove", role: .destructive) { store.removeMonth(month) }
             } message: { Text("Its balances are deleted. Your entries stay.") }
-        }
     }
 
     // MARK: parts
@@ -60,16 +60,21 @@ struct MonthlyView: View {
     private var switcher: some View {
         let ms = store.monthList, i = ms.firstIndex(of: month) ?? ms.count - 1
         return HStack {
-            Button { step(-1) } label: { Image(systemName: "chevron.left").font(.system(size: 17, weight: .semibold)).frame(width: 40, height: 40) }
-                .disabled(i <= 0)
+            arrow("chevron.left", enabled: i > 0) { step(-1) }.accessibilityLabel("Previous month")
             Spacer()
             Text(Month.long(month)).font(.system(size: 17, weight: .semibold)).contentTransition(.numericText())
             Spacer()
-            Button { step(1) } label: { Image(systemName: "chevron.right").font(.system(size: 17, weight: .semibold)).frame(width: 40, height: 40) }
-                .disabled(i >= ms.count - 1)
+            arrow("chevron.right", enabled: i < ms.count - 1) { step(1) }.accessibilityLabel("Next month")
         }
-        .tint(.white)
-        .padding(.bottom, 10)
+        .padding(.top, 4).padding(.bottom, 6)
+    }
+
+    private func arrow(_ name: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: name).font(.system(size: 17, weight: .semibold)).foregroundStyle(Color.hex(0x3CD9CF))
+                .frame(width: 44, height: 44).background(Circle().fill(.ultraThinMaterial))
+        }
+        .buttonStyle(.plain).opacity(enabled ? 1 : 0.2).disabled(!enabled)
     }
 
     private func step(_ d: Int) {
@@ -82,29 +87,30 @@ struct MonthlyView: View {
     private func emptyCard(_ t: String) -> some View {
         Text(t).font(.system(size: 15)).foregroundStyle(Color.sec)
             .frame(maxWidth: .infinity).padding(.vertical, 28)
-            .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground)))
+            .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
     }
 
     @ViewBuilder private var detail: some View {
         let snap = store.data.snaps[month]!
         let v = store.total(of: snap), pm = store.prevKey(month)
         let due = month == Month.key() && store.data.lastCheckin != month
-        VStack(alignment: .leading, spacing: 4) {
-            Text(Money.format(v, store.data.base, decimals: 0)).font(.system(size: 34, weight: .bold)).monospacedDigit().masked()
+        VStack(spacing: 2) {
+            Text(Money.format(v, store.data.base, decimals: 0)).font(.system(size: 33, weight: .bold)).kerning(-0.8).monospacedDigit().masked()
             if let pm, let ps = store.data.snaps[pm] {
                 let pv = store.total(of: ps)
-                ChangeLabel(change: v - pv, from: pv, cur: store.data.base, suffix: "  vs " + store.vsLabel(month, pm)).masked()
+                ChangeLabel(change: v - pv, from: pv, cur: store.data.base, suffix: "vs " + store.vsLabel(month, pm)).masked()
             } else {
                 Text("First month on record").font(.system(size: 15)).foregroundStyle(Color.sec)
             }
         }
+        .frame(maxWidth: .infinity)
         if due {
             Button("Check in for \(Month.name(month))") { checkIn = month }.buttonStyle(PrimaryButton()).padding(.top, 16)
         } else {
             Button { checkIn = month } label: { Label("Edit \(Month.name(month))", systemImage: "arrow.triangle.2.circlepath") }
                 .buttonStyle(GhostButton()).padding(.top, 16)
         }
-        MovedList(month: month, due: due, onOpen: { editing = $0 }).padding(.top, 22)
+        MovedList(month: month, due: due, onOpen: { editing = $0 }).padding(.top, 18)
     }
 }
 
@@ -144,7 +150,7 @@ private struct MovedList: View {
                             Text("\(still.count) \(due ? "to update" : "unchanged")")
                             Image(systemName: "chevron.down").rotationEffect(.degrees(prefs.unchangedOpen ? 180 : 0))
                         }
-                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.sec).frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(.white).frame(maxWidth: .infinity).padding(.top, 12).padding(.bottom, 14)
                     }
                     .buttonStyle(.plain)
                     if prefs.unchangedOpen { card(still.map { AnyView(row($0, change: nil)) }).transition(.opacity.combined(with: .move(edge: .top))) }
@@ -206,7 +212,7 @@ private struct MovedList: View {
                 if i < views.count - 1 { Divider().padding(.leading, 66) }
             }
         }
-        .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground)))
+        .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
     }
 
     private func row(_ a: Row, change: Text?) -> some View {
@@ -235,7 +241,7 @@ private struct MovedList: View {
 
     private func fxRow(_ fx: Double, _ curs: [String]) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "arrow.left.arrow.right").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.g1)
+            Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.g1)
                 .frame(width: 40, height: 40).background(Circle().fill(Color.white.opacity(0.08)))
             VStack(alignment: .leading, spacing: 2) {
                 Text("Exchange rates").font(.system(size: 15, weight: .medium))
@@ -263,16 +269,16 @@ struct Allocation: View {
         if !groups.isEmpty || sp.debts > 0 {
             @Bindable var prefs = prefs
             VStack(alignment: .leading, spacing: 0) {
-                Text("Allocation").sectionLabel()
+                SectionTitle("Allocation")
                 VStack(spacing: 14) {
                     Picker("View", selection: $prefs.allocBar) { Text("Pie").tag(false); Text("Bar").tag(true) }.pickerStyle(.segmented)
                     if !prefs.allocBar {
                         ZStack {
                             Chart(groups) { g in
-                                SectorMark(angle: .value("Value", g.value), innerRadius: .ratio(0.72), angularInset: 1.5)
+                                SectorMark(angle: .value("Value", g.value), innerRadius: .ratio(0.74), angularInset: 1.2)
                                     .foregroundStyle(g.group.color).cornerRadius(3)
                             }
-                            .frame(height: 200)
+                            .frame(width: 170, height: 170)
                             VStack(spacing: 2) {
                                 Text(Money.format(net, store.data.base, decimals: 0)).font(.system(size: 20, weight: .bold)).monospacedDigit().masked()
                                 Text("Net worth").font(.system(size: 12)).foregroundStyle(Color.sec)
@@ -284,7 +290,7 @@ struct Allocation: View {
                             let pct = g.value / owned * 100
                             VStack(spacing: 6) {
                                 HStack {
-                                    Circle().fill(g.group.color).frame(width: 9, height: 9)
+                                    RoundedRectangle(cornerRadius: 3).fill(g.group.color).frame(width: 10, height: 10)
                                     Text(g.group.id == "property" && sp.netted ? "Property equity" : g.group.name).font(.system(size: 15))
                                     Spacer()
                                     Text(pct > 0 && pct < 1 ? "<1%" : "\(Int(pct.rounded()))%").font(.system(size: 13)).foregroundStyle(Color.sec).monospacedDigit()
@@ -302,7 +308,7 @@ struct Allocation: View {
                         }
                         if sp.debts > 0 {
                             HStack {
-                                Circle().fill(Catalog.groups.last!.color).frame(width: 9, height: 9)
+                                RoundedRectangle(cornerRadius: 3).fill(Catalog.groups.last!.color).frame(width: 10, height: 10)
                                 Text("Debts").font(.system(size: 15)); Spacer()
                                 Text("−" + Money.format(sp.debts, store.data.base, decimals: 0)).font(.system(size: 15, weight: .medium)).monospacedDigit().masked()
                             }
@@ -315,7 +321,7 @@ struct Allocation: View {
                     }
                 }
                 .padding(16)
-                .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground)))
+                .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
                 .animation(.spring(duration: 0.4), value: prefs.allocBar)
             }
         }
