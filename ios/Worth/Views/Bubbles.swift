@@ -16,6 +16,9 @@ struct Bubbles: View {
     @State private var drag: (id: String, start: CGPoint, now: CGPoint)?
     @State private var order: [String]?          // the order while dragging (saved on release)
     @GestureState private var pressing: String?
+    /// True while a finger is on a bubble. SwiftUI resets it however the touch ends, cancelled included (when a call
+    /// or Control Center takes the touch, onEnded never runs), so the drag is always cleaned up.
+    @GestureState private var holding = false
 
     struct Item: Identifiable, Equatable {
         let id: String; let name: String; let value: Double; let color: Color; let grad: String
@@ -58,6 +61,7 @@ struct Bubbles: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
+        .onChange(of: holding) { _, h in if !h { endDrag() } }
         .onChange(of: store.data.accounts) { if let l = level, store.accounts(in: Catalog.groups.first { $0.id == l }!).isEmpty { level = nil } }
     }
 
@@ -86,6 +90,7 @@ struct Bubbles: View {
         LongPressGesture(minimumDuration: 0.45)
             .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("bub")))
             .updating($pressing) { v, st, _ in if case .first(true) = v { st = x.id; Haptics.prepare() } }
+            .updating($holding) { _, st, _ in st = true }
             .onChanged { v in
                 guard case .second(true, let g) = v else { return }
                 let ids = items.map(\.id)
@@ -111,11 +116,14 @@ struct Bubbles: View {
                     Haptics.tick() // a light tick each time it takes another spot
                 }
             }
-            .onEnded { _ in
-                if let o = order { prefs.bubOrder[level ?? "top"] = o }
-                dragging = false
-                drag = nil; order = nil
-            }
+            .onEnded { _ in endDrag() }
+    }
+    /// Letting go (or the touch being cancelled): save the order and let the page scroll again.
+    private func endDrag() {
+        if let o = order { prefs.bubOrder[level ?? "top"] = o }
+        if dragging { dragging = false }
+        if drag != nil { drag = nil }
+        order = nil
     }
 
     /// Opening a group: the other groups recede together (to 85% toward the middle, blurring and fading, like the App
@@ -187,7 +195,10 @@ struct Bubbles: View {
         let sorted = items.sorted { ($0.liab ? 1 : 0, -$0.value) < ($1.liab ? 1 : 0, -$1.value) }
         return VStack(spacing: 0) {
             ForEach(sorted) { x in
-                Button { if let a = x.account { onOpen(a) } else if x.group != nil { tap(x, at: CGPoint(x: 160, y: 150)) } } label: {
+                Button {
+                    if let a = x.account { onOpen(a) }
+                    else if x.group != nil, let i = items.firstIndex(where: { $0.id == x.id }) { tap(x, at: layout(items, size: box)[i].c) } // out of its own bubble
+                } label: {
                     HStack(spacing: 10) {
                         Circle().fill(Catalog.gradient(x.grad)).frame(width: 10, height: 10)
                         Text(x.equity ? "Property equity" : x.name).font(.system(size: 15)).lineLimit(1)

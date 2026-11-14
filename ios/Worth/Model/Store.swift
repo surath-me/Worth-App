@@ -20,9 +20,14 @@ final class Store {
         }
     }
 
+    /// Writes happen off the main thread, one after another in order, so a long history never stalls an animation.
+    private static let io = DispatchQueue(label: "worth.save", qos: .utility)
     private func save() {
-        guard let raw = try? JSONEncoder().encode(data) else { return }
-        try? raw.write(to: Store.fileURL, options: .atomic)
+        let snapshot = data
+        Store.io.async {
+            guard let raw = try? JSONEncoder().encode(snapshot) else { return }
+            try? raw.write(to: Store.fileURL, options: .atomic)
+        }
     }
 
     var isEmpty: Bool { data.accounts.isEmpty && data.snaps.isEmpty }
@@ -134,8 +139,9 @@ final class Store {
         d.lastCheckin = Month.key()
         if data.ratesSrc != nil { d.rates = data.rates; d.ratesAt = data.ratesAt; d.ratesSrc = data.ratesSrc } // keep live rates
         d.base = data.base
-        data = d
-        commit { _ in } // the current month takes today's live rates, like any other change
+        syncCurrentMonth(&d) // the current month takes today's live rates, like any other change
+        d.updatedAt = Date().timeIntervalSince1970 * 1000
+        data = d // one write
     }
     #endif
 
@@ -150,15 +156,21 @@ final class Store {
         if ratesBusy { return }
         if !force, let at = data.ratesAt, data.ratesSrc != nil, now - at < Store.ratesTTL { return }
         ratesBusy = true; defer { ratesBusy = false }
-        var raw: [String: Double]? = nil, src = ""
-        if let r = await Store.coinbase() { raw = r; src = "coinbase" }
-        else if let r = await Store.erAPI() { raw = r; src = "er-api" }
-        guard let raw else { return }
-        var next = ["EUR": 1.0]
-        for c in Currency.all where c != "EUR" { guard let v = raw[c], v > 0 else { return }; next[c] = v }
+        // a source counts only when it has every currency; otherwise the next one is tried
+        var next: [String: Double]? = nil, src = ""
+        if let r = Store.complete(await Store.coinbase()) { next = r; src = "coinbase" }
+        else if let r = Store.complete(await Store.erAPI()) { next = r; src = "er-api" }
+        guard let next else { return }
         commit(keepMonth: data.accounts.isEmpty) { d in
             d.rates.merge(next) { _, n in n }; d.ratesAt = now; d.ratesSrc = src
         }
+    }
+    /// The rates Worth needs (per 1 EUR), or nil when any is missing.
+    private static func complete(_ raw: [String: Double]?) -> [String: Double]? {
+        guard let raw else { return nil }
+        var out = ["EUR": 1.0]
+        for c in Currency.all where c != "EUR" { guard let v = raw[c], v > 0 else { return nil }; out[c] = v }
+        return out
     }
     private static func coinbase() async -> [String: Double]? {
         struct R: Decodable { struct D: Decodable { let rates: [String: String] }; let data: D }

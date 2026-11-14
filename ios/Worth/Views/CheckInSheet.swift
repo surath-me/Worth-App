@@ -206,10 +206,15 @@ struct CheckInSheet: View {
     private var doneCount: Int { accs.filter { done.contains($0.id) }.count }
     private func value(_ id: String) -> Double? { EntrySheet.parse(text[id] ?? "") }
     static func show(_ v: Double, _ cur: String) -> String {
-        let f = NumberFormatter(); f.numberStyle = .decimal; f.maximumFractionDigits = 2
-        f.locale = Locale(identifier: Currency.locale[cur] ?? "en_IE")
+        let f: NumberFormatter
+        if let hit = formatters[cur] { f = hit } else {
+            f = NumberFormatter(); f.numberStyle = .decimal; f.maximumFractionDigits = 2
+            f.locale = Locale(identifier: Currency.locale[cur] ?? "en_IE")
+            formatters[cur] = f
+        }
         return f.string(from: NSNumber(value: v)) ?? EntrySheet.fmt(v)
     }
+    private static var formatters: [String: NumberFormatter] = [:] // one per currency, made once
 
     /// A recorded month shows its own values; a new month (or the current month before its check-in) starts from the
     /// last one, with depreciation applied.

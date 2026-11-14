@@ -120,7 +120,8 @@ extension Store {
     func saveCheckIn(month m: String, values: [String: Double?]) {
         if m == Month.key() {
             commit { d in
-                for i in d.accounts.indices { d.accounts[i].bal = abs((values[d.accounts[i].id] ?? nil) ?? 0) }
+                // a blank field keeps the entry's balance as it is (it never becomes 0)
+                for i in d.accounts.indices { if let v = values[d.accounts[i].id] ?? nil { d.accounts[i].bal = abs(v) } }
                 d.lastCheckin = m
             }
         } else {

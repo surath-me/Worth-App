@@ -19,6 +19,7 @@ struct Onboarding: View {
     @State private var i = 0
     @State private var zoom = false          // the intro's logo is filling the screen
     @State private var showGreen = false     // the green from the zoom, fading over the next screen
+    @State private var restoreFailed = false
 
     var body: some View {
         ZStack {
@@ -36,6 +37,7 @@ struct Onboarding: View {
             }
         }
         .onAppear { cur = store.data.base }
+        .alert("That isn’t a Worth backup", isPresented: $restoreFailed) { Button("OK") {} } // same words as Settings
     }
 
     private var pageTransition: AnyTransition {
@@ -97,7 +99,7 @@ struct Onboarding: View {
             forward = true; step = .currency
             withAnimation(.easeOut(duration: 0.45).delay(0.05)) { showGreen = false }
         } restore: { data in
-            do { try store.restore(data); dismiss() } catch {}
+            do { try store.restore(data); dismiss() } catch { restoreFailed = true }
         }
     }
 

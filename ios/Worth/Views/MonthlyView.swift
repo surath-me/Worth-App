@@ -265,7 +265,8 @@ struct Allocation: View {
         let snap = store.data.snaps[month]
         let rows = snap.map { store.rows(of: $0) } ?? (month == Month.key() ? store.liveRows : [])
         let sp = store.split(rows), groups = sp.groups.filter { $0.value > 0 }.sorted { $0.value > $1.value }
-        let owned = max(1, groups.reduce(0) { $0 + $1.value }), net = owned - sp.debts
+        let assets = groups.reduce(0) { $0 + $1.value }, net = assets - sp.debts
+        let owned = max(1, assets) // only the divisor for the percentages
         if !groups.isEmpty || sp.debts > 0 {
             @Bindable var prefs = prefs
             VStack(alignment: .leading, spacing: 0) {

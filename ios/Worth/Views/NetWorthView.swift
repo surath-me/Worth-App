@@ -99,6 +99,9 @@ struct WorthChart: View {
     @Environment(Prefs.self) private var prefs
     @Binding var scrub: Store.Point?
     @State private var drawn: CGFloat = 0
+    // a finger is on the chart (one per gesture); SwiftUI resets these however a touch ends, cancelled included
+    @GestureState private var pressTouch = false
+    @GestureState private var dragTouch = false
 
     var body: some View {
         let pts = store.points(range: prefs.range)
@@ -145,11 +148,13 @@ struct WorthChart: View {
                                 .gesture(
                                     LongPressGesture(minimumDuration: 0.12)
                                         .sequenced(before: DragGesture(minimumDistance: 0))
+                                        .updating($pressTouch) { _, st, _ in st = true }
                                         .onChanged { v in if case .second(true, let drag?) = v { pick(drag.location.x, proxy: proxy, geo: g, pts: pts) } }
                                         .onEnded { _ in endScrub() }
                                 )
                                 .simultaneousGesture(
                                     DragGesture(minimumDistance: 6)
+                                        .updating($dragTouch) { _, st, _ in st = true }
                                         .onChanged { v in if scrub != nil || abs(v.translation.width) > abs(v.translation.height) { pick(v.location.x, proxy: proxy, geo: g, pts: pts) } }
                                         .onEnded { _ in endScrub() }
                                 )
@@ -169,6 +174,7 @@ struct WorthChart: View {
                 .mask(alignment: .leading) { GeometryReader { g in Rectangle().frame(width: g.size.width * drawn) } }
                 .padding(.leading, -16) // the curve runs from the left edge of the screen (after the mask, which would clip it)
                 .sensoryFeedback(.selection, trigger: scrub?.month)
+                .onChange(of: pressTouch || dragTouch) { _, on in if !on && scrub != nil { endScrub() } } // a cancelled touch ends the scrub too
                 HStack {
                     label(pts.first!)
                     Spacer()
