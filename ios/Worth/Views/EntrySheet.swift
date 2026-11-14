@@ -21,7 +21,9 @@ struct EntrySheet: View {
     /// What to do once the question's popover has gone: closing the sheet from inside it would only close the popover.
     @State private var leaving: Leave?
     enum Leave { case discard, delete }
-    @FocusState private var nameFocused: Bool
+    /// Which field is being typed in. Nothing is focused when the sheet opens: the keyboard comes up only on a tap.
+    @FocusState private var focus: Field?
+    enum Field { case name, amount, dep, platform }
 
     var body: some View {
         let t = Catalog.type(type)
@@ -29,11 +31,11 @@ struct EntrySheet: View {
             Form {
                 Section {
                     VStack(spacing: 10) {
-                        TextField("Name, e.g. Savings", text: $name).focused($nameFocused)
+                        TextField("Name, e.g. Savings", text: $name).focused($focus, equals: .name).submitLabel(.done)
                             .multilineTextAlignment(.center).font(.system(size: 17))
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(Currency.symbol[cur] ?? cur).font(.system(size: 24, weight: .semibold)).foregroundStyle(Color.sec)
-                            TextField("0", text: $amount).keyboardType(.decimalPad)
+                            TextField("0", text: $amount).keyboardType(.numbersAndPunctuation).focused($focus, equals: .amount).submitLabel(.done)
                                 .font(.system(size: 40, weight: .bold)).monospacedDigit()
                                 .fixedSize()
                         }
@@ -62,13 +64,14 @@ struct EntrySheet: View {
                         HStack {
                             Text("Value change / year")
                             TextField("0", text: $dep).keyboardType(.numbersAndPunctuation).multilineTextAlignment(.trailing)
+                                .focused($focus, equals: .dep).submitLabel(.done)
                             Text("%").foregroundStyle(Color.sec)
                         }
                     }
                     Picker("Currency", selection: $cur) {
                         ForEach(Currency.all, id: \.self) { c in Text("\(c) \(Currency.symbol[c] ?? "")").tag(c) }
                     }
-                    TextField("Platform (optional)", text: $platform)
+                    TextField("Platform (optional)", text: $platform).focused($focus, equals: .platform).submitLabel(.done)
                 } footer: { if t.dep != nil { Text("Applied at each new month.") } }
 
             }
@@ -92,7 +95,9 @@ struct EntrySheet: View {
             .onChange(of: confirmDiscard || confirmDelete) { _, open in if !open { finishLeaving() } }
             .onChange(of: type) { _, k in if let d = Catalog.type(k).dep, dep.isEmpty || account == nil { dep = Self.fmt(d) } }
             .onAppear(perform: load)
-            .defaultFocus($nameFocused, account == nil) // a new entry types its name straight away: the keyboard rises with the opening
+            // every field's keyboard has the blue ✓ in the return key's spot (the amount too: numbers + ✓ rather than
+            // the number pad, which has no return key); it finishes typing
+            .onSubmit { focus = nil }
         }
     }
 
@@ -171,7 +176,6 @@ struct EntrySheet: View {
         } else {
             cur = store.data.base
             if let t = startType, Catalog.type[t] != nil { type = t; if let d = Catalog.type(t).dep { dep = Self.fmt(d) } }
-            nameFocused = true
         }
     }
 
