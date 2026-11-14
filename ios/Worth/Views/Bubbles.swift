@@ -48,7 +48,9 @@ struct Bubbles: View {
                                dragAt: drag?.id == x.id ? drag?.now : nil, pressing: pressing == x.id)
                             .transition(.identity) // bubbles run their own arrival, never a default fade
                             .zIndex(drag?.id == x.id ? 10 : 1)
-                            .onTapGesture { if Date().timeIntervalSince(droppedAt) > 0.3 { tap(x, at: P[i].c) } }
+                            // a hold never counts as a tap: not while a bubble is lifted, nor right after one is dropped (the tap and the
+                            // long press end on the same lift, in either order)
+                            .onTapGesture { if drag == nil, !dragging, Date().timeIntervalSince(droppedAt) > 0.3 { tap(x, at: P[i].c) } }
                             // UIKit's long press, not SwiftUI's: it lets go of the touch the moment the finger moves,
                             // so a swipe that starts on a bubble scrolls the page (SwiftUI's long-press-then-drag kept
                             // the touch and the page wouldn't scroll). Once a bubble is lifted, `dragging` turns the
@@ -374,6 +376,9 @@ private struct BubbleFace: View {
     let item: Bubbles.Item
     let r: CGFloat
     var labels: Double = 1
+    /// The press (0.9) and lift (1.14) scale, applied before the face is flattened so the label is drawn sharp at that
+    /// size rather than as an enlarged bitmap.
+    var lift: CGFloat = 1
     var body: some View {
         let d = r * 2
         ZStack {
@@ -390,10 +395,13 @@ private struct BubbleFace: View {
             .opacity(labels)
         }
         .frame(width: d, height: d)
+        .scaleEffect(lift)
+        .frame(width: d * 1.2, height: d * 1.2) // room for the lifted size inside the flattened image
         // One flattened image: circle, highlight and label are drawn together, so the float, the springs and the drag
         // move a single picture. Left as separate layers, iOS snaps the text to whole pixels each frame while the circle
         // glides, and the name visibly stutters against its bubble.
         .drawingGroup()
+        .frame(width: d, height: d) // laid out at its real size; the extra room overflows, centred
     }
 }
 
@@ -413,7 +421,7 @@ private struct Bubble: View {
     @State private var labels = false
 
     var body: some View {
-        BubbleFace(item: item, r: r, labels: labels ? 1 : 0)
+        BubbleFace(item: item, r: r, labels: labels ? 1 : 0, lift: dragAt != nil ? 1.14 : pressing ? 0.9 : 1)
             .keyframeAnimator(initialValue: CGSize.zero, repeating: true) { c, v in c.offset(dragAt == nil ? v : .zero) } keyframes: { _ in
                 let T = 6 + Double(abs(item.id.hashValue) % 7) * 0.25
                 KeyframeTrack {
@@ -424,7 +432,6 @@ private struct Bubble: View {
                 }
             }
             .shadow(color: .black.opacity(dragAt != nil ? 0.6 : 0.3), radius: dragAt != nil ? 22 : 8, y: dragAt != nil ? 16 : 5)
-            .scaleEffect(dragAt != nil ? 1.14 : pressing ? 0.9 : 1)
             .animation(pressing ? .timingCurve(0.3, 0, 0.2, 1, duration: 0.55) : .spring(duration: 0.45, bounce: 0.4), value: pressing)
             .animation(.spring(duration: 0.45, bounce: 0.4), value: dragAt == nil)
             .scaleEffect(moved ? 1 : 0.05)
@@ -518,11 +525,26 @@ struct HoldToDrag: UIGestureRecognizerRepresentable {
 
     final class Recognizer: UILongPressGestureRecognizer {
         var touching: ((Bool) -> Void)?
+        private var rest: DispatchWorkItem?
+        private var told = false
+        /// The bubble only starts to sink once the finger has rested a moment: a swipe that starts on it (and scrolls the
+        /// page) moves first, the long press fails, and the bubble never wobbles.
         override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
             super.touchesBegan(touches, with: event)
-            if state == .possible { touching?(true) }
+            guard state == .possible else { return }
+            rest?.cancel()
+            let w = DispatchWorkItem { [weak self] in
+                guard let self, self.state == .possible || self.state == .began else { return }
+                self.told = true; self.touching?(true)
+            }
+            rest = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: w)
         }
-        override func reset() { super.reset(); touching?(false) }
+        override func reset() {
+            super.reset()
+            rest?.cancel(); rest = nil
+            if told { told = false; touching?(false) }
+        }
     }
 
     func makeUIGestureRecognizer(context: Context) -> Recognizer {

@@ -103,9 +103,8 @@ struct PrimaryButton: ButtonStyle {
             .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity).frame(height: 52)
-            .foregroundStyle(.white.opacity(enabled ? 1 : 0.45))
             .background(Capsule().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .leading, endPoint: .trailing)))
-            // inactive: darkened, not faded, so it stays opaque when it floats over content
+            // inactive: darkened (label included), not faded, so it stays opaque when it floats over content
             .overlay(Capsule().fill(Color.black.opacity(enabled ? 0 : 0.6)).allowsHitTesting(false))
             .shadow(color: Color.hex(0x36F5B2).opacity(enabled ? 0.28 : 0), radius: 14, y: 8)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
@@ -153,11 +152,13 @@ struct TapOutsideEndsEditing: UIViewRepresentable {
             guard let w = window, host !== w else { return }
             let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
             tap.cancelsTouchesInView = false
+            tap.delaysTouchesBegan = false
+            tap.delaysTouchesEnded = false // never hold back a touch's end from the view it's on (buttons, drags, the chart)
             tap.delegate = self
             w.addGestureRecognizer(tap)
             host = w
         }
-        @objc private func tapped() { host?.endEditing(true) }
+        @objc private func tapped() { host?.endEditing(true) } // a no-op when nothing is being typed in
         // a tap on a text field (or inside one) is for typing, not for closing the keyboard
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
             var v = touch.view

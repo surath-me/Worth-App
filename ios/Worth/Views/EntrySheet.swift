@@ -111,8 +111,11 @@ struct EntrySheet: View {
             }
             // Save (Add for a new entry) floats at the bottom, above the keyboard when it's up
             .safeAreaInset(edge: .bottom) { actions }
-            .interactiveDismissDisabled(changed) // a swipe down can't silently throw changes away
+            .interactiveDismissDisabled(changed) // a swipe down can't silently throw changes away…
+            .background(DismissAttempt { confirmDiscard = true }) // …it asks instead, as the X does
+            // close once both have happened (the choice made, the popover gone), in whichever order iOS runs them
             .onChange(of: confirmDiscard || confirmDelete) { _, open in if !open { finishLeaving() } }
+            .onChange(of: leaving) { _, l in if l != nil, !confirmDiscard, !confirmDelete { finishLeaving() } }
             .onChange(of: type) { _, k in if let d = Catalog.type(k).dep, dep.isEmpty || account == nil { dep = Self.fmt(d) } }
             .onAppear(perform: load)
             // the text fields' keyboards have the blue ✓ in the return key's spot; it finishes typing (the amount uses
@@ -157,7 +160,14 @@ struct EntrySheet: View {
     /// Whether anything differs from the saved entry, compared as values (so "1500" and "1500.00", or a default yearly
     /// change filled in for display, don't count as edits). A new entry counts as changed once anything is typed.
     private var changed: Bool {
-        guard let a = account else { return named || !amount.isEmpty || !platform.isEmpty }
+        guard let a = account else {
+            // a new entry: anything typed or picked away from how it opened
+            let startT = startType.flatMap { Catalog.type[$0] != nil ? $0 : nil } ?? "bank"
+            let def = Catalog.type(type).dep
+            return named || !amount.isEmpty || !platform.trimmingCharacters(in: .whitespaces).isEmpty
+                || type != startT || cur != store.data.base || icon != nil
+                || (def != nil && Self.parse(dep) != def)
+        }
         let def = Catalog.type(type).dep
         let nowDep = def != nil ? (Self.parse(dep) ?? def) : nil
         let wasDep = Catalog.type(a.type).dep != nil ? (a.dep ?? Catalog.type(a.type).dep) : nil
@@ -243,5 +253,40 @@ struct IconPicker: View {
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: on)
+    }
+}
+
+/// Hooks the sheet's swipe-down while it's blocked (`interactiveDismissDisabled`), so the attempt can ask "Discard
+/// your changes?" instead of just springing back. It wraps the delegate SwiftUI set on the sheet and forwards
+/// everything else to it, so the sheet's own handling is untouched.
+private struct DismissAttempt: UIViewRepresentable {
+    let onAttempt: () -> Void
+    func makeUIView(context: Context) -> Hook { Hook() }
+    func updateUIView(_ v: Hook, context: Context) { v.proxy.onAttempt = onAttempt; v.install() }
+
+    final class Hook: UIView {
+        let proxy = Proxy()
+        override func didMoveToWindow() { super.didMoveToWindow(); install() }
+        func install() {
+            // the sheet is the topmost view controller holding this view
+            var r: UIResponder? = self
+            while let x = r, !(x is UIViewController) { r = x.next }
+            guard var vc = r as? UIViewController else { return }
+            while let p = vc.parent { vc = p }
+            guard let pc = vc.presentationController, pc.delegate !== proxy else { return }
+            proxy.original = pc.delegate
+            pc.delegate = proxy
+        }
+    }
+
+    final class Proxy: NSObject, UIAdaptivePresentationControllerDelegate {
+        weak var original: UIAdaptivePresentationControllerDelegate?
+        var onAttempt: () -> Void = {}
+        func presentationControllerDidAttemptToDismiss(_ p: UIPresentationController) {
+            onAttempt()
+            original?.presentationControllerDidAttemptToDismiss?(p)
+        }
+        override func responds(to s: Selector!) -> Bool { super.responds(to: s) || (original?.responds(to: s) ?? false) }
+        override func forwardingTarget(for s: Selector!) -> Any? { original?.responds(to: s) == true ? original : nil }
     }
 }
