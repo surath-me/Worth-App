@@ -130,19 +130,6 @@ struct WorthChart: View {
                             RuleMark(x: .value("Month", Month.date(s.month))).foregroundStyle(.white.opacity(0.3)).lineStyle(StrokeStyle(lineWidth: 1))
                             PointMark(x: .value("Month", Month.date(s.month)), y: .value("Net worth", s.value))
                                 .foregroundStyle(c2).symbolSize(150)
-                                .annotation(position: .top, spacing: 10, overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                                    // a solid dark card (a live blur can't render inside a chart annotation; it smears)
-                                    VStack(spacing: 1) {
-                                        Text(Money.format(s.value, store.data.base, decimals: 0)).font(.system(size: 14, weight: .semibold)).monospacedDigit()
-                                            .foregroundStyle(.white).masked()
-                                        Text(Month.short(s.month)).font(.system(size: 11, weight: .medium)).foregroundStyle(Color.sec)
-                                    }
-                                    .padding(.horizontal, 11).padding(.vertical, 6)
-                                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.hex(0x2C2C2E).opacity(0.94)))
-                                    .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(.white.opacity(0.1), lineWidth: 0.5))
-                                    .shadow(color: .black.opacity(0.45), radius: 10, y: 4)
-                                    .compositingGroup()
-                                }
                         } else if let last = pts.last {
                             PointMark(x: .value("Month", Month.date(last.month)), y: .value("Net worth", last.value)).foregroundStyle(c2.opacity(0.35)).symbolSize(420)
                             PointMark(x: .value("Month", Month.date(last.month)), y: .value("Net worth", last.value)).foregroundStyle(c2).symbolSize(80)
@@ -165,6 +152,15 @@ struct WorthChart: View {
                                         .onChanged { v in if scrub != nil || abs(v.translation.width) > abs(v.translation.height) { pick(v.location.x, proxy: proxy, geo: g, pts: pts) } }
                                         .onEnded { _ in withAnimation(.easeOut(duration: 0.2)) { scrub = nil } }
                                 )
+                            // the label rides above the dot, laid over the chart (not inside it) so it can be real glass
+                            if let s = scrub, let plot = proxy.plotFrame,
+                               let px = proxy.position(forX: Month.date(s.month)), let py = proxy.position(forY: s.value) {
+                                let o = g[plot].origin
+                                ScrubTip(value: Money.format(s.value, store.data.base, decimals: 0), month: Month.short(s.month))
+                                    .position(x: min(g.size.width - 58, max(58, o.x + px)), y: max(22, o.y + py - 36))
+                                    .allowsHitTesting(false)
+                                    .transition(.opacity)
+                            }
                         }
                     }
                 }
@@ -298,5 +294,25 @@ struct Aura: View {
     /// A blurred blob rendered once into its own layer; moving it afterwards never redraws the blur.
     private func blob(_ c: Color, _ d: CGFloat) -> some View {
         Circle().fill(c).frame(width: d, height: d).padding(120).blur(radius: 90).drawingGroup().padding(-120)
+    }
+}
+
+/// The label above the scrub dot: amount and month on a glass card, like the web app's tooltip.
+private struct ScrubTip: View {
+    let value: String
+    let month: String
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
+        let content = VStack(spacing: 1) {
+            Text(value).font(.system(size: 14, weight: .semibold)).monospacedDigit().foregroundStyle(.white).masked()
+            Text(month).font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.7))
+        }
+        .padding(.horizontal, 11).padding(.vertical, 6)
+        .fixedSize()
+        if #available(iOS 26, *) {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content.background(.ultraThinMaterial, in: shape).overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+        }
     }
 }
