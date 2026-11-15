@@ -143,9 +143,11 @@ struct CheckInSheet: View {
                     .keyboardType(.numbersAndPunctuation).submitLabel(.done).onSubmit { focus = nil }
                     .multilineTextAlignment(.trailing).monospacedDigit()
                     .focused($focus, equals: a.id)
-                    .frame(minWidth: 70, maxWidth: 110)
+                    .frame(minWidth: 70)
             }
             .font(.system(size: 16, weight: .medium))
+            // symbol and amount sized to their content, never cut off ("14,921…", a squeezed "₹"): the name wraps instead
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 10).frame(height: 40)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
             .masked()

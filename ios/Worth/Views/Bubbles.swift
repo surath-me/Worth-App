@@ -87,10 +87,14 @@ struct Bubbles: View {
             }.filter { $0.value > 0 }.sorted { $0.value > $1.value }.ordered(by: order ?? prefs.bubOrder[level])
         }
         let sp = store.liveSplit
-        var out = sp.groups.map { Item(id: "g:" + $0.group.id, name: $0.group.name, value: $0.value, color: $0.group.color, grad: $0.group.id,
-                                       group: $0.group.id, equity: $0.group.id == "property" && sp.netted) }
+        // with the mortgage set against the home, the bubbles say so: "Property equity", and "Other debts" for the rest
+        var out = sp.groups.map { g -> Item in
+            let equity = g.group.id == "property" && sp.netted
+            return Item(id: "g:" + g.group.id, name: equity ? "Property equity" : g.group.name, value: g.value, color: g.group.color,
+                        grad: g.group.id, group: g.group.id, equity: equity)
+        }
         let dg = Catalog.groups.first { $0.liab }!
-        out.append(Item(id: "g:debt", name: dg.name, value: sp.debts, color: dg.color, grad: "debt", liab: true, group: "debt"))
+        out.append(Item(id: "g:debt", name: sp.netted ? "Other debts" : dg.name, value: sp.debts, color: dg.color, grad: "debt", liab: true, group: "debt"))
         return out.filter { $0.value > 0 }.sorted { $0.value > $1.value }.ordered(by: order ?? prefs.bubOrder["top"])
     }
 
@@ -205,7 +209,7 @@ struct Bubbles: View {
                 } label: {
                     HStack(spacing: 10) {
                         Circle().fill(Catalog.gradient(x.grad)).frame(width: 10, height: 10)
-                        Text(x.equity ? "Property equity" : x.name).font(.system(size: 15)).lineLimit(1)
+                        Text(x.name).font(.system(size: 15)).lineLimit(1)
                         Spacer()
                         if !x.liab && !(level != nil && nAssets < 2) {
                             let p = x.value / assets * 100

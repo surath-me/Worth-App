@@ -335,7 +335,7 @@ struct Allocation: View {
                         if sp.debts > 0 {
                             HStack {
                                 RoundedRectangle(cornerRadius: 3).fill(Catalog.groups.last!.color).frame(width: 10, height: 10)
-                                Text("Debts").font(.system(size: 15)); Spacer()
+                                Text(sp.netted ? "Other debts" : "Debts").font(.system(size: 15)); Spacer() // the mortgage is in Property equity
                                 Text("−" + Money.format(sp.debts, store.data.base, decimals: 0)).font(.system(size: 15, weight: .medium)).monospacedDigit().masked()
                             }
                             Divider()

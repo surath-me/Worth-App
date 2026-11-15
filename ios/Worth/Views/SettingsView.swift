@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var importing = false
     @State private var confirmErase = false
     @State private var message: String?
+    @State private var pendingRestore: Data?   // a backup waiting for "Replace"
 
     var body: some View {
         Form {
@@ -55,7 +56,7 @@ struct SettingsView: View {
                 }
                 Button("Paste backup") {
                     guard let txt = UIPasteboard.general.string, let d = txt.data(using: .utf8) else { message = "Nothing to paste"; return }
-                    do { try store.restore(d); message = "Backup restored" } catch { message = "That isn’t a Worth backup" }
+                    pendingRestore = d // asks first: it replaces everything
                 }
             } header: { Label13("Backup") } footer: { Text(backupNote) }
 
@@ -85,8 +86,21 @@ struct SettingsView: View {
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json, .data]) { result in
             guard case .success(let url) = result else { return }
             let ok = url.startAccessingSecurityScopedResource(); defer { if ok { url.stopAccessingSecurityScopedResource() } }
-            do { try store.restore(Data(contentsOf: url)); message = "Backup restored" }
-            catch { message = "That file isn’t a Worth backup" }
+            guard let d = try? Data(contentsOf: url) else { message = "That file isn’t a Worth backup"; return }
+            pendingRestore = d // asks first: it replaces everything
+        }
+        // restoring replaces all the data on this phone, so it asks first, like Erase all data
+        .alert("Replace your data with this backup?", isPresented: Binding(get: { pendingRestore != nil }, set: { if !$0 { pendingRestore = nil } })) {
+            Button("Replace", role: .destructive) {
+                guard let d = pendingRestore else { return }
+                pendingRestore = nil
+                do { try store.restore(d); message = "Backup restored" } catch { message = "That isn’t a Worth backup" }
+            }
+            Button("Cancel", role: .cancel) { pendingRestore = nil }
+        } message: {
+            Text(store.data.backupAt == nil
+                 ? "Everything on this phone is replaced by the backup. You have no backup of what's here now, so it can't be brought back."
+                 : "Everything on this phone is replaced by the backup. What's here now can only be brought back from your last backup.")
         }
         // the iOS pattern for erasing everything: a centred alert that says what's lost, a red Erase and Cancel
         .alert("Erase all data?", isPresented: $confirmErase) {

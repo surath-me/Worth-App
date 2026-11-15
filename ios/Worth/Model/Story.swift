@@ -60,7 +60,9 @@ extension Store {
         var move: String? = nil
         if let ref, let snap = data.snaps[ref.month], let top = moves(from: rows(of: snap), to: liveRows).first {
             let amt = Money.format(abs(top.change), data.base, decimals: 0)
-            move = top.debt ? "Debts \(top.change > 0 ? "−" : "+")\(amt)" : "\(top.name) \(top.change > 0 ? "+" : "−")\(amt)"
+            // debts say what happened ("Debts paid down €8,318"), so a minus never reads as the debt you have
+            move = top.debt ? (top.change > 0 ? "Debts paid down \(amt)" : "Debts up \(amt)")
+                : "\(top.name) \(top.change > 0 ? "+" : "−")\(amt)"
         }
         return (badge, move)
     }
