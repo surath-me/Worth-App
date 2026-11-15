@@ -30,6 +30,7 @@ struct RootView: View {
     @State private var adding = false
     @State private var addClosing = false   // the new-entry sheet is on its way out
     @State private var addAgain = false     // + tapped meanwhile: open it again once it's gone
+    @Namespace private var addNS
 
     /// Open the new-entry sheet (or the onboarding while there's nothing yet). iOS ignores a new sheet while the last one
     /// is still closing, so a tap in that moment is kept and opens it as soon as the close has finished.
@@ -57,13 +58,25 @@ struct RootView: View {
                     Tab("Add entry", systemImage: "plus", value: "add", role: .search) { Color.clear }
                 }
             }
+            // The sheet zooms out of the + (as in Shortcuts) and back into it. A tab can't be a zoom source itself, so an
+            // invisible circle sits exactly over the tab bar's + to anchor it; the tab underneath keeps its native press.
+            .overlay {
+                ZStack(alignment: .bottomTrailing) {
+                    Color.clear
+                    Circle().fill(Color.white.opacity(0.001)).frame(width: 62, height: 62)
+                        .matchedTransitionSource(id: "add", in: addNS) { $0.clipShape(RoundedRectangle(cornerRadius: 31)) }
+                        .padding(.trailing, 21).padding(.bottom, 21)
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+            }
             .sensoryFeedback(trigger: adding) { _, open in open ? .impact(weight: .light) : nil } // on open only
             .onChange(of: adding) { _, open in if !open { addClosing = true } }
             .sheet(isPresented: $adding, onDismiss: {
                 addClosing = false
                 if addAgain { addAgain = false; adding = true }
             }) {
-                EntrySheet(account: nil)
+                EntrySheet(account: nil).navigationTransition(.zoom(sourceID: "add", in: addNS))
             }
             .environment(\.openOnboarding, { onboarding = true })
 
