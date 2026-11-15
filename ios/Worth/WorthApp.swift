@@ -123,7 +123,9 @@ struct AddButton: View {
             }
         }
         .accessibilityLabel("Add entry")
-        .matchedTransitionSource(id: "add", in: ns)
+        // the morph takes just the circle, not the button's square frame (left out, it sometimes grew from a square);
+        // it only accepts a rounded rectangle, so r = half of the 62pt button
+        .matchedTransitionSource(id: "add", in: ns) { $0.clipShape(RoundedRectangle(cornerRadius: 31)) }
     }
 }
 
