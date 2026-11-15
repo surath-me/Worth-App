@@ -18,7 +18,7 @@ struct CheckInSheet: View {
     @State private var isNew = false
     @State private var revealed: String?
     @State private var addingEntry = false
-    @FocusState private var focus: String?
+    @State private var focus: String?   // the row being typed in
 
     private var accs: [Account] { store.data.accounts.sorted { (Catalog.isLiab($0.type) ? 1 : 0) < (Catalog.isLiab($1.type) ? 1 : 0) } }
 
@@ -41,7 +41,7 @@ struct CheckInSheet: View {
             }
             .tint(.primary)
             .sheet(isPresented: $addingEntry) {
-                EntrySheet(account: nil, after: { a in if let a { text[a.id] = Self.show(a.bal, a.cur); done.insert(a.id) } })
+                EntrySheet(account: nil, after: { a in if let a { text[a.id] = EntrySheet.show(a.bal, a.cur); done.insert(a.id) } })
             }
         }
         .onAppear { month = min(start, Month.key()); fill() }
@@ -137,13 +137,12 @@ struct CheckInSheet: View {
             Spacer(minLength: 6)
             HStack(spacing: 3) {
                 Text(Currency.symbol[a.cur] ?? a.cur).foregroundStyle(Color.sec)
-                TextField("0", text: Binding(get: { text[a.id] ?? "" }, set: { v in text[a.id] = v; if isNew, focus == a.id { done.insert(a.id) } }))
-                    // the native keyboard with its ✓ in the return key's spot (single-line, so no line breaks): it
-                    // finishes typing. The number pad has no return key, so it couldn't offer the ✓.
-                    .keyboardType(.numbersAndPunctuation).submitLabel(.done).onSubmit { focus = nil }
-                    .multilineTextAlignment(.trailing).monospacedDigit()
-                    .focused($focus, equals: a.id)
-                    .frame(minWidth: 70)
+                // grouped as you type; the full keyboard, for its ✓ in the return key's spot (single-line, so no line
+                // breaks): it finishes typing. The number pad has no return key, so it couldn't offer the ✓.
+                AmountField(text: Binding(get: { text[a.id] ?? "" }, set: { v in text[a.id] = v; if isNew, focus == a.id { done.insert(a.id) } }),
+                            cur: a.cur,
+                            focused: Binding(get: { focus == a.id }, set: { f in if f { focus = a.id } else if focus == a.id { focus = nil } }))
+                    .frame(minWidth: 70, alignment: .trailing)
             }
             .font(.system(size: 16, weight: .medium))
             // symbol and amount sized to their content, never cut off ("14,921…", a squeezed "₹"): the name wraps instead
@@ -165,9 +164,9 @@ struct CheckInSheet: View {
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 8)
+        // leaving the field just tidies it ("14,921." → "14,921")
         .onChange(of: focus) { old, new in
-            if new == a.id, let v = value(a.id) { text[a.id] = EntrySheet.fmt(v) }          // plain while typing
-            if old == a.id, new != a.id { text[a.id] = value(a.id).map { Self.show($0, a.cur) } ?? "" }  // formatted again
+            if old == a.id, new != a.id { text[a.id] = value(a.id).map { EntrySheet.show($0, a.cur) } ?? "" }
         }
     }
 
@@ -210,16 +209,6 @@ struct CheckInSheet: View {
 
     private var doneCount: Int { accs.filter { done.contains($0.id) }.count }
     private func value(_ id: String) -> Double? { EntrySheet.parse(text[id] ?? "") }
-    static func show(_ v: Double, _ cur: String) -> String {
-        let f: NumberFormatter
-        if let hit = formatters[cur] { f = hit } else {
-            f = NumberFormatter(); f.numberStyle = .decimal; f.maximumFractionDigits = 2
-            f.locale = Locale(identifier: Currency.locale[cur] ?? "en_IE")
-            formatters[cur] = f
-        }
-        return f.string(from: NSNumber(value: v)) ?? EntrySheet.fmt(v)
-    }
-    private static var formatters: [String: NumberFormatter] = [:] // one per currency, made once
 
     /// A recorded month shows its own values; a new month (or the current month before its check-in) starts from the
     /// last one, with depreciation applied.
@@ -235,17 +224,17 @@ struct CheckInSheet: View {
                 if let cv = c.value { sugg[a.id] = cv }
                 if let f = c.from, carriedFrom == nil || f > carriedFrom! { carriedFrom = f }
             }
-            text[a.id] = v.map { Self.show($0, a.cur) } ?? ""
+            text[a.id] = v.map { EntrySheet.show($0, a.cur) } ?? ""
         }
     }
 
     /// Tick: unchanged (or the suggested value for things that lose or gain value); tap again to untick.
     private func toggle(_ a: Account) {
         if done.contains(a.id) { done.remove(a.id) }
-        else { done.insert(a.id); if value(a.id) == nil, let s = sugg[a.id] { text[a.id] = Self.show(s, a.cur) } }
+        else { done.insert(a.id); if value(a.id) == nil, let s = sugg[a.id] { text[a.id] = EntrySheet.show(s, a.cur) } }
     }
     private func markRest() {
-        for a in accs where !done.contains(a.id) { done.insert(a.id); if value(a.id) == nil, let s = sugg[a.id] { text[a.id] = Self.show(s, a.cur) } }
+        for a in accs where !done.contains(a.id) { done.insert(a.id); if value(a.id) == nil, let s = sugg[a.id] { text[a.id] = EntrySheet.show(s, a.cur) } }
     }
 
     private func save() {

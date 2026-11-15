@@ -11,6 +11,7 @@ struct EntrySheet: View {
 
     @State private var name = ""
     @State private var amount = ""
+    @State private var amountFocused = false
     @State private var type = "bank"
     @State private var cur = "EUR"
     @State private var platform = ""
@@ -35,8 +36,8 @@ struct EntrySheet: View {
                             .multilineTextAlignment(.center).font(.system(size: 17))
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(Currency.symbol[cur] ?? cur).font(.system(size: 24, weight: .semibold)).foregroundStyle(Color.sec)
-                            TextField("0", text: $amount).keyboardType(.decimalPad).focused($focus, equals: .amount) // the native number pad
-                                .font(.system(size: 40, weight: .bold)).monospacedDigit()
+                            // the native number pad; grouped as you type ("14,921.66")
+                            AmountField(text: $amount, cur: cur, size: 40, weight: .bold, align: .left, numberPad: true, focused: $amountFocused)
                                 .fixedSize()
                         }
                         .frame(maxWidth: .infinity)
@@ -116,6 +117,7 @@ struct EntrySheet: View {
             // close once both have happened (the choice made, the popover gone), in whichever order iOS runs them
             .onChange(of: confirmDiscard || confirmDelete) { _, open in if !open { finishLeaving() } }
             .onChange(of: leaving) { _, l in if l != nil, !confirmDiscard, !confirmDelete { finishLeaving() } }
+            .onChange(of: cur) { _, c in amount = Self.parse(amount).map { Self.show($0, c) } ?? "" } // regrouped for its currency
             .onChange(of: type) { _, k in if let d = Catalog.type(k).dep, dep.isEmpty || account == nil { dep = Self.fmt(d) } }
             .onAppear(perform: load)
             // the text fields' keyboards have the blue ✓ in the return key's spot; it finishes typing (the amount uses
@@ -182,7 +184,7 @@ struct EntrySheet: View {
 
     private func load() {
         if let a = account {
-            name = a.name; amount = Self.fmt(a.bal); type = Catalog.type[a.type] != nil ? a.type : "other"
+            name = a.name; amount = Self.show(a.bal, a.cur); type = Catalog.type[a.type] != nil ? a.type : "other"
             cur = a.cur; platform = a.platform; icon = a.icon
             if let d = a.dep ?? Catalog.type(type).dep { dep = Self.fmt(d) }
         } else {
@@ -215,6 +217,48 @@ struct EntrySheet: View {
         return Double(t)
     }
     static func fmt(_ v: Double) -> String { v == v.rounded() ? String(Int(v)) : String(format: "%.2f", v) }
+
+    /// An amount written the way its currency writes it: "14,921.66", "₹6,31,394.57", "CHF 12’500".
+    static func show(_ v: Double, _ cur: String) -> String {
+        let f: NumberFormatter
+        if let hit = formatters[cur] { f = hit } else {
+            f = NumberFormatter(); f.numberStyle = .decimal; f.maximumFractionDigits = 2
+            f.locale = Locale(identifier: Currency.locale[cur] ?? "en_IE")
+            formatters[cur] = f
+        }
+        return f.string(from: NSNumber(value: v)) ?? fmt(v)
+    }
+    private static var formatters: [String: NumberFormatter] = [:] // one per currency, made once
+
+    /// The amount as it's being typed, kept grouped the way its currency writes it (so editing "14,921.66" never
+    /// turns it into "14921.66"). The keyboard's "," or "." both start the cents (at most two); deleting a grouping
+    /// separator deletes the digit before it, as nothing would change otherwise.
+    static func live(_ new: String, was old: String, cur: String) -> String {
+        _ = show(0, cur) // makes the currency's formatter
+        let dec = Character(formatters[cur]?.decimalSeparator ?? ".")
+        if new.count == old.count + 1, new.hasPrefix(old), let c = new.last, c == "," || c == "." {
+            return old.contains(dec) ? old : (old.isEmpty ? "0" : old) + String(dec)
+        }
+        var s = new
+        let digits = { (x: String) in x.filter(\.isNumber) }
+        if new.count < old.count, digits(new) == digits(old) {
+            var o = Array(old)
+            let i = zip(o, new).prefix { $0 == $1 }.count
+            if i < o.count, o[i] != dec { // a grouping separator (deleting the decimal point just removes it)
+                o.remove(at: i)
+                var j = i - 1
+                while j >= 0, !o[j].isNumber { j -= 1 }
+                if j >= 0 { o.remove(at: j) }
+                s = String(o)
+            }
+        }
+        let parts = s.split(separator: dec, maxSplits: 1, omittingEmptySubsequences: false)
+        var int = String((parts.first ?? "").filter(\.isNumber))
+        while int.count > 1, int.hasPrefix("0") { int.removeFirst() }
+        let frac = parts.count > 1 ? String(parts[1].filter(\.isNumber).prefix(2)) : nil
+        if int.isEmpty && frac == nil { return "" }
+        return show(Double(int) ?? 0, cur) + (frac.map { String(dec) + $0 } ?? "")
+    }
 }
 
 /// A grid of icons; the first is the type's own (choosing it clears the custom icon). Picking one goes back.

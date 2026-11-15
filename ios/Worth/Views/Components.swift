@@ -168,3 +168,72 @@ struct TapOutsideEndsEditing: UIViewRepresentable {
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith o: UIGestureRecognizer) -> Bool { true }
     }
 }
+
+/// An amount field that keeps the amount grouped the way its currency writes it while you type ("14,921.66",
+/// "₹6,31,394.57"), with the cursor staying where you're typing. A UIKit field: SwiftUI's TextField can't regroup
+/// the text mid-typing without losing the cursor.
+struct AmountField: UIViewRepresentable {
+    @Binding var text: String
+    let cur: String
+    var size: CGFloat = 16
+    var weight: UIFont.Weight = .medium
+    var align: NSTextAlignment = .right
+    /// The number pad (no return key) or the full keyboard with its ✓ in the return key's spot.
+    var numberPad = false
+    @Binding var focused: Bool
+
+    func makeUIView(context: Context) -> UITextField {
+        let f = UITextField()
+        f.delegate = context.coordinator
+        f.font = .monospacedDigitSystemFont(ofSize: size, weight: weight)
+        f.textAlignment = align
+        f.textColor = .label
+        f.attributedPlaceholder = NSAttributedString(string: "0", attributes: [.foregroundColor: UIColor.tertiaryLabel])
+        f.keyboardType = numberPad ? .decimalPad : .numbersAndPunctuation
+        f.returnKeyType = .done
+        f.autocorrectionType = .no
+        f.spellCheckingType = .no
+        f.setContentHuggingPriority(.required, for: .horizontal)
+        f.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return f
+    }
+
+    func updateUIView(_ f: UITextField, context: Context) {
+        context.coordinator.parent = self
+        if f.text != text { f.text = text; f.invalidateIntrinsicContentSize() }
+        if focused, !f.isFirstResponder { DispatchQueue.main.async { f.becomeFirstResponder() } }
+        if !focused, f.isFirstResponder { DispatchQueue.main.async { f.resignFirstResponder() } }
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView f: UITextField, context: Context) -> CGSize? {
+        CGSize(width: f.intrinsicContentSize.width + 2, height: f.intrinsicContentSize.height) // its text (+ the cursor)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: AmountField
+        init(_ p: AmountField) { parent = p }
+
+        func textField(_ f: UITextField, shouldChangeCharactersIn range: NSRange, replacementString s: String) -> Bool {
+            let old = f.text ?? ""
+            let new = (old as NSString).replacingCharacters(in: range, with: s)
+            // digits (and the decimal point) after the cursor: the cursor keeps that many after it once regrouped
+            let after = (new as NSString).substring(from: min(range.location + (s as NSString).length, (new as NSString).length))
+            let tail = after.filter { $0.isNumber || $0 == "." }.count
+            let g = EntrySheet.live(new, was: old, cur: parent.cur)
+            f.text = g
+            f.invalidateIntrinsicContentSize()
+            var i = g.endIndex, k = 0
+            while i > g.startIndex, k < tail { i = g.index(before: i); if g[i].isNumber || g[i] == "." { k += 1 } }
+            if let p = f.position(from: f.beginningOfDocument, offset: g.utf16.distance(from: g.startIndex, to: i)) {
+                f.selectedTextRange = f.textRange(from: p, to: p)
+            }
+            parent.text = g
+            return false
+        }
+        func textFieldDidBeginEditing(_ f: UITextField) { if !parent.focused { parent.focused = true } }
+        func textFieldDidEndEditing(_ f: UITextField) { if parent.focused { parent.focused = false } }
+        func textFieldShouldReturn(_ f: UITextField) -> Bool { f.resignFirstResponder(); return false }
+    }
+}
