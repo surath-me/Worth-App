@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Totals currency, live exchange rates, backup (same file format as the web app) and Erase all data.
+/// Totals currency, backup (same file format as the web app) and Erase all data.
 struct SettingsView: View {
     @Environment(Store.self) private var store
     @Environment(Prefs.self) private var prefs
@@ -33,18 +33,7 @@ struct SettingsView: View {
                     .contentShape(Rectangle())
                 }
                 Toggle("Hide amounts", isOn: Binding(get: { prefs.hide }, set: { prefs.hide = $0 })).tint(Color.g1)
-            } header: { Label13("Display") } footer: { Text("You can also hide amounts by tapping your net worth.") }
-
-            Section {
-                ForEach(Currency.all.filter { $0 != store.data.base }, id: \.self) { c in
-                    let r = (store.data.rates[c] ?? 1) / (store.data.rates[store.data.base] ?? 1)
-                    HStack {
-                        Text("1 \(store.data.base)").foregroundStyle(Color.sec)
-                        Spacer()
-                        Text("\(r.formatted(.number.precision(.significantDigits(1...6)))) \(c)").monospacedDigit()
-                    }
-                }
-            } header: { Label13("Exchange rates") } footer: { Text(ratesNote) }
+            } header: { Label13("Display") } footer: { Text("\(ratesNote). You can also hide amounts by tapping your net worth.") }
 
             Section {
                 ShareLink(item: BackupFile(data: store.backupData()), preview: SharePreview("Worth backup", image: Image(systemName: "doc"))) { Text("Save to Files") }
@@ -60,6 +49,12 @@ struct SettingsView: View {
                 }
             } header: { Label13("Backup") } footer: { Text(backupNote) }
 
+            #if DEBUG
+            Section {
+                Button("Load sample data") { store.loadSample(); message = "Sample data loaded" }
+            } header: { Label13("Developer") }
+            #endif
+
             Section {
                 Button { confirmErase = true } label: {
                     Text("Erase all data").font(.system(size: 15)).foregroundStyle(Color.down).frame(maxWidth: .infinity).frame(height: 52)
@@ -68,12 +63,6 @@ struct SettingsView: View {
                 .buttonStyle(.plain)
                 .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
             }
-
-            #if DEBUG
-            Section {
-                Button("Load sample data") { store.loadSample(); message = "Sample data loaded" }
-            } header: { Label13("Developer") }
-            #endif
 
             Section { SavedFoot().padding(.top, -20) }.listRowBackground(Color.clear)
         }
@@ -121,9 +110,9 @@ struct SettingsView: View {
     }
 
     private var ratesNote: String {
-        guard let src = store.data.ratesSrc, let at = store.data.ratesAt else { return "Approximate until the first live update" }
-        let when = Date(timeIntervalSince1970: at / 1000).formatted(.relative(presentation: .named))
-        return "Live from \(src == "er-api" ? "ExchangeRate-API" : "Coinbase") · \(when)"
+        // the rates themselves aren't shown (nobody reads them); just how fresh the conversion is
+        guard let at = store.data.ratesAt else { return "Other currencies use approximate rates until the first live update" }
+        return "Other currencies convert at live rates, updated " + Date(timeIntervalSince1970: at / 1000).formatted(.relative(presentation: .named))
     }
 }
 
