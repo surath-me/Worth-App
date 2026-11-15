@@ -9,6 +9,8 @@ struct CheckInSheet: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     let start: String
+    /// Just this entry's card, for the month `start` (tapping it on Monthly): Done saves that one value.
+    var only: String? = nil
     var onSaved: ((String) -> Void)? = nil
 
     @State private var month = Month.key()
@@ -55,7 +57,14 @@ struct CheckInSheet: View {
                 EntrySheet(account: nil, after: { a in if let a { text[a.id] = EntrySheet.show(a.bal, a.cur) } })
             }
         }
-        .onAppear { month = min(start, Month.key()); fill(); if isNew, !movers.isEmpty { deck = movers; step = 0 } }
+        .onAppear {
+            month = min(start, Month.key()); fill()
+            if let only, let a = acc(only) {
+                // the month's own value (not a suggestion carried over from the month before)
+                text[only] = EntrySheet.show(store.data.snaps[month]?.items[only]?.bal ?? a.bal, a.cur)
+                deck = [only]; step = 0
+            } else if isNew, !movers.isEmpty { deck = movers; step = 0 }
+        }
     }
 
     // MARK: one card per entry
@@ -164,6 +173,10 @@ struct CheckInSheet: View {
     private func next() {
         if let i = step, deck.indices.contains(i), let a = acc(deck[i]) { tidy(a) }
         focus = nil
+        if let only {
+            if let v = value(only) { store.saveValue(month: month, id: only, value: v) }
+            dismiss(); return
+        }
         guard let i = step else { return }
         go(i + 1 < deck.count ? i + 1 : nil)
     }
@@ -357,6 +370,7 @@ struct CheckInSheet: View {
 /// up to five groups that moved (gross, so paying down debt shows as "Debts paid").
 private struct Reveal: View {
     @Environment(Store.self) private var store
+    @Environment(Prefs.self) private var prefs
     let month: String
     let close: () -> Void
     @State private var shown = false
@@ -405,6 +419,12 @@ private struct Reveal: View {
                     Text("First month recorded").foregroundStyle(Color.sec).stagger(2, shown)
                 }
                 Button("Done", action: close).buttonStyle(PrimaryButton()).padding(.top, 10).stagger(5, shown)
+                if !prefs.remind {
+                    Button { Task { prefs.remind = await Reminder.enable() } } label: {
+                        Label("Remind me on the 1st of each month", systemImage: "bell")
+                    }
+                    .font(.system(size: 14, weight: .medium)).padding(.top, 4).stagger(6, shown)
+                }
             }
             .padding(24).padding(.top, 20)
         }

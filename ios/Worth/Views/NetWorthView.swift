@@ -20,6 +20,7 @@ struct NetWorthView: View {
                     hero
                     WorthChart(scrub: $scrub).padding(.top, 12)
                     RangePicker().padding(.top, 14)
+                    CheckInCard { checkIn = Month.key() }.padding(.top, 16)
                     BackfillCard { checkIn = $0 }.padding(.top, 16)
                     if store.data.accounts.contains(where: { store.conv($0.bal, $0.cur) > 0 }) {
                         SectionTitle("Breakdown")
@@ -226,6 +227,34 @@ struct RangePicker: View {
             Text("1M").tag(1); Text("6M").tag(6); Text("1Y").tag(12); Text("All").tag(0)
         }
         .pickerStyle(.segmented)
+    }
+}
+
+// MARK: - check-in due
+
+/// "November check-in": shown on Net worth and Monthly from the 1st until this month's check-in is saved.
+struct CheckInCard: View {
+    @Environment(Store.self) private var store
+    let open: () -> Void
+
+    var body: some View {
+        if store.checkInDue {
+            let since = store.prevKey(Month.key()).map { " since \(Month.name($0))" } ?? ""
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: "calendar.badge.clock").font(.system(size: 19, weight: .semibold)).foregroundStyle(.white)
+                        .frame(width: 44, height: 44).background(Circle().fill(AddButton.gradient))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(Month.name(Month.key())) check-in").font(.system(size: 16, weight: .semibold))
+                        Text("Update what changed\(since). It takes a minute.").font(.system(size: 13)).foregroundStyle(Color.sec)
+                    }
+                }
+                Button("Start check-in", action: open).buttonStyle(PrimaryButton())
+            }
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 22).fill(Color.card))
+            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+        }
     }
 }
 

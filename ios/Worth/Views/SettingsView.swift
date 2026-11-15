@@ -37,6 +37,13 @@ struct SettingsView: View {
             } header: { Label13("Display") } footer: { Text("\(ratesNote). You can also hide amounts by tapping your net worth.") }
 
             Section {
+                Toggle("Check-in reminder", isOn: Binding(get: { prefs.remind }, set: { on in
+                    if on { Task { prefs.remind = await Reminder.enable(); if !prefs.remind { message = "Notifications are off for Worth. Turn them on in the Settings app." } } }
+                    else { Reminder.disable(); prefs.remind = false }
+                })).tint(Color.g1)
+            } header: { Label13("Reminders") } footer: { Text("A notification on the 1st of each month at 9:00.") }
+
+            Section {
                 ShareLink(item: BackupFile(data: store.backupData()), preview: SharePreview("Worth backup", image: Image(systemName: "doc"))) { Text("Save to Files") }
                     .simultaneousGesture(TapGesture().onEnded { store.markBackedUp() })
                 Button("Restore from file") { importing = true }

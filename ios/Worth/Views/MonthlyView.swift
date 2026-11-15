@@ -1,7 +1,7 @@
 import SwiftUI
 import Charts
 
-/// One month at a time (‹ November 2026 ›, or swipe): its total and change, one action (check in or edit), what moved
+/// One month at a time (‹ November 2026 ›, or swipe): its total and change, the check-in card while it's due, what moved
 /// since the month before (exchange rates on their own line), the unchanged entries folded away, allocation, and
 /// "Remove <month>" at the very bottom.
 struct MonthlyView: View {
@@ -11,7 +11,7 @@ struct MonthlyView: View {
     @State private var month = Month.key()
     @State private var dir: Edge = .trailing
     @State private var checkIn: String?
-    @State private var editing: Account?
+    @State private var editing: EntryInMonth?     // one entry's value in this month
     @State private var confirmRemove = false
 
     var body: some View {
@@ -49,7 +49,7 @@ struct MonthlyView: View {
                 step(v.translation.width < 0 ? 1 : -1)
             })
             .sheet(item: Binding(get: { checkIn.map(TypeChoice.init) }, set: { checkIn = $0?.id })) { CheckInSheet(start: $0.id) { month = $0 } }
-            .sheet(item: $editing) { EntrySheet(account: $0) }
+            .sheet(item: $editing) { e in CheckInSheet(start: e.month, only: e.entry) }
             .confirmationDialog("Remove \(Month.long(month))?", isPresented: $confirmRemove, titleVisibility: .visible) {
                 Button("Remove", role: .destructive) { store.removeMonth(month) }
             } message: { Text("Its balances are deleted. Your entries stay.") }
@@ -104,15 +104,14 @@ struct MonthlyView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        if due {
-            Button("Check in for \(Month.name(month))") { checkIn = month }.buttonStyle(PrimaryButton()).padding(.top, 16)
-        } else {
-            Button { checkIn = month } label: { Label("Edit \(Month.name(month))", systemImage: "arrow.triangle.2.circlepath") }
-                .buttonStyle(GhostButton()).padding(.top, 16)
-        }
-        MovedList(month: month, due: due, onOpen: { editing = $0 }).padding(.top, 18)
+        // the check-in while it's due; otherwise a month is changed by tapping its entries below
+        if due { CheckInCard { checkIn = month }.padding(.top, 16) }
+        MovedList(month: month, due: due, onOpen: { editing = EntryInMonth(month: month, entry: $0.id) }).padding(.top, 18)
     }
 }
+
+/// One entry in one month, opened from Monthly's list.
+struct EntryInMonth: Identifiable { let month: String; let entry: String; var id: String { month + entry } }
 
 /// That month's story, not a ledger: what moved since the previous record (biggest effect first, new and no-longer-
 /// recorded entries too), what exchange rates did to foreign balances, and the rest folded into "N unchanged".

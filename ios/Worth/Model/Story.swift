@@ -137,6 +137,21 @@ extension Store {
         }
     }
 
+    /// Change one entry's value in one month (tapping it on Monthly). The current month's value is the entry's live
+    /// balance; a past month's is that month's record. Unlike a check-in it doesn't mark the month as checked in.
+    func saveValue(month m: String, id: String, value v: Double) {
+        if m == Month.key() {
+            commit { d in if let i = d.accounts.firstIndex(where: { $0.id == id }) { d.accounts[i].bal = abs(v) } }
+        } else {
+            commit(keepMonth: true) { d in
+                guard var s = d.snaps[m] else { return }
+                if var it = s.items[id] { it.bal = abs(v); s.items[id] = it }
+                else if let a = d.accounts.first(where: { $0.id == id }) { s.items[id] = SnapItem(bal: abs(v), cur: a.cur, type: a.type, name: a.name) }
+                d.snaps[m] = s
+            }
+        }
+    }
+
     func removeMonth(_ m: String) {
         commit(keepMonth: true) { d in d.snaps[m] = nil; if m == Month.key() { d.lastCheckin = nil } }
     }
