@@ -134,9 +134,10 @@ final class Store {
         guard let url = Bundle.main.url(forResource: "DevSample", withExtension: "json"),
               let raw = try? Data(contentsOf: url), var d = try? JSONDecoder().decode(WorthData.self, from: raw),
               let last = d.snaps.keys.max() else { return }
-        let shift = Month.index(Month.key()) - Month.index(last)
+        // the sample's last month becomes last month, so this month's check-in is always waiting to be tried
+        let shift = Month.index(Month.key()) - 1 - Month.index(last)
         if shift != 0 { d.snaps = Dictionary(uniqueKeysWithValues: d.snaps.map { (Month.shift($0.key, by: shift), $0.value) }) }
-        d.lastCheckin = Month.key()
+        d.lastCheckin = nil
         if data.ratesSrc != nil { d.rates = data.rates; d.ratesAt = data.ratesAt; d.ratesSrc = data.ratesSrc } // keep live rates
         d.base = data.base
         syncCurrentMonth(&d) // the current month takes today's live rates, like any other change

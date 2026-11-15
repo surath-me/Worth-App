@@ -152,6 +152,20 @@ extension Store {
         }
     }
 
+    /// Take an entry out of one month (it shouldn't have been there, or it's sold or closed). For a past month only that
+    /// month's record changes. The current month is today's entries, so there it's deleted; earlier months keep it.
+    func removeFromMonth(_ m: String, id: String) {
+        if m == Month.key() {
+            commit { d in d.accounts.removeAll { $0.id == id } }
+        } else {
+            commit(keepMonth: true) { d in
+                guard var s = d.snaps[m] else { return }
+                s.items[id] = nil
+                d.snaps[m] = s.items.isEmpty ? nil : s
+            }
+        }
+    }
+
     func removeMonth(_ m: String) {
         commit(keepMonth: true) { d in d.snaps[m] = nil; if m == Month.key() { d.lastCheckin = nil } }
     }

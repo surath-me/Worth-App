@@ -27,9 +27,12 @@ struct CheckInSheet: View {
     @State private var addingEntry = false
     @State private var focus: String?                    // the amount being typed in
     @State private var opened: String?                   // the entry last opened from the review screen
+    @State private var removed: Set<String> = []         // taken out of this month (saved with the check-in)
+    @State private var confirmRemove = false             // single card: "Remove Savings from October?"
 
     private var accs: [Account] { store.data.accounts.sorted { (Catalog.isLiab($0.type) ? 1 : 0) < (Catalog.isLiab($1.type) ? 1 : 0) } }
     private func acc(_ id: String) -> Account? { store.data.accounts.first { $0.id == id } }
+    private var kept: [Account] { accs.filter { !removed.contains($0.id) } }
 
     var body: some View {
         NavigationStack {
@@ -150,13 +153,32 @@ struct CheckInSheet: View {
                         Button { go(i - 1) } label: { Label("Back", systemImage: "chevron.left") }
                     }
                     Spacer()
-                    if deck.count > 1 { Text("Swipe right for next").foregroundStyle(Color.sec) }
+                    // it shouldn't be in this month, or it's sold or closed
+                    Button("Remove from \(Month.name(month))") { remove(a) }.foregroundStyle(Color.down)
                 }
                 .font(.system(size: 14, weight: .medium)).frame(height: 30).padding(.horizontal, 6)
             }
             .padding(.horizontal, 20).padding(.bottom, 12)
         }
         .sensoryFeedback(.selection, trigger: i)
+        .alert("Remove \(a.name) from \(Month.name(month))?", isPresented: $confirmRemove) {
+            Button("Remove", role: .destructive) { store.removeFromMonth(month, id: a.id); dismiss() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(month == Month.key()
+                 ? "You no longer have it, so it's removed from your entries too. Earlier months keep its balance."
+                 : "Only \(Month.name(month))'s record changes. Other months keep \(a.name).")
+        }
+    }
+
+    /// A single card (from Monthly) asks first and saves right away; in the check-in it's set aside until Save, and
+    /// can be put back from the review screen.
+    private func remove(_ a: Account) {
+        if only != nil { confirmRemove = true; return }
+        focus = nil
+        removed.insert(a.id)
+        guard let i = step else { return }
+        go(i + 1 < deck.count ? i + 1 : nil)
     }
 
     private func primaryLabel(same: Bool, lastLabel: String?, isLast: Bool) -> String {
@@ -197,14 +219,14 @@ struct CheckInSheet: View {
     // MARK: review
 
     private var review: some View {
-        let carriedIDs = accs.map(\.id).filter { !movers.contains($0) }
+        let carriedIDs = kept.map(\.id).filter { !movers.contains($0) }, moving = movers.filter { !removed.contains($0) }
         return ScrollViewReader { proxy in ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 monthRow
                 if isNew {
-                    if !movers.isEmpty {
+                    if !moving.isEmpty {
                         Text("Usually change").sectionLabel().padding(.top, 22)
-                        list(movers)
+                        list(moving)
                     }
                     if !carriedIDs.isEmpty {
                         (Text("Carried over") + Text(carriedFrom.map { " from \(store.label($0))" } ?? ""))
@@ -215,7 +237,27 @@ struct CheckInSheet: View {
                     }
                 } else {
                     Text("Balances").sectionLabel().padding(.top, 22)
-                    list(accs.map(\.id), addRow: true)
+                    list(kept.map(\.id), addRow: true)
+                }
+                if !removed.isEmpty {
+                    Text("Removed from \(Month.name(month))").sectionLabel().padding(.top, 22)
+                    VStack(spacing: 0) {
+                        ForEach(accs.filter { removed.contains($0.id) }) { a in
+                            Button { _ = withAnimation { removed.remove(a.id) } } label: {
+                                HStack(spacing: 12) {
+                                    Avatar(symbol: Catalog.symbol(for: a), color: Catalog.type(a.type).color, grad: a.type).opacity(0.5)
+                                    Text(a.name).font(.system(size: 15, weight: .medium)).foregroundStyle(Color.sec).strikethrough()
+                                    Spacer()
+                                    Text("Keep").font(.system(size: 14, weight: .semibold))
+                                }
+                                .padding(.horizontal, 14).padding(.vertical, 10).contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground)))
+                    Text(month == Month.key() ? "Saving removes them from your entries too. Earlier months keep their balance." : "They're left out of \(Month.name(month))'s record.")
+                        .font(.system(size: 12)).foregroundStyle(Color.sec).padding(.horizontal, 16).padding(.top, 8)
                 }
                 totalRow.padding(.top, 22)
                 Button("Save \(Month.name(month))", action: save).buttonStyle(PrimaryButton()).padding(.top, 16)
@@ -302,7 +344,7 @@ struct CheckInSheet: View {
 
     private var totalRow: some View {
         let rates = store.rates(for: month)
-        let t = accs.reduce(0.0) { s, a in s + (value(a.id).map { (Catalog.isLiab(a.type) ? -1 : 1) * store.conv($0, a.cur, rates: rates) } ?? 0) }
+        let t = kept.reduce(0.0) { s, a in s + (value(a.id).map { (Catalog.isLiab(a.type) ? -1 : 1) * store.conv($0, a.cur, rates: rates) } ?? 0) }
         return HStack(alignment: .firstTextBaseline) {
             Text("Net worth").font(.system(size: 15, weight: .semibold))
             Spacer()
@@ -341,7 +383,7 @@ struct CheckInSheet: View {
     private func fill() {
         let cm = Month.key(), snap = store.data.snaps[month]
         isNew = month == cm ? store.data.lastCheckin != cm : snap == nil
-        sugg = [:]; carriedFrom = nil; text = [:]; focus = nil
+        sugg = [:]; carriedFrom = nil; text = [:]; focus = nil; removed = []
         for a in accs {
             var v: Double?
             if !isNew, let snap { v = snap.items[a.id]?.bal ?? (month == cm ? a.bal : nil) }
@@ -359,8 +401,9 @@ struct CheckInSheet: View {
     private func save() {
         focus = nil
         var vals: [String: Double?] = [:]
-        for a in accs { vals[a.id] = value(a.id) }
+        for a in kept { vals[a.id] = value(a.id) }
         store.saveCheckIn(month: month, values: vals)
+        for id in removed { store.removeFromMonth(month, id: id) }
         onSaved?(month)
         if store.data.snaps[month] != nil { withAnimation(.spring(duration: 0.45)) { revealed = month } } else { dismiss() }
     }
