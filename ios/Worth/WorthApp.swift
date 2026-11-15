@@ -41,8 +41,6 @@ struct RootView: View {
 
     var body: some View {
         ZStack {
-            // The + sits on its own round button at the bottom right, beside the tab bar (like the web app's button):
-            // it's the tab bar's separate trailing tab, which opens the new-entry sheet instead of a page.
             TabView(selection: Binding(get: { tab }, set: { t in
                 if t == "add" { openAdd() } else { tab = t }
             })) {
@@ -50,25 +48,21 @@ struct RootView: View {
                 Tab("Monthly", systemImage: "calendar", value: "monthly") { MonthlyView() }
                     .badge(store.checkInDue ? Text("") : nil) // a dot while this month's check-in is due
                 Tab("Settings", systemImage: "gearshape.fill", value: "settings") { SettingsView() }
-                // the + is the tab bar's own separate trailing tab (as in Shortcuts or Structured), so it has the system's
-                // press: the glass lens swells under the finger. Selecting it opens the new-entry sheet instead of a page.
+                // the tab bar's separate trailing slot, left empty: it only keeps the space the + sits in
                 if #available(iOS 27, *) {
-                    Tab("Add entry", systemImage: "plus", value: "add", role: .prominent) { Color.clear }
+                    Tab(value: "add", role: .prominent) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: ClearIcon.image) } }
                 } else {
-                    Tab("Add entry", systemImage: "plus", value: "add", role: .search) { Color.clear }
+                    Tab(value: "add", role: .search) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: ClearIcon.image) } }
                 }
             }
-            // The sheet zooms out of the + (as in Shortcuts) and back into it. A tab can't be a zoom source itself, so an
-            // invisible circle sits exactly over the tab bar's + to anchor it; the tab underneath keeps its native press.
+            // The +: a tinted glass button over that slot. The new-entry sheet morphs out of it (its glass opens into the
+            // page, as in Shortcuts) and back into it; a tab can't be a morph source, which is why it isn't the tab itself.
             .overlay {
                 ZStack(alignment: .bottomTrailing) {
-                    Color.clear
-                    Circle().fill(Color.white.opacity(0.001)).frame(width: 62, height: 62)
-                        .matchedTransitionSource(id: "add", in: addNS) { $0.clipShape(RoundedRectangle(cornerRadius: 31)) }
-                        .padding(.trailing, 21).padding(.bottom, 21)
+                    Color.clear.allowsHitTesting(false)
+                    AddButton(ns: addNS, action: openAdd).padding(.trailing, 21).padding(.bottom, 21)
                 }
                 .ignoresSafeArea()
-                .allowsHitTesting(false)
             }
             .sensoryFeedback(trigger: adding) { _, open in open ? .impact(weight: .light) : nil } // on open only
             .onChange(of: adding) { _, open in if !open { addClosing = true } }
@@ -99,4 +93,41 @@ struct RootView: View {
         }
         .onChange(of: store.isEmpty) { _, empty in if empty && !splash { tab = "worth"; onboarding = true } }
     }
+}
+
+/// The +: iOS's prominent glass button (the sheets' X family, so the system's own press) in the accent gradient, and
+/// the source the new-entry sheet morphs out of. Before iOS 26 (no Liquid Glass) it's a plain gradient circle.
+struct AddButton: View {
+    /// the web app's accent: green → blue
+    static let gradient = LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .topLeading, endPoint: .bottomTrailing)
+    let ns: Namespace.ID
+    let action: () -> Void
+    var body: some View {
+        let plus = Image(systemName: "plus").font(.system(size: 24, weight: .semibold))
+        Group {
+            if #available(iOS 26, *) {
+                // its tint can only be one colour, so the accent gradient is painted inside it, out to its glass rim
+                // (the button's padding around the 48pt label is 7pt); it presses and morphs with the button
+                Button(action: action) {
+                    plus.foregroundStyle(.white).frame(width: 48, height: 48)
+                        .background(Circle().fill(Self.gradient).padding(-7))
+                }
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.circle)
+                .tint(Color.hex(0x0B82A6))
+            } else {
+                Button(action: action) {
+                    plus.foregroundStyle(.white).frame(width: 62, height: 62).background(Circle().fill(Self.gradient))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .accessibilityLabel("Add entry")
+        .matchedTransitionSource(id: "add", in: ns)
+    }
+}
+
+/// An empty icon for the tab bar's trailing slot, which only holds the space under the +.
+enum ClearIcon {
+    static let image: UIImage = UIGraphicsImageRenderer(size: CGSize(width: 24, height: 24)).image { _ in }.withRenderingMode(.alwaysOriginal)
 }
