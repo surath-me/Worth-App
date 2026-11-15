@@ -68,8 +68,10 @@ struct RootView: View {
                 // measured from the screen's edges (not the safe area), where the tab bar's own button sits
                 ZStack(alignment: .bottomTrailing) {
                     Color.clear.allowsHitTesting(false)
-                    Button { openAdd() } label: { EmptyView() }
-                    .buttonStyle(AddPressStyle(epoch: addEpoch, ns: addNS))
+                    Group {
+                        if #available(iOS 26, *) { NativeAddButton(epoch: addEpoch, ns: addNS, action: openAdd) }
+                        else { Button { openAdd() } label: { EmptyView() }.buttonStyle(AddPressStyle(epoch: addEpoch, ns: addNS)) }
+                    }
                     .padding(.trailing, 21).padding(.bottom, 21)
                     .accessibilityLabel("Add entry")
                     .sensoryFeedback(trigger: adding) { _, open in open ? .impact(weight: .light) : nil } // on open only
@@ -105,7 +107,29 @@ struct RootView: View {
     }
 }
 
-/// The + button's face: the accent gradient circle (the web app's green → blue) with a white plus.
+/// The +: iOS's own Liquid Glass button (the same component as the sheets' X, in its prominent, tinted form), so it
+/// has the native press: it swells and lights up under the finger and springs back. Tinted with the middle of the
+/// accent gradient (a glass button takes one colour). The new-entry sheet still zooms out of it.
+@available(iOS 26, *)
+struct NativeAddButton: View {
+    let epoch: Int
+    let ns: Namespace.ID
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus").font(.system(size: 24, weight: .semibold))
+                .frame(width: 48, height: 48)
+        }
+        .buttonStyle(.glassProminent)
+        .buttonBorderShape(.circle)
+        .tint(Color.hex(0x0B82A6))
+        .id(epoch)
+        .matchedTransitionSource(id: "add", in: ns)
+    }
+}
+
+/// Before iOS 26 (no Liquid Glass): the + button's face, the accent gradient circle (the web app's green → blue) with a
+/// white plus.
 struct AddButtonFace: View {
     var pressed = false
     var body: some View {
