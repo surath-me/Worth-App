@@ -13,9 +13,10 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                PageTitle("Settings").padding(.horizontal, -4)
+                PageTitle("Settings").padding(.top, -6) // the list's own top spacing, so it sits where the other tabs' titles do
             }
-            .listRowBackground(Color.clear).listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+            // the list already sits 16pt in from the edge: no extra inset, so the title lines up with the other tabs' (20pt)
+            .listRowBackground(Color.clear).listRowInsets(EdgeInsets())
 
             Section {
                 // a row like the others: the choice on the right, a menu of currencies (full names, ticked) on tap
