@@ -181,6 +181,8 @@ struct AmountField: UIViewRepresentable {
     /// The number pad (no return key) or the full keyboard with its ✓ in the return key's spot.
     var numberPad = false
     @Binding var focused: Bool
+    /// The keyboard's ✓ (after it closes the keyboard).
+    var onReturn: (() -> Void)? = nil
 
     func makeUIView(context: Context) -> UITextField {
         let f = UITextField()
@@ -234,6 +236,6 @@ struct AmountField: UIViewRepresentable {
         }
         func textFieldDidBeginEditing(_ f: UITextField) { if !parent.focused { parent.focused = true } }
         func textFieldDidEndEditing(_ f: UITextField) { if parent.focused { parent.focused = false } }
-        func textFieldShouldReturn(_ f: UITextField) -> Bool { f.resignFirstResponder(); return false }
+        func textFieldShouldReturn(_ f: UITextField) -> Bool { f.resignFirstResponder(); parent.onReturn?(); return false }
     }
 }
