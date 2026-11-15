@@ -113,7 +113,20 @@ struct AddButton: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Add entry")
         Group {
-            if #available(iOS 26, *) { face.glassEffect(.regular.interactive(), in: .circle) } else { face }
+            if #available(iOS 26, *) {
+                // the system's own prominent glass button (the X's component), so the press is the native one: it grows
+                // and stretches under the finger. Its tint can only be one colour, so the accent gradient is painted
+                // inside it, out to its edge (the button's padding around the 48pt label is 7pt), and grows with it.
+                Button(action: action) {
+                    Image(systemName: "plus").font(.system(size: 24, weight: .semibold)).foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Circle().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .topLeading, endPoint: .bottomTrailing)).padding(-7))
+                }
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.circle)
+                .tint(Color.hex(0x0B82A6))
+                .accessibilityLabel("Add entry")
+            } else { face }
         }
         // the zoom takes just the circle, not its square box (it only accepts a rounded rectangle: r = half of 62)
         .matchedTransitionSource(id: "add", in: ns) { $0.clipShape(RoundedRectangle(cornerRadius: 31)) }
