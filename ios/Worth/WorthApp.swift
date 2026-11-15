@@ -28,19 +28,15 @@ struct RootView: View {
     @State private var onboarding = false
     @State private var pastMonth: String?
     @State private var adding = false
-    @State private var addClosedAt = Date.distantPast   // when the new-entry sheet last started closing
-    @State private var addEpoch = 0                      // bumped after each close: re-registers the + as the zoom's source
+    @State private var addClosing = false   // the new-entry sheet is on its way out
+    @State private var addAgain = false     // + tapped meanwhile: open it again once it's gone
     @Namespace private var addNS
 
-    /// Open the new-entry sheet. Tapping again while the closing zoom is still running would start the next zoom while
-    /// iOS still has the + hidden for the last one, so it measures the button wrong and the sheet flies out of the
-    /// top-left corner. A quick re-tap waits for the close to finish (under half a second); taps while open are ignored.
+    /// Open the new-entry sheet (or the onboarding while there's nothing yet). iOS ignores a new sheet while the last one
+    /// is still closing, so a tap in that moment is kept and opens it as soon as the close has finished.
     private func openAdd() {
-        if store.isEmpty { onboarding = true; return }
-        guard !adding else { return }
-        let wait = 0.5 - Date().timeIntervalSince(addClosedAt)
-        if wait > 0 { DispatchQueue.main.asyncAfter(deadline: .now() + wait) { if !adding { adding = true } } }
-        else { adding = true }
+        // (an open sheet covers the +, so a tap while `adding` is still set means it's on its way out after a swipe)
+        if store.isEmpty { onboarding = true } else if adding || addClosing { addAgain = true } else { adding = true }
     }
 
     var body: some View {
@@ -60,28 +56,23 @@ struct RootView: View {
                     Tab(value: "add", role: .search) { Color.clear } label: { Label { Text("Add entry") } icon: { Image(uiImage: ClearIcon.image) } }
                 }
             }
-            // The + is drawn here, exactly over the tab bar's own trailing button: the web app's accent circle with a white
-            // plus. Catching the tap here also means the tab bar never switches to the empty "add" page (no black flash).
-            // The new-entry sheet zooms out of it (iOS's zoom transition, as in Structured): the circle lifts and
-            // grows, turns into a pill as the keyboard rises, then opens into the sheet; closing runs it in reverse.
+            // The + sits over the tab bar's own trailing slot (which only keeps its space). Catching the tap here means the
+            // tab bar never switches to the empty "add" page. The new-entry sheet zooms out of it.
             .overlay {
                 // measured from the screen's edges (not the safe area), where the tab bar's own button sits
                 ZStack(alignment: .bottomTrailing) {
                     Color.clear.allowsHitTesting(false)
-                    Group {
-                        if #available(iOS 26, *) { NativeAddButton(epoch: addEpoch, ns: addNS, action: openAdd) }
-                        else { Button { openAdd() } label: { EmptyView() }.buttonStyle(AddPressStyle(epoch: addEpoch, ns: addNS)) }
-                    }
-                    .padding(.trailing, 21).padding(.bottom, 21)
-                    .accessibilityLabel("Add entry")
-                    .sensoryFeedback(trigger: adding) { _, open in open ? .impact(weight: .light) : nil } // on open only
+                    AddButton(ns: addNS, action: openAdd)
+                        .padding(.trailing, 21).padding(.bottom, 21)
+                        .sensoryFeedback(trigger: adding) { _, open in open ? .impact(weight: .light) : nil } // on open only
                 }
                 .ignoresSafeArea()
             }
-            .onChange(of: adding) { _, open in if !open { addClosedAt = Date() } } // the close (and its zoom back) starts now
-            // After a swipe-down close iOS loses the zoom's source, and the next open grew out of the top-left corner;
-            // a fresh identity for the + once the close has finished registers it again.
-            .sheet(isPresented: $adding, onDismiss: { addEpoch += 1 }) {
+            .onChange(of: adding) { _, open in if !open { addClosing = true } }
+            .sheet(isPresented: $adding, onDismiss: {
+                addClosing = false
+                if addAgain { addAgain = false; adding = true }
+            }) {
                 EntrySheet(account: nil).navigationTransition(.zoom(sourceID: "add", in: addNS))
             }
             .environment(\.openOnboarding, { onboarding = true })
@@ -107,56 +98,25 @@ struct RootView: View {
     }
 }
 
-/// The +: iOS's own Liquid Glass button (the same component as the sheets' X, in its prominent, tinted form), so it
-/// has the native press: it swells and lights up under the finger and springs back. Tinted with the middle of the
-/// accent gradient (a glass button takes one colour). The new-entry sheet still zooms out of it.
-@available(iOS 26, *)
-struct NativeAddButton: View {
-    let epoch: Int
+/// The +: the accent gradient circle with a white plus, on iOS's own Liquid Glass button (the same native press as the
+/// sheets' X: it swells and lights up under the finger). Before iOS 26 it's the plain circle.
+struct AddButton: View {
     let ns: Namespace.ID
     let action: () -> Void
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus").font(.system(size: 24, weight: .semibold))
-                .frame(width: 48, height: 48)
+        let face = Button(action: action) {
+            Image(systemName: "plus").font(.system(size: 24, weight: .semibold)).foregroundStyle(.white)
+                .frame(width: 62, height: 62)
+                .background(Circle().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .topLeading, endPoint: .bottomTrailing)))
+                .contentShape(Circle())
         }
-        .buttonStyle(.glassProminent)
-        .buttonBorderShape(.circle)
-        .tint(Color.hex(0x0B82A6))
-        .id(epoch)
-        .matchedTransitionSource(id: "add", in: ns)
-    }
-}
-
-/// Before iOS 26 (no Liquid Glass): the + button's face, the accent gradient circle (the web app's green → blue) with a
-/// white plus.
-struct AddButtonFace: View {
-    var pressed = false
-    var body: some View {
-        Image(systemName: "plus")
-            .font(.system(size: 24, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: 62, height: 62)
-            .background(Circle().fill(LinearGradient(colors: [Color.g1, Color.hex(0x0B82A6), Color.g2], startPoint: .topLeading, endPoint: .bottomTrailing)))
-            .overlay(Circle().fill(.white.opacity(pressed ? 0.16 : 0)))
-            .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 0.5))
-            .scaleEffect(pressed ? 0.9 : 1)
-            // in fast (it follows the finger), out on a soft spring
-            .animation(pressed ? .easeOut(duration: 0.12) : .spring(duration: 0.4, bounce: 0.4), value: pressed)
-            .contentShape(Circle())
-    }
-}
-/// The +: it sinks and brightens under the finger, and the new-entry sheet zooms out of it. The press is drawn inside
-/// the zoom's source, so the zoom starts from the circle exactly as it looks at that moment (before, the press sat
-/// outside it and the circle jumped back to full size the instant the zoom took over).
-struct AddPressStyle: ButtonStyle {
-    let epoch: Int
-    let ns: Namespace.ID
-    func makeBody(configuration: Configuration) -> some View {
-        AddButtonFace(pressed: configuration.isPressed)
-            .id(epoch)
-            .matchedTransitionSource(id: "add", in: ns) { $0.clipShape(RoundedRectangle(cornerRadius: 31)).background(.clear) } // just the circle (r = half of 62), no box
-            .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add entry")
+        Group {
+            if #available(iOS 26, *) { face.glassEffect(.regular.interactive(), in: .circle) } else { face }
+        }
+        // the zoom takes just the circle, not its square box (it only accepts a rounded rectangle: r = half of 62)
+        .matchedTransitionSource(id: "add", in: ns) { $0.clipShape(RoundedRectangle(cornerRadius: 31)) }
     }
 }
 
